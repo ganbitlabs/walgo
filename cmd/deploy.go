@@ -64,6 +64,9 @@ Example: walgo deploy --epochs 5`,
 		}
 
 		epochs, _ := cmd.Flags().GetInt("epochs")
+		if epochs > 53 {
+			return fmt.Errorf("epochs cannot exceed 53 (network limit); %d were requested", epochs)
+		}
 		force, _ := cmd.Flags().GetBool("force")
 		verbose, _ := cmd.Flags().GetBool("verbose")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")

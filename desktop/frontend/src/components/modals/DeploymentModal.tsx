@@ -531,7 +531,16 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
                   <input
                     type="number"
                     value={epochs}
-                    onChange={(e) => setEpochs(e.target.value)}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (isNaN(val) || val < 1) {
+                        setEpochs("1");
+                      } else if (val > 53) {
+                        setEpochs("53");
+                      } else {
+                        setEpochs(e.target.value);
+                      }
+                    }}
                     min="1"
                     max="53"
                     className={cn(
@@ -542,9 +551,10 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
                     )}
                   />
                   <p className="text-xs text-zinc-500 font-mono mt-1">
-                    {network === "mainnet" 
+                    {network === "mainnet"
                       ? `≈ ${parseInt(epochs) * 2} weeks`
                       : `≈ ${epochs} days`}
+                    {" "}(max 53 epochs)
                   </p>
                 </div>
 

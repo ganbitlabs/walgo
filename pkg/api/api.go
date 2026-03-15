@@ -1265,6 +1265,10 @@ func UpdateSite(params UpdateSiteParams) UpdateSiteResult {
 			epochs = 1
 		}
 	}
+	if epochs > 53 {
+		result.Error = "epochs cannot exceed 53 (network limit)"
+		return result
+	}
 
 	result.Logs = append(result.Logs, fmt.Sprintf("🔄 Updating project: %s", proj.Name))
 	result.Logs = append(result.Logs, fmt.Sprintf("📡 Network: %s", proj.Network))
@@ -2220,6 +2224,12 @@ func LaunchWizard(params LaunchWizardParams) LaunchWizardResult {
 	publishDir := filepath.Join(sitePath, walgoCfg.HugoConfig.PublishDir)
 	if _, err := os.Stat(publishDir); os.IsNotExist(err) {
 		result.Error = "publish directory not found. Please build first."
+		return result
+	}
+
+	// Validate epoch limit
+	if params.Epochs > 53 {
+		result.Error = "epochs cannot exceed 53 (network limit)"
 		return result
 	}
 
