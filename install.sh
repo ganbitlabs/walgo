@@ -576,19 +576,17 @@ install_desktop_macos() {
         sudo mv "$app_bundle" "$install_dir/"
     fi
 
-    # Remove quarantine attribute
+    # Remove quarantine attributes and ad-hoc sign to prevent Gatekeeper "damaged" error
     if [ -d "$install_dir/$app_name" ]; then
-        xattr -d com.apple.quarantine "$install_dir/$app_name" 2>/dev/null || true
+        xattr -cr "$install_dir/$app_name" 2>/dev/null || true
+        codesign --force --deep --sign - "$install_dir/$app_name" 2>/dev/null || true
     fi
 
     print_success "Walgo Desktop installed to $install_dir/$app_name"
     echo ""
     print_info "macOS Security Note:"
-    echo "  The app is not signed with an Apple Developer certificate."
-    echo "  If macOS blocks it on first launch:"
-    echo ""
-    echo "  1. Right-click on Walgo.app → Open → Open again"
-    echo "  2. Or go to System Settings → Privacy & Security → Open Anyway"
+    echo "  On first launch, macOS may show an \"unidentified developer\" warning."
+    echo "  To open: Right-click on Walgo.app → Open → Open again"
     echo ""
     print_info "Run with: walgo desktop"
 }

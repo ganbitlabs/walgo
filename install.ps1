@@ -579,6 +579,9 @@ function Install-WalgoDesktop {
             return
         }
 
+        # Remove Zone.Identifier to prevent SmartScreen warnings
+        Unblock-File -Path $destination -ErrorAction SilentlyContinue
+
         Print-Success "Walgo Desktop installed to $destination"
 
         # Create desktop shortcut

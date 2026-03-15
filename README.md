@@ -149,7 +149,7 @@ Download the desktop GUI from the [releases page](https://github.com/selimozten/
 
 #### macOS Installation
 
-**Security Note:** The desktop app is currently not signed with an Apple Developer certificate. You'll need to allow it manually on first launch.
+**Security Note:** The app is ad-hoc signed but not notarized with Apple. On first launch, macOS may show an "unidentified developer" warning.
 
 **Method 1: Right-click to Open (Recommended)**
 
@@ -159,25 +159,15 @@ Download the desktop GUI from the [releases page](https://github.com/selimozten/
 4. Click **"Open"** again in the security dialog
 5. The app will now open and be trusted for future launches
 
-**Method 2: System Settings**
-
-1. Try to open the app normally (it will be blocked)
-2. Go to **System Settings** → **Privacy & Security**
-3. Scroll down and click **"Open Anyway"** next to the Walgo message
-4. Click **"Open"** in the confirmation dialog
-
-**Method 3: Terminal (Advanced Users)**
+**Method 2: Terminal**
 
 ```bash
-# Remove quarantine attribute
+# Remove quarantine and open
 xattr -cr /Applications/Walgo.app
-
-# Then open normally
 open /Applications/Walgo.app
 ```
 
-**Why is this needed?**
-Apple requires apps to be signed with a paid Developer ID certificate ($99/year). As an open-source project, we currently distribute unsigned builds. This is safe - you can verify the source code on GitHub.
+> If you used the install script (`curl ... | bash`), quarantine removal is handled automatically.
 
 #### Windows Installation
 

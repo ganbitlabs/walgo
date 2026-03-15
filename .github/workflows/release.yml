@@ -71,11 +71,17 @@ jobs:
         run: |
           wails build -platform darwin/amd64 -clean
 
-      - name: Package App
+      - name: Sign and Package App
         working-directory: ./desktop/build/bin
         run: |
           # Get version from tag (remove 'v' prefix)
           VERSION=${GITHUB_REF#refs/tags/v}
+
+          # Ad-hoc sign the app to prevent "damaged" Gatekeeper error
+          codesign --force --deep --sign - "Walgo.app"
+
+          # Remove quarantine attributes
+          xattr -cr "Walgo.app"
 
           TAR_NAME="walgo-desktop_${VERSION}_darwin_amd64.tar.gz"
 
@@ -117,11 +123,17 @@ jobs:
         run: |
           wails build -platform darwin/arm64 -clean
 
-      - name: Package App
+      - name: Sign and Package App
         working-directory: ./desktop/build/bin
         run: |
           # Get version from tag (remove 'v' prefix)
           VERSION=${GITHUB_REF#refs/tags/v}
+
+          # Ad-hoc sign the app to prevent "damaged" Gatekeeper error
+          codesign --force --deep --sign - "Walgo.app"
+
+          # Remove quarantine attributes
+          xattr -cr "Walgo.app"
 
           TAR_NAME="walgo-desktop_${VERSION}_darwin_arm64.tar.gz"
 
