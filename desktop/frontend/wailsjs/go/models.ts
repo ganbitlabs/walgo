@@ -1272,6 +1272,38 @@ export namespace main {
 	        this.error = source["error"];
 	    }
 	}
+	export class EditorInfo {
+	    name: string;
+	    command: string;
+	    found: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new EditorInfo(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.command = source["command"];
+	        this.found = source["found"];
+	    }
+	}
+	export class UploadFileResult {
+	    success: boolean;
+	    path: string;
+	    error: string;
+
+	    static createFrom(source: any = {}) {
+	        return new UploadFileResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.path = source["path"];
+	        this.error = source["error"];
+	    }
+	}
 	export class CopyFileResult {
 	    success: boolean;
 	    error: string;

@@ -771,6 +771,100 @@ func (a *App) OpenInFinder(path string) error {
 	return openFileExplorer(path)
 }
 
+// EditorInfo holds detected editor information
+type EditorInfo struct {
+	Name    string `json:"name"`
+	Command string `json:"command"`
+	Found   bool   `json:"found"`
+}
+
+// DetectEditors returns a list of detected code editors on the system
+func (a *App) DetectEditors() []EditorInfo {
+	editors := []struct {
+		name    string
+		command string
+	}{
+		{"VS Code", "code"},
+		{"Cursor", "cursor"},
+		{"Sublime Text", "subl"},
+		{"Vim", "vim"},
+		{"Neovim", "nvim"},
+		{"Emacs", "emacs"},
+		{"Zed", "zed"},
+	}
+
+	var found []EditorInfo
+	for _, e := range editors {
+		if _, err := lookPath(e.command); err == nil {
+			found = append(found, EditorInfo{Name: e.name, Command: e.command, Found: true})
+		}
+	}
+	return found
+}
+
+// OpenInEditor opens a path in the specified code editor
+func (a *App) OpenInEditor(editorCmd string, path string) error {
+	safePath, err := validateFilePath(path)
+	if err != nil {
+		return err
+	}
+
+	editorPath, err := lookPath(editorCmd)
+	if err != nil {
+		return fmt.Errorf("editor '%s' not found", editorCmd)
+	}
+
+	cmd := exec.Command(editorPath, safePath)
+	hideWindow(cmd)
+	return cmd.Start()
+}
+
+// SelectFileToUpload opens a file selection dialog and returns the chosen file path
+func (a *App) SelectFileToUpload(title string) (string, error) {
+	return openFileDialog(a.ctx, title)
+}
+
+// UploadFileResult holds the result of uploading a file
+type UploadFileResult struct {
+	Success bool   `json:"success"`
+	Path    string `json:"path"`
+	Error   string `json:"error"`
+}
+
+// UploadFile copies a file from sourcePath into the target directory
+func (a *App) UploadFile(sourcePath string, targetDir string) UploadFileResult {
+	result := UploadFileResult{Success: false}
+
+	safeTarget, err := validateFilePath(targetDir)
+	if err != nil {
+		result.Error = err.Error()
+		return result
+	}
+
+	// Read source file
+	data, err := os.ReadFile(sourcePath) // #nosec G304 - user-selected file via system dialog
+	if err != nil {
+		result.Error = fmt.Sprintf("Failed to read source file: %v", err)
+		return result
+	}
+
+	// Write to target directory
+	fileName := filepath.Base(sourcePath)
+	destPath := filepath.Join(safeTarget, fileName)
+
+	// Find unique name if file already exists
+	destPath = findUniquePath(destPath)
+
+	if err := os.WriteFile(destPath, data, 0644); err != nil {
+		result.Error = fmt.Sprintf("Failed to write file: %v", err)
+		return result
+	}
+
+	result.Success = true
+	result.Path = destPath
+	return result
+}
+
 // ====================
 // File Management
 // ====================

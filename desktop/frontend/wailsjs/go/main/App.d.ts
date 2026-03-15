@@ -90,7 +90,15 @@ export function NewContent(arg1:api.NewContentParams):Promise<api.NewContentResu
 
 export function OpenInBrowser(arg1:string):Promise<void>;
 
+export function OpenInEditor(arg1:string,arg2:string):Promise<void>;
+
 export function OpenInFinder(arg1:string):Promise<void>;
+
+export function SelectFileToUpload(arg1:string):Promise<string>;
+
+export function UploadFile(arg1:string,arg2:string):Promise<main.UploadFileResult>;
+
+export function DetectEditors():Promise<Array<main.EditorInfo>>;
 
 export function ProjectNameExists(arg1:string):Promise<boolean>;
 

@@ -174,8 +174,24 @@ export function OpenInBrowser(arg1) {
   return window['go']['main']['App']['OpenInBrowser'](arg1);
 }
 
+export function OpenInEditor(arg1, arg2) {
+  return window['go']['main']['App']['OpenInEditor'](arg1, arg2);
+}
+
 export function OpenInFinder(arg1) {
   return window['go']['main']['App']['OpenInFinder'](arg1);
+}
+
+export function SelectFileToUpload(arg1) {
+  return window['go']['main']['App']['SelectFileToUpload'](arg1);
+}
+
+export function UploadFile(arg1, arg2) {
+  return window['go']['main']['App']['UploadFile'](arg1, arg2);
+}
+
+export function DetectEditors() {
+  return window['go']['main']['App']['DetectEditors']();
 }
 
 export function ProjectNameExists(arg1) {

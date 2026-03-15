@@ -26,6 +26,8 @@ import {
   HardDrive,
   Files,
   Palette,
+  Upload,
+  ExternalLink,
 } from "lucide-react";
 import { LoadingOverlay } from "../components/ui";
 import { TreeNode, ContextMenu } from "../components/file-tree";
@@ -621,12 +623,72 @@ export const Edit: React.FC<EditProps> = ({
       // Check if we're in an input or textarea
       const target = e.target as HTMLElement;
       const isInputField = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
-
-      // Don't handle shortcuts when typing in input fields (except for Escape)
-      if (isInputField && e.key !== 'Escape') return;
+      const isEditor = target.tagName === 'TEXTAREA';
 
       const isMac = /mac/i.test(navigator.userAgent);
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+
+      // === Editor shortcuts (work inside textarea) ===
+
+      // Ctrl/Cmd+S: Save file
+      if (cmdOrCtrl && e.key === 's') {
+        e.preventDefault();
+        if (selectedFile && !selectedFile.isDir) {
+          handleSave();
+        }
+        return;
+      }
+
+      // Ctrl/Cmd+B: Toggle sidebar
+      if (cmdOrCtrl && e.key === 'b') {
+        e.preventDefault();
+        dispatch({ type: 'TOGGLE_SIDEBAR' });
+        return;
+      }
+
+      // Ctrl/Cmd+/: Toggle line comment (in editor)
+      if (cmdOrCtrl && e.key === '/' && isEditor) {
+        e.preventDefault();
+        const textarea = target as HTMLTextAreaElement;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const value = textarea.value;
+
+        // Find line boundaries
+        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+        const lineEnd = value.indexOf('\n', end);
+        const actualLineEnd = lineEnd === -1 ? value.length : lineEnd;
+        const line = value.substring(lineStart, actualLineEnd);
+
+        // Toggle comment prefix
+        let newLine: string;
+        let cursorOffset: number;
+        if (line.trimStart().startsWith('// ')) {
+          newLine = line.replace(/^(\s*)\/\/ /, '$1');
+          cursorOffset = -3;
+        } else if (line.trimStart().startsWith('//')) {
+          newLine = line.replace(/^(\s*)\/\//, '$1');
+          cursorOffset = -2;
+        } else {
+          const indent = line.match(/^(\s*)/)?.[0] || '';
+          newLine = indent + '// ' + line.trimStart();
+          cursorOffset = 3;
+        }
+
+        const newValue = value.substring(0, lineStart) + newLine + value.substring(actualLineEnd);
+        setFileContent(newValue);
+
+        // Restore cursor position
+        requestAnimationFrame(() => {
+          textarea.selectionStart = textarea.selectionEnd = Math.max(lineStart, start + cursorOffset);
+        });
+        return;
+      }
+
+      // Don't handle file-tree shortcuts when typing in input fields (except Escape)
+      if (isInputField && e.key !== 'Escape') return;
+
+      // === File tree shortcuts (only when not in input fields) ===
 
       // Ctrl/Cmd+C: Copy
       if (cmdOrCtrl && e.key === 'c' && selectedFile && !isInputField) {
@@ -674,8 +736,6 @@ export const Edit: React.FC<EditProps> = ({
       // F2: Rename selected file
       if (e.key === 'F2' && selectedFile && !isInputField) {
         e.preventDefault();
-        // Trigger rename on selected file - we'll need to add a ref or state for this
-        // For now, show a status message
         if (onStatusChange) {
           onStatusChange({
             type: 'info',
@@ -1537,6 +1597,58 @@ Start writing your content here...
                       Launch to Walrus
                     </>
                   )}
+                </button>
+              </div>
+              {/* Upload File & Open in Editor */}
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <button
+                  onClick={async () => {
+                    if (!projectPath) return;
+                    try {
+                      const { SelectFileToUpload, UploadFile } = await import('../../wailsjs/go/main/App');
+                      const targetDir = selectedFile?.isDir ? selectedFile.path : projectPath;
+                      const filePath = await SelectFileToUpload('Select file to upload');
+                      if (!filePath) return;
+                      const result = await UploadFile(filePath, targetDir);
+                      if (result.success) {
+                        onStatusChange?.({ type: 'success', message: `Uploaded: ${result.path.split('/').pop()}` });
+                        // Refresh file list
+                        const projectStr = localStorage.getItem('selectedProject');
+                        if (projectStr) loadProject(JSON.parse(projectStr));
+                      } else {
+                        onStatusChange?.({ type: 'error', message: result.error || 'Upload failed' });
+                      }
+                    } catch (err) {
+                      onStatusChange?.({ type: 'error', message: `Upload failed: ${err}` });
+                    }
+                  }}
+                  className="px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-sm text-xs font-mono transition-all flex items-center justify-center gap-2"
+                  title="Upload a file into the project"
+                >
+                  <Upload size={14} />
+                  Upload File
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!projectPath) return;
+                    try {
+                      const { DetectEditors, OpenInEditor } = await import('../../wailsjs/go/main/App');
+                      const editors = await DetectEditors();
+                      if (editors && editors.length > 0) {
+                        await OpenInEditor(editors[0].command, projectPath);
+                        onStatusChange?.({ type: 'success', message: `Opened in ${editors[0].name}` });
+                      } else {
+                        onStatusChange?.({ type: 'info', message: 'No code editors detected. Install VS Code, Cursor, or Sublime Text.' });
+                      }
+                    } catch (err) {
+                      onStatusChange?.({ type: 'error', message: `Failed to open editor: ${err}` });
+                    }
+                  }}
+                  className="px-3 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-sm text-xs font-mono transition-all flex items-center justify-center gap-2"
+                  title="Open project in external code editor"
+                >
+                  <ExternalLink size={14} />
+                  Open in IDE
                 </button>
               </div>
             </div>

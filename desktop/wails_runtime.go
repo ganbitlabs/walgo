@@ -30,3 +30,9 @@ func openDirectoryDialog(ctx context.Context, title, defaultDir string) (string,
 func browserOpenURL(ctx context.Context, url string) {
 	wruntime.BrowserOpenURL(ctx, url)
 }
+
+func openFileDialog(ctx context.Context, title string) (string, error) {
+	return wruntime.OpenFileDialog(ctx, wruntime.OpenDialogOptions{
+		Title: title,
+	})
+}

@@ -12,3 +12,7 @@ func browserOpenURL(_ context.Context, _ string) {}
 func openDirectoryDialog(_ context.Context, _, _ string) (string, error) {
 	return "", nil
 }
+
+func openFileDialog(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
