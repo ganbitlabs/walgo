@@ -20,6 +20,8 @@ Available networks:
   testnet  - Walrus Testnet (default, recommended for development)
   mainnet  - Walrus Mainnet (for production deployments)
 
+NOTE: The default network is testnet. For mainnet deployments, use --network mainnet.
+
 The configuration will be created at ~/.config/walrus/sites-config.yaml`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

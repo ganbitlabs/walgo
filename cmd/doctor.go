@@ -11,6 +11,7 @@ import (
 	"github.com/selimozten/walgo/internal/deps"
 	"github.com/selimozten/walgo/internal/sui"
 	"github.com/selimozten/walgo/internal/ui"
+	"github.com/selimozten/walgo/internal/version"
 	"gopkg.in/yaml.v3"
 
 	"github.com/spf13/cobra"
@@ -150,6 +151,19 @@ Examples:
 							fmt.Printf("    Version: %s\n", version)
 						}
 					}
+				}
+			}
+		}
+
+		// Check walrus/site-builder version compatibility
+		if err := version.CheckInstalledCompatibility(); err != nil {
+			fmt.Printf("\n  %s %v\n", icons.Cross, err)
+			issues++
+		} else {
+			// Only show if both are installed
+			if _, errW := deps.LookPath("walrus"); errW == nil {
+				if _, errS := deps.LookPath("site-builder"); errS == nil {
+					fmt.Printf("  %s walrus and site-builder versions are compatible\n", icons.Check)
 				}
 			}
 		}

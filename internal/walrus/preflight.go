@@ -8,6 +8,7 @@ import (
 
 	"github.com/selimozten/walgo/internal/sui"
 	"github.com/selimozten/walgo/internal/ui"
+	"github.com/selimozten/walgo/internal/version"
 )
 
 // CheckSiteBuilderSetup verifies site-builder installation and configuration.
@@ -120,6 +121,17 @@ func handleSiteBuilderError(err error, errorOutput string) error {
 			"Technical error: %v", icons.Error, err)
 	}
 
+	// Check for version incompatibility symptoms (walrus runs "info" instead of publish)
+	if strings.Contains(errorOutput, "exit status 1") ||
+		(strings.Contains(errorOutput, "info") && strings.Contains(errorOutput, "walrus")) {
+		// Check if this might be a version mismatch
+		if compatErr := version.CheckInstalledCompatibility(); compatErr != nil {
+			return fmt.Errorf("\n%s Deployment failed due to version incompatibility\n\n"+
+				"  %v\n\n"+
+				"Technical error: %v", icons.Error, compatErr, err)
+		}
+	}
+
 	// Default error case - show the actual error output from site-builder
 	if errorOutput != "" {
 		return fmt.Errorf("failed to execute site-builder: %v\n\nError output:\n%s", err, strings.TrimSpace(errorOutput))
@@ -137,6 +149,12 @@ func PreflightCheck() error {
 		return fmt.Errorf("walrus CLI not found in PATH")
 	}
 	fmt.Printf("   %s Walrus CLI found at: %s\n", icons.Check, walrusPath)
+
+	// Check walrus/site-builder version compatibility before attempting deployment
+	if err := version.CheckInstalledCompatibility(); err != nil {
+		return fmt.Errorf("%s %v", icons.Error, err)
+	}
+	fmt.Printf("   %s Walrus and site-builder versions are compatible\n", icons.Check)
 
 	walrusContext := GetWalrusContext()
 	infoCmd := execCommand("walrus", "info", "--json", "--context", walrusContext)

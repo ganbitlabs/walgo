@@ -315,6 +315,57 @@ func CheckAllVersions() (*CheckResult, error) {
 	return result, nil
 }
 
+// CheckCompatibility verifies that installed walrus and site-builder versions are compatible.
+// site-builder v2.x requires walrus v2.x; mixing major versions causes deployment failures.
+func CheckCompatibility(walrusVersion, siteBuilderVersion string) error {
+	if walrusVersion == "" || siteBuilderVersion == "" {
+		return nil // can't check if versions are unknown
+	}
+
+	walrusParts := parseVersionParts(walrusVersion)
+	sbParts := parseVersionParts(siteBuilderVersion)
+
+	walrusMajor := walrusParts[0]
+	sbMajor := sbParts[0]
+
+	if sbMajor >= 2 && walrusMajor < 2 {
+		return fmt.Errorf(
+			"version incompatibility detected: site-builder v%s requires walrus v2.x, but walrus v%s is installed\n\n"+
+				"  This mismatch causes deployment failures (exit status 1).\n\n"+
+				"  To fix, try one of:\n"+
+				"    1. Update walrus:  suiup install walrus@testnet  (testnet may have v2)\n"+
+				"    2. Check suiup:    suiup show\n"+
+				"    3. Wait for walrus v2.x to be available on mainnet via suiup\n\n"+
+				"  See: https://github.com/selimozten/walgo/issues/9",
+			siteBuilderVersion, walrusVersion,
+		)
+	}
+
+	if walrusMajor >= 2 && sbMajor < 2 {
+		return fmt.Errorf(
+			"version incompatibility detected: walrus v%s requires site-builder v2.x, but site-builder v%s is installed\n\n"+
+				"  Update site-builder:  suiup install site-builder@mainnet",
+			walrusVersion, siteBuilderVersion,
+		)
+	}
+
+	return nil
+}
+
+// CheckInstalledCompatibility is a convenience function that reads installed versions
+// and checks their compatibility. Returns nil if tools are missing (not an error here).
+func CheckInstalledCompatibility() error {
+	walrusVer, err := GetCurrentVersion("walrus")
+	if err != nil {
+		return nil // walrus not installed, nothing to check
+	}
+	sbVer, err := GetCurrentVersion("site-builder")
+	if err != nil {
+		return nil // site-builder not installed, nothing to check
+	}
+	return CheckCompatibility(walrusVer, sbVer)
+}
+
 // UpdateTool updates a tool to the latest version using suiup or direct download
 func UpdateTool(tool string, network string) error {
 	// Validate tool name

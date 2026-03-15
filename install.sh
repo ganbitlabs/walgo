@@ -1282,6 +1282,12 @@ install_walrus_dependencies() {
     echo ""
     print_success "Walrus dependencies installation complete!"
     echo ""
+    if [ "$default_network" = "testnet" ]; then
+        print_warning "Tools were installed for TESTNET. For mainnet deployments, re-run:"
+        echo "     walgo setup-deps --network mainnet"
+        echo "     walgo setup --network mainnet"
+        echo ""
+    fi
     print_info "Next steps:"
     echo "  1. Verify installation:"
     echo "     sui --version"

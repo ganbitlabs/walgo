@@ -113,6 +113,98 @@ func TestCompareVersions(t *testing.T) {
 	}
 }
 
+func TestCheckCompatibility(t *testing.T) {
+	tests := []struct {
+		name       string
+		walrus     string
+		sb         string
+		wantErr    bool
+		errContain string
+	}{
+		{
+			name:    "both v1 compatible",
+			walrus:  "1.43.1",
+			sb:      "1.43.1",
+			wantErr: false,
+		},
+		{
+			name:    "both v2 compatible",
+			walrus:  "2.1.0",
+			sb:      "2.6.0",
+			wantErr: false,
+		},
+		{
+			name:       "sb v2 with walrus v1 incompatible",
+			walrus:     "1.43.1",
+			sb:         "2.6.0",
+			wantErr:    true,
+			errContain: "version incompatibility",
+		},
+		{
+			name:       "sb v2.7 with walrus v1 incompatible",
+			walrus:     "1.43.1",
+			sb:         "2.7.0",
+			wantErr:    true,
+			errContain: "version incompatibility",
+		},
+		{
+			name:       "walrus v2 with sb v1 incompatible",
+			walrus:     "2.0.0",
+			sb:         "1.43.1",
+			wantErr:    true,
+			errContain: "version incompatibility",
+		},
+		{
+			name:    "empty walrus version",
+			walrus:  "",
+			sb:      "2.6.0",
+			wantErr: false,
+		},
+		{
+			name:    "empty sb version",
+			walrus:  "1.43.1",
+			sb:      "",
+			wantErr: false,
+		},
+		{
+			name:    "both empty",
+			walrus:  "",
+			sb:      "",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := CheckCompatibility(tt.walrus, tt.sb)
+			if tt.wantErr && err == nil {
+				t.Errorf("CheckCompatibility(%q, %q) = nil, want error containing %q", tt.walrus, tt.sb, tt.errContain)
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("CheckCompatibility(%q, %q) = %v, want nil", tt.walrus, tt.sb, err)
+			}
+			if tt.wantErr && err != nil && tt.errContain != "" {
+				if !contains(err.Error(), tt.errContain) {
+					t.Errorf("error %q does not contain %q", err.Error(), tt.errContain)
+				}
+			}
+		})
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && searchString(s, substr)
+}
+
+func searchString(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestParseVersionParts(t *testing.T) {
 	tests := []struct {
 		name     string

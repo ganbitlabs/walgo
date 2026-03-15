@@ -14,6 +14,8 @@ var setupDepsCmd = &cobra.Command{
 suiup is the recommended way to install and manage sui, walrus, and site-builder.
 It handles versioning, updates, and network-specific binaries automatically.
 
+NOTE: The default network is testnet. For mainnet deployments, use --network mainnet.
+
 Examples:
   walgo setup-deps                              # Install all tools for testnet
   walgo setup-deps --network mainnet            # Install for mainnet

@@ -1106,6 +1106,9 @@ function Install-WalrusDependencies {
     Download-WalrusConfigs
     Initialize-SuiClient -Network "testnet" -BinDir $binDir
     Print-Success "Walrus dependencies installation completed"
+    Print-Warning "Tools were installed for TESTNET. For mainnet deployments, re-run:"
+    Print-Info "  walgo setup-deps --network mainnet"
+    Print-Info "  walgo setup --network mainnet"
     Print-Info "Verify with: sui --version && walrus --version && site-builder --version"
 }
 

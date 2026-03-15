@@ -11,6 +11,7 @@ import (
 
 	"github.com/selimozten/walgo/internal/deps"
 	"github.com/selimozten/walgo/internal/ui"
+	"github.com/selimozten/walgo/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -100,6 +101,15 @@ func runSetupDeps(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Check walrus/site-builder version compatibility after install
+	if withWalrus && withSiteBuilder {
+		if err := version.CheckInstalledCompatibility(); err != nil {
+			fmt.Println()
+			fmt.Printf("  %s %v\n", icons.Warning, err)
+			fmt.Println()
+		}
+	}
+
 	if withHugo {
 		fmt.Println()
 		fmt.Printf("%s Checking Hugo...\n", icons.Info)
@@ -124,6 +134,11 @@ func runSetupDeps(cmd *cobra.Command, args []string) error {
 	fmt.Println("═══════════════════════════════════════════════════════════")
 	fmt.Printf("%s Dependencies installed successfully!\n", icons.Success)
 	fmt.Println()
+	if network == "testnet" {
+		fmt.Printf("%s Note: Tools were installed for testnet.\n", icons.Info)
+		fmt.Println("   For mainnet deployments, re-run with: walgo setup-deps --network mainnet")
+		fmt.Println()
+	}
 	fmt.Printf("%s Useful commands:\n", icons.Lightbulb)
 	fmt.Println("   suiup list              # Show installed tools")
 	fmt.Println("   suiup update            # Update all tools")
