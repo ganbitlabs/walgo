@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // windowsDeleteBinary spawns a detached cmd.exe process that waits for

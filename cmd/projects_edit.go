@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/selimozten/walgo/internal/compress"
-	"github.com/selimozten/walgo/internal/config"
-	"github.com/selimozten/walgo/internal/projects"
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/compress"
+	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // editProjectOptions contains metadata fields for project editing.

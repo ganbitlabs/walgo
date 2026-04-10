@@ -348,13 +348,13 @@ To reinstall Walgo after uninstalling:
 
 ```bash
 # Using install script
-curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 
 # Or using Go
-go install github.com/selimozten/walgo@latest
+go install github.com/ganbitlabs/walgo@latest
 
 # Or download from releases
-# Visit: https://github.com/selimozten/walgo/releases
+# Visit: https://github.com/ganbitlabs/walgo/releases
 ```
 
 ## Troubleshooting
@@ -375,7 +375,7 @@ If `walgo uninstall` doesn't work:
 1. Try manual uninstall (see above)
 2. Or reinstall walgo first, then uninstall:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
    walgo uninstall --all --force
    ```
 
@@ -430,7 +430,7 @@ Remove-Item -Path "$env:USERPROFILE\.walgo" -Recurse -Force
 
 If you're uninstalling because of issues:
 
-- Please report bugs: https://github.com/selimozten/walgo/issues
+- Please report bugs: https://github.com/ganbitlabs/walgo/issues
 - Share feedback: We'd love to know how to improve!
 
 ## Thank You!

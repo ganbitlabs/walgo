@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +24,7 @@ var (
 )
 
 const (
-	githubReleasesAPI = "https://api.github.com/repos/selimozten/walgo/releases/latest"
+	githubReleasesAPI = "https://api.github.com/repos/ganbitlabs/walgo/releases/latest"
 )
 
 type githubRelease struct {
@@ -59,7 +59,7 @@ var versionCmd = &cobra.Command{
 		fmt.Printf("Commit:  %s\n", GitCommit)
 		fmt.Printf("Built:   %s\n", BuildDate)
 		fmt.Printf("\n%s This is a beta release. Please report issues at:\n", icons.Warning)
-		fmt.Printf("   https://github.com/selimozten/walgo/issues\n")
+		fmt.Printf("   https://github.com/ganbitlabs/walgo/issues\n")
 
 		if checkUpdates {
 			fmt.Println()
@@ -110,7 +110,7 @@ func checkForUpdates() {
 		fmt.Println(icons.Check)
 		fmt.Printf("\n%s New version available: v%s (you have v%s)\n", icons.Warning, latestVersion, currentVersion)
 		fmt.Printf("\nUpdate with:\n")
-		fmt.Printf("  curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash\n")
+		fmt.Printf("  curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash\n")
 		fmt.Printf("\nRelease notes: %s\n", release.HTMLURL)
 	default:
 		fmt.Println(icons.Check)

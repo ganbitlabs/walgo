@@ -1,12 +1,12 @@
 # Walgo Installation Script for Windows PowerShell
-# Usage: irm https://raw.githubusercontent.com/selimozten/walgo/main/install.ps1 | iex
+# Usage: irm https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
 # Enable TLS 1.2 for HTTPS connections (required for older Windows/PowerShell)
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$REPO = "selimozten/walgo"
+$REPO = "ganbitlabs/walgo"
 $BINARY_NAME = "walgo"
 $TEMP_DIR = [IO.Path]::GetTempPath()
 

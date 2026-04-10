@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selimozten/walgo/internal/config"
-	"github.com/selimozten/walgo/internal/deployer"
-	httpdep "github.com/selimozten/walgo/internal/deployer/http"
-	"github.com/selimozten/walgo/internal/hugo"
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/deployer"
+	httpdep "github.com/ganbitlabs/walgo/internal/deployer/http"
+	"github.com/ganbitlabs/walgo/internal/hugo"
+	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/spf13/cobra"
 )
 

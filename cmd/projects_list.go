@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/selimozten/walgo/internal/projects"
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // listProjects displays all projects matching the given filters.

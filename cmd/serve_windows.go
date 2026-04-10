@@ -9,7 +9,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // hideConsoleWindow sets Windows-specific flags to hide console window

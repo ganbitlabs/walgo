@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/selimozten/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/config"
 	"gopkg.in/yaml.v3"
 )
 

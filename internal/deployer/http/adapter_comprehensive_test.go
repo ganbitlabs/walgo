@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/selimozten/walgo/internal/deployer"
+	"github.com/ganbitlabs/walgo/internal/deployer"
 )
 
 func TestStatus(t *testing.T) {

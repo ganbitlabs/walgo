@@ -478,7 +478,7 @@ walgo build
 brew upgrade hugo  # macOS
 
 # Update Walgo
-go install github.com/selimozten/walgo@latest
+go install github.com/ganbitlabs/walgo@latest
 ```
 
 ## Common Issues
@@ -549,8 +549,8 @@ Check out these example sites for inspiration:
 - **Documentation:** Check all docs in `docs/` directory
 - **Command Help:** Run `walgo [command] --help`
 - **Diagnostics:** Run `walgo doctor -v`
-- **Issues:** [GitHub Issues](https://github.com/selimozten/walgo/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/selimozten/walgo/discussions)
+- **Issues:** [GitHub Issues](https://github.com/ganbitlabs/walgo/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/ganbitlabs/walgo/discussions)
 
 ## What's Next?
 

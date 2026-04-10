@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	sb "github.com/selimozten/walgo/internal/deployer/sitebuilder"
-	"github.com/selimozten/walgo/internal/projects"
-	"github.com/selimozten/walgo/internal/ui"
+	sb "github.com/ganbitlabs/walgo/internal/deployer/sitebuilder"
+	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // deleteProjectByRef removes a project from Walrus blockchain and local database.

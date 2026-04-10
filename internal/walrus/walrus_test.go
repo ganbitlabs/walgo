@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/selimozten/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/config"
 )
 
 // Test utilities for mocking external dependencies

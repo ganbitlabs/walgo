@@ -214,7 +214,7 @@ func (c *Client) doRequestWithContext(ctx context.Context, endpoint string, json
 
 	// OpenRouter-specific headers
 	if c.Provider == "openrouter" {
-		req.Header.Set("HTTP-Referer", "https://github.com/selimozten/walgo")
+		req.Header.Set("HTTP-Referer", "https://github.com/ganbitlabs/walgo")
 		req.Header.Set("X-Title", "Walgo AI Content Generator")
 	}
 

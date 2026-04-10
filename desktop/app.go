@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/selimozten/walgo/pkg/api"
+	"github.com/ganbitlabs/walgo/pkg/api"
 )
 
 // AIProgressState holds the current AI pipeline progress for polling.

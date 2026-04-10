@@ -3,7 +3,7 @@ package compress
 import (
 	"fmt"
 
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // CompressionResult holds the result of compressing a single file

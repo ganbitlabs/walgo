@@ -1,6 +1,6 @@
 package config
 
-import "github.com/selimozten/walgo/internal/optimizer"
+import "github.com/ganbitlabs/walgo/internal/optimizer"
 
 // WalgoConfig is the top-level configuration for Walgo.
 // It will be stored in walgo.yaml in the site root.

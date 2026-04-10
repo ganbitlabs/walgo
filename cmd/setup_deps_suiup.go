@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/selimozten/walgo/internal/deps"
-	"github.com/selimozten/walgo/internal/ui"
-	"github.com/selimozten/walgo/internal/version"
+	"github.com/ganbitlabs/walgo/internal/deps"
+	"github.com/ganbitlabs/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/version"
 	"github.com/spf13/cobra"
 )
 

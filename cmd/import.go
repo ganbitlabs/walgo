@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/selimozten/walgo/internal/config"
-	"github.com/selimozten/walgo/internal/hugo"
-	"github.com/selimozten/walgo/internal/obsidian"
-	"github.com/selimozten/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/hugo"
+	"github.com/ganbitlabs/walgo/internal/obsidian"
+	"github.com/ganbitlabs/walgo/internal/projects"
 
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/spf13/cobra"
 )
 

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/selimozten/walgo/internal/deps"
+	"github.com/ganbitlabs/walgo/internal/deps"
 )
 
 func TestInitCommand(t *testing.T) {

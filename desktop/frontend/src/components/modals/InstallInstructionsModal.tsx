@@ -46,10 +46,10 @@ export const InstallInstructionsModal: React.FC<InstallInstructionsModalProps> =
     'All Tools': {
       name: 'All Tools (Recommended)',
       description: 'Install all required tools with one command',
-      releaseUrl: 'https://github.com/selimozten/walgo/releases',
+      releaseUrl: 'https://github.com/ganbitlabs/walgo/releases',
       commands: [
         '# One-command installation (Recommended)',
-        'curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash',
+        'curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash',
       ],
       notes: [
         'This will install: suiup, Sui CLI, Walrus CLI, and Site Builder',

@@ -9,8 +9,8 @@ import (
 	"os/exec"
 	"sync/atomic"
 
-	"github.com/selimozten/walgo/internal/deps"
-	"github.com/selimozten/walgo/internal/executil"
+	"github.com/ganbitlabs/walgo/internal/deps"
+	"github.com/ganbitlabs/walgo/internal/executil"
 )
 
 // Test hooks for dependency injection.

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // Engine manages the entire optimization process for HTML, CSS, and JavaScript files.

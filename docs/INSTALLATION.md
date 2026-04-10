@@ -113,7 +113,7 @@ Download Git from: https://git-scm.com/downloads
 ### One-Line Install (macOS/Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 ```
 
 **⚠️ Windows Users:** The one-line install above will NOT work on Windows PowerShell or CMD. See [Windows Installation](#windows) below for proper installation instructions.
@@ -130,7 +130,7 @@ This script will:
 If you have Go 1.22+ installed:
 
 ```bash
-go install github.com/selimozten/walgo@latest
+go install github.com/ganbitlabs/walgo@latest
 ```
 
 Make sure `$GOPATH/bin` is in your `PATH`:
@@ -153,12 +153,12 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 
 ```bash
 # For Apple Silicon (M1/M2/M3)
-curl -L -o walgo https://github.com/selimozten/walgo/releases/latest/download/walgo-darwin-arm64
+curl -L -o walgo https://github.com/ganbitlabs/walgo/releases/latest/download/walgo-darwin-arm64
 chmod +x walgo
 sudo mv walgo /usr/local/bin/
 
 # For Intel Macs
-curl -L -o walgo https://github.com/selimozten/walgo/releases/latest/download/walgo-darwin-amd64
+curl -L -o walgo https://github.com/ganbitlabs/walgo/releases/latest/download/walgo-darwin-amd64
 chmod +x walgo
 sudo mv walgo /usr/local/bin/
 ```
@@ -166,7 +166,7 @@ sudo mv walgo /usr/local/bin/
 #### Option 3: Build from Source
 
 ```bash
-git clone https://github.com/selimozten/walgo.git
+git clone https://github.com/ganbitlabs/walgo.git
 cd walgo
 make build
 sudo mv walgo /usr/local/bin/
@@ -178,12 +178,12 @@ sudo mv walgo /usr/local/bin/
 
 ```bash
 # For x86_64
-curl -L -o walgo https://github.com/selimozten/walgo/releases/latest/download/walgo-linux-amd64
+curl -L -o walgo https://github.com/ganbitlabs/walgo/releases/latest/download/walgo-linux-amd64
 chmod +x walgo
 sudo mv walgo /usr/local/bin/
 
 # For ARM64
-curl -L -o walgo https://github.com/selimozten/walgo/releases/latest/download/walgo-linux-arm64
+curl -L -o walgo https://github.com/ganbitlabs/walgo/releases/latest/download/walgo-linux-arm64
 chmod +x walgo
 sudo mv walgo /usr/local/bin/
 ```
@@ -209,7 +209,7 @@ sudo tar -C /usr/local -xzf go1.24.0.linux-amd64.tar.gz
 export PATH=$PATH:/usr/local/go/bin
 
 # Build Walgo
-git clone https://github.com/selimozten/walgo.git
+git clone https://github.com/ganbitlabs/walgo.git
 cd walgo
 make build
 sudo mv walgo /usr/local/bin/
@@ -259,7 +259,7 @@ Download and install Git from: https://git-scm.com/download/win
 Open PowerShell and run:
 
 ```powershell
-irm https://raw.githubusercontent.com/selimozten/walgo/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.ps1 | iex
 ```
 
 This script will:
@@ -274,7 +274,7 @@ This script will:
 
 #### Option 2: Download Binary (Manual)
 
-1. Download the latest release from the [GitHub Releases page](https://github.com/selimozten/walgo/releases/latest):
+1. Download the latest release from the [GitHub Releases page](https://github.com/ganbitlabs/walgo/releases/latest):
 
    - For 64-bit Windows: `walgo-windows-amd64.exe`
    - For ARM64 Windows: `walgo-windows-arm64.exe`
@@ -283,10 +283,10 @@ This script will:
 
 ```powershell
 # For 64-bit
-Invoke-WebRequest -Uri "https://github.com/selimozten/walgo/releases/latest/download/walgo-windows-amd64.exe" -OutFile "walgo.exe"
+Invoke-WebRequest -Uri "https://github.com/ganbitlabs/walgo/releases/latest/download/walgo-windows-amd64.exe" -OutFile "walgo.exe"
 
 # Or for ARM64
-Invoke-WebRequest -Uri "https://github.com/selimozten/walgo/releases/latest/download/walgo-windows-arm64.exe" -OutFile "walgo.exe"
+Invoke-WebRequest -Uri "https://github.com/ganbitlabs/walgo/releases/latest/download/walgo-windows-arm64.exe" -OutFile "walgo.exe"
 ```
 
 3. Add to PATH:
@@ -332,7 +332,7 @@ If you have WSL installed, you can use the Linux installation:
 
 ```bash
 # In WSL terminal
-curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 ```
 
 Note: WSL must have a Linux distribution installed. Install WSL if needed:
@@ -370,7 +370,7 @@ choco install walgo
 # Prerequisites: Install Go 1.22+ from https://go.dev/dl/
 
 # Build Walgo
-git clone https://github.com/selimozten/walgo.git
+git clone https://github.com/ganbitlabs/walgo.git
 cd walgo
 go build -o walgo.exe main.go
 
@@ -515,7 +515,7 @@ cargo install --locked --git https://github.com/MystenLabs/sui.git --branch test
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/selimozten/walgo.git
+   git clone https://github.com/ganbitlabs/walgo.git
    cd walgo
    ```
 
@@ -637,13 +637,13 @@ ls public/
 ### Update via Script
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 ```
 
 ### Update via Go
 
 ```bash
-go install github.com/selimozten/walgo@latest
+go install github.com/ganbitlabs/walgo@latest
 ```
 
 ### Manual Update
@@ -664,7 +664,7 @@ go install github.com/selimozten/walgo@latest
 ```bash
 walgo version
 # Compare with latest release at:
-# https://github.com/selimozten/walgo/releases/latest
+# https://github.com/ganbitlabs/walgo/releases/latest
 ```
 
 ## Uninstallation
@@ -797,6 +797,6 @@ After installation:
 
 ## Getting Help
 
-- **Documentation:** [https://github.com/selimozten/walgo/tree/main/docs](https://github.com/selimozten/walgo/tree/main/docs)
-- **Issues:** [https://github.com/selimozten/walgo/issues](https://github.com/selimozten/walgo/issues)
-- **Discussions:** [https://github.com/selimozten/walgo/discussions](https://github.com/selimozten/walgo/discussions)
+- **Documentation:** [https://github.com/ganbitlabs/walgo/tree/main/docs](https://github.com/ganbitlabs/walgo/tree/main/docs)
+- **Issues:** [https://github.com/ganbitlabs/walgo/issues](https://github.com/ganbitlabs/walgo/issues)
+- **Discussions:** [https://github.com/ganbitlabs/walgo/discussions](https://github.com/ganbitlabs/walgo/discussions)

@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/selimozten/walgo/internal/ai"
-	"github.com/selimozten/walgo/internal/hugo"
-	"github.com/selimozten/walgo/internal/projects"
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/ai"
+	"github.com/ganbitlabs/walgo/internal/hugo"
+	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/spf13/cobra"
 )
 

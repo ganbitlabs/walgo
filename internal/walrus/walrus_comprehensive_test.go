@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/selimozten/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/config"
 )
 
 func TestSetVerbose(t *testing.T) {

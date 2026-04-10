@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // Event represents a single telemetry event

@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/selimozten/walgo/internal/config"
-	"github.com/selimozten/walgo/internal/deps"
-	"github.com/selimozten/walgo/internal/hugo"
-	"github.com/selimozten/walgo/internal/projects"
-	"github.com/selimozten/walgo/internal/ui"
-	"github.com/selimozten/walgo/internal/utils"
+	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/deps"
+	"github.com/ganbitlabs/walgo/internal/hugo"
+	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -275,7 +275,7 @@ Follow the interactive wizard to:
 ## Resources
 
 - **Walrus Documentation**: [docs.walrus.site](https://docs.walrus.site)
-- **Walgo CLI**: [github.com/selimozten/walgo](https://github.com/selimozten/walgo)
+- **Walgo CLI**: [github.com/ganbitlabs/walgo](https://github.com/ganbitlabs/walgo)
 - **Hugo Docs**: [gohugo.io/documentation](https://gohugo.io/documentation)
 - **Sui Network**: [sui.io](https://sui.io)
 

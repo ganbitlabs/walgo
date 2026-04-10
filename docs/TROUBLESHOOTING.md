@@ -52,10 +52,10 @@ bash: walgo: command not found
 
    ```bash
    # Using install script
-   curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 
    # Or using Go
-   go install github.com/selimozten/walgo@latest
+   go install github.com/ganbitlabs/walgo@latest
    ```
 
 ---
@@ -1007,9 +1007,9 @@ When reporting issues on GitHub, include:
 
 ### Support Channels
 
-- **Documentation:** [https://github.com/selimozten/walgo/tree/main/docs](https://github.com/selimozten/walgo/tree/main/docs)
-- **GitHub Issues:** [https://github.com/selimozten/walgo/issues](https://github.com/selimozten/walgo/issues)
-- **GitHub Discussions:** [https://github.com/selimozten/walgo/discussions](https://github.com/selimozten/walgo/discussions)
+- **Documentation:** [https://github.com/ganbitlabs/walgo/tree/main/docs](https://github.com/ganbitlabs/walgo/tree/main/docs)
+- **GitHub Issues:** [https://github.com/ganbitlabs/walgo/issues](https://github.com/ganbitlabs/walgo/issues)
+- **GitHub Discussions:** [https://github.com/ganbitlabs/walgo/discussions](https://github.com/ganbitlabs/walgo/discussions)
 - **Feedback Form:** [https://tally.so/r/447YBO](https://tally.so/r/447YBO)
 - **Walrus Discord:** [https://discord.gg/walrus](https://discord.gg/walrus)
 - **Sui Discord:** [https://discord.gg/sui](https://discord.gg/sui)

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // SetupSiteBuilder helps users set up the site-builder configuration.

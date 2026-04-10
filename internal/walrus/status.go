@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // GetSiteStatus checks the status of a Walrus site.

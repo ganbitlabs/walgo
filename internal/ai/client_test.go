@@ -164,7 +164,7 @@ func TestClient_Chat_Success(t *testing.T) {
 func TestClient_Chat_OpenRouterHeaders(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify OpenRouter-specific headers
-		if r.Header.Get("HTTP-Referer") != "https://github.com/selimozten/walgo" {
+		if r.Header.Get("HTTP-Referer") != "https://github.com/ganbitlabs/walgo" {
 			t.Errorf("expected HTTP-Referer header for OpenRouter")
 		}
 		if r.Header.Get("X-Title") != "Walgo AI Content Generator" {

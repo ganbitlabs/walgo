@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/selimozten/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/projects"
 )
 
 // setTestReader sets a custom reader for testing input

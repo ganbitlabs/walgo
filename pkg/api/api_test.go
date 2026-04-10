@@ -1833,7 +1833,7 @@ func TestCheckUpdatesResult_JSONSerialization(t *testing.T) {
 	result := CheckUpdatesResult{
 		CurrentVersion: "0.3.5",
 		LatestVersion:  "0.4.0",
-		UpdateURL:      "https://github.com/selimozten/walgo/releases/tag/v0.4.0",
+		UpdateURL:      "https://github.com/ganbitlabs/walgo/releases/tag/v0.4.0",
 	}
 
 	data, err := json.Marshal(result)
@@ -1852,8 +1852,8 @@ func TestCheckUpdatesResult_JSONSerialization(t *testing.T) {
 	if decoded.LatestVersion != "0.4.0" {
 		t.Errorf("LatestVersion = %q, want %q", decoded.LatestVersion, "0.4.0")
 	}
-	if decoded.UpdateURL != "https://github.com/selimozten/walgo/releases/tag/v0.4.0" {
-		t.Errorf("UpdateURL = %q, want %q", decoded.UpdateURL, "https://github.com/selimozten/walgo/releases/tag/v0.4.0")
+	if decoded.UpdateURL != "https://github.com/ganbitlabs/walgo/releases/tag/v0.4.0" {
+		t.Errorf("UpdateURL = %q, want %q", decoded.UpdateURL, "https://github.com/ganbitlabs/walgo/releases/tag/v0.4.0")
 	}
 }
 

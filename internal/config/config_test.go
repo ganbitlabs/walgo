@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/selimozten/walgo/internal/optimizer"
+	"github.com/ganbitlabs/walgo/internal/optimizer"
 
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"

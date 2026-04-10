@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/selimozten/walgo/internal/config"
-	"github.com/selimozten/walgo/internal/projects"
-	"github.com/selimozten/walgo/internal/sui"
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/sui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // sharedReader is a shared bufio.Reader to avoid creating multiple readers
@@ -163,7 +163,7 @@ type ProjectDetails struct {
 }
 
 // DefaultWalgoLogoURL is the default logo used for Walrus Sites deployed with Walgo
-const DefaultWalgoLogoURL = "https://cdn.jsdelivr.net/gh/selimozten/walgo@main/walgo-logo.svg"
+const DefaultWalgoLogoURL = "https://cdn.jsdelivr.net/gh/ganbitlabs/walgo@main/walgo-logo.svg"
 
 // DefaultCategory is the default category for new projects
 const DefaultCategory = "website"

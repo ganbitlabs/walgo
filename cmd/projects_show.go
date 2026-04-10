@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selimozten/walgo/internal/projects"
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // showProjectDetails displays detailed information about a specific project.

@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://golang.org"><img src="https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go" alt="Go Version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" /></a>
-  <a href="https://github.com/selimozten/walgo/actions/workflows/ci.yml"><img src="https://github.com/selimozten/walgo/actions/workflows/ci.yml/badge.svg" alt="Build Status" /></a>
+  <a href="https://github.com/ganbitlabs/walgo/actions/workflows/ci.yml"><img src="https://github.com/ganbitlabs/walgo/actions/workflows/ci.yml/badge.svg" alt="Build Status" /></a>
   <a href="https://walrus.xyz"><img src="https://img.shields.io/badge/Walrus%20RFP-Winner-F97316.svg" alt="Walrus RFP Winner" /></a>
 </p>
 
@@ -61,7 +61,7 @@
 # Fedora: sudo dnf install git
 # Arch: sudo pacman -S git
 
-curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 ```
 
 **Windows:**
@@ -72,10 +72,10 @@ curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | 
 # choco install git
 # Or download from: https://git-scm.com/download/win
 
-irm https://raw.githubusercontent.com/selimozten/walgo/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.ps1 | iex
 ```
 
-Or download the binary manually from the [releases page](https://github.com/selimozten/walgo/releases/latest).
+Or download the binary manually from the [releases page](https://github.com/ganbitlabs/walgo/releases/latest).
 
 <details>
 <summary><strong>🪟 Windows Installation Details (Click to Expand)</strong></summary>
@@ -83,14 +83,14 @@ Or download the binary manually from the [releases page](https://github.com/seli
 #### Method 1: PowerShell One-Line Install (Recommended)
 
 ```powershell
-irm https://raw.githubusercontent.com/selimozten/walgo/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.ps1 | iex
 ```
 
 This automatically detects your architecture, downloads binary, and installs it.
 
 #### Method 2: Download and Install Manually
 
-1. Download from [releases page](https://github.com/selimozten/walgo/releases/latest):
+1. Download from [releases page](https://github.com/ganbitlabs/walgo/releases/latest):
 
    - `walgo-windows-amd64.exe` (64-bit)
    - `walgo-windows-arm64.exe` (ARM64)
@@ -126,13 +126,13 @@ For complete Windows installation guide, see [docs/INSTALLATION.md](docs/INSTALL
 ### Using Go
 
 ```bash
-go install github.com/selimozten/walgo@latest
+go install github.com/ganbitlabs/walgo@latest
 ```
 
 ### Build from Source
 
 ```bash
-git clone https://github.com/selimozten/walgo.git
+git clone https://github.com/ganbitlabs/walgo.git
 cd walgo
 make build
 ```
@@ -145,7 +145,7 @@ walgo version
 
 ### Desktop App (Optional)
 
-Download the desktop GUI from the [releases page](https://github.com/selimozten/walgo/releases).
+Download the desktop GUI from the [releases page](https://github.com/ganbitlabs/walgo/releases).
 
 #### macOS Installation
 
@@ -465,8 +465,8 @@ walgo doctor --fix-all # Auto-fix common issues
 ### Getting Help
 
 - **Documentation:** [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
-- **GitHub Issues:** [Report a bug](https://github.com/selimozten/walgo/issues)
-- **GitHub Discussions:** [Ask questions](https://github.com/selimozten/walgo/discussions)
+- **GitHub Issues:** [Report a bug](https://github.com/ganbitlabs/walgo/issues)
+- **GitHub Discussions:** [Ask questions](https://github.com/ganbitlabs/walgo/discussions)
 - **Feedback Form:** [Submit feedback](https://tally.so/r/447YBO)
 
 ---
@@ -479,7 +479,7 @@ We welcome contributions! See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidel
 
 ```bash
 # Clone the repository
-git clone https://github.com/selimozten/walgo.git
+git clone https://github.com/ganbitlabs/walgo.git
 cd walgo
 
 # Install dependencies and build

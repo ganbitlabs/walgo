@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/selimozten/walgo/internal/walrus"
+	"github.com/ganbitlabs/walgo/internal/walrus"
 )
 
 // Project represents a deployed Walrus site project

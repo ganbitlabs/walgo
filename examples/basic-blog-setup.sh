@@ -69,7 +69,7 @@ draft: false
 
 # About This Blog
 
-This blog is built with [Hugo](https://gohugo.io) and deployed to [Walrus Sites](https://docs.walrus.site) using [Walgo](https://github.com/selimozten/walgo).
+This blog is built with [Hugo](https://gohugo.io) and deployed to [Walrus Sites](https://docs.walrus.site) using [Walgo](https://github.com/ganbitlabs/walgo).
 
 ## The Technology Stack
 

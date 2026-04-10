@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/selimozten/walgo/internal/ai"
+	"github.com/ganbitlabs/walgo/internal/ai"
 )
 
 // DetectSiteType detects site type from Hugo configuration or content structure.

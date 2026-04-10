@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/selimozten/walgo/internal/hugo"
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/hugo"
+	"github.com/ganbitlabs/walgo/internal/ui"
 
 	"github.com/spf13/cobra"
 )

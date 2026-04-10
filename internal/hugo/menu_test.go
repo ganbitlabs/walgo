@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/selimozten/walgo/internal/ai"
+	"github.com/ganbitlabs/walgo/internal/ai"
 )
 
 // =============================================================================

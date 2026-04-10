@@ -31,7 +31,7 @@ git --version
 **Install Walgo:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 ```
 
 **⚠️ Windows Users:** The command above will NOT work on Windows PowerShell or CMD.
@@ -56,7 +56,7 @@ git --version
 **Install Walgo:**
 
 ```powershell
-irm https://raw.githubusercontent.com/selimozten/walgo/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.ps1 | iex
 ```
 
 Or visit the [Installation Guide](docs/INSTALLATION.md) for manual installation methods.
@@ -73,7 +73,7 @@ This script will:
 
 #### Download Pre-built Binaries
 
-Visit the [releases page](https://github.com/selimozten/walgo/releases/latest) and download the appropriate binary for your platform:
+Visit the [releases page](https://github.com/ganbitlabs/walgo/releases/latest) and download the appropriate binary for your platform:
 
 - **Linux (x64)**: `walgo_VERSION_linux_amd64.tar.gz`
 - **Linux (ARM64)**: `walgo_VERSION_linux_arm64.tar.gz`
@@ -102,7 +102,7 @@ walgo --version
 
 ```bash
 # Add the tap
-brew tap selimozten/tap
+brew tap ganbitlabs/tap
 
 # Install walgo
 brew install walgo
@@ -116,7 +116,7 @@ walgo --version
 If you have Go 1.22+ installed:
 
 ```bash
-go install github.com/selimozten/walgo@latest
+go install github.com/ganbitlabs/walgo@latest
 
 # Verify
 walgo --version
@@ -126,17 +126,17 @@ walgo --version
 
 ```bash
 # Pull the image
-docker pull ghcr.io/selimozten/walgo:latest
+docker pull ghcr.io/ganbitlabs/walgo:latest
 
 # Run walgo
-docker run --rm ghcr.io/selimozten/walgo:latest --help
+docker run --rm ghcr.io/ganbitlabs/walgo:latest --help
 
 # Work with local files
 docker run --rm -v $(pwd):/workspace -w /workspace \
-  ghcr.io/selimozten/walgo:latest init my-site
+  ghcr.io/ganbitlabs/walgo:latest init my-site
 
 # Create an alias for convenience
-alias walgo='docker run --rm -v $(pwd):/workspace -w /workspace ghcr.io/selimozten/walgo:latest'
+alias walgo='docker run --rm -v $(pwd):/workspace -w /workspace ghcr.io/ganbitlabs/walgo:latest'
 ```
 
 ### Snap (Linux)
@@ -154,7 +154,7 @@ Requirements:
 
 ```bash
 # Clone repository
-git clone https://github.com/selimozten/walgo.git
+git clone https://github.com/ganbitlabs/walgo.git
 cd walgo
 
 # Build
@@ -451,7 +451,7 @@ Or install manually following the instructions above.
 ### Via Install Script
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 ```
 
 ### Via Homebrew
@@ -463,7 +463,7 @@ brew upgrade walgo
 ### Via Go
 
 ```bash
-go install github.com/selimozten/walgo@latest
+go install github.com/ganbitlabs/walgo@latest
 ```
 
 ### Check for Updates
@@ -493,13 +493,13 @@ rm -f ~/.walgo.yaml
 
 ```bash
 brew uninstall walgo
-brew untap selimozten/tap
+brew untap ganbitlabs/tap
 ```
 
 ## Getting Help
 
-- **Documentation**: https://github.com/selimozten/walgo
-- **Issues**: https://github.com/selimozten/walgo/issues
+- **Documentation**: https://github.com/ganbitlabs/walgo
+- **Issues**: https://github.com/ganbitlabs/walgo/issues
 - **Run diagnostics**: `walgo doctor`
 - **Command help**: `walgo --help` or `walgo <command> --help`
 

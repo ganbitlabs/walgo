@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selimozten/walgo/internal/ai"
-	"github.com/selimozten/walgo/internal/compress"
-	"github.com/selimozten/walgo/internal/config"
-	"github.com/selimozten/walgo/internal/deps"
-	"github.com/selimozten/walgo/internal/executil"
-	"github.com/selimozten/walgo/internal/optimizer"
-	"github.com/selimozten/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/ai"
+	"github.com/ganbitlabs/walgo/internal/compress"
+	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/deps"
+	"github.com/ganbitlabs/walgo/internal/executil"
+	"github.com/ganbitlabs/walgo/internal/optimizer"
+	"github.com/ganbitlabs/walgo/internal/projects"
 	"gopkg.in/yaml.v3"
 )
 

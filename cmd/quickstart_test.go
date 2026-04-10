@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/selimozten/walgo/internal/utils"
+	"github.com/ganbitlabs/walgo/internal/utils"
 	"github.com/spf13/cobra"
 )
 

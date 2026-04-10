@@ -17,7 +17,7 @@ Thank you for your interest in contributing to Walgo! This document outlines the
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/selimozten/walgo.git
+   git clone https://github.com/ganbitlabs/walgo.git
    cd walgo
    ```
 3. **Install dependencies**:

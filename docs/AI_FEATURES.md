@@ -744,5 +744,5 @@ A: Currently, each command processes one file. For batch updates, write a shell 
 
 For issues or questions:
 
-- GitHub Issues: [github.com/selimozten/walgo/issues](https://github.com/selimozten/walgo/issues)
+- GitHub Issues: [github.com/ganbitlabs/walgo/issues](https://github.com/ganbitlabs/walgo/issues)
 - Check provider documentation: [OpenAI](https://platform.openai.com/docs) | [OpenRouter](https://openrouter.ai/docs)

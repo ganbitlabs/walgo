@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/selimozten/walgo/internal/sui"
-	"github.com/selimozten/walgo/internal/ui"
-	"github.com/selimozten/walgo/internal/version"
+	"github.com/ganbitlabs/walgo/internal/sui"
+	"github.com/ganbitlabs/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/version"
 )
 
 // CheckSiteBuilderSetup verifies site-builder installation and configuration.

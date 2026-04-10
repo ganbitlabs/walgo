@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // DestroySite handles destroying an existing site on Walrus.

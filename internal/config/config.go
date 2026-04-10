@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/selimozten/walgo/internal/sui"
+	"github.com/ganbitlabs/walgo/internal/sui"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )

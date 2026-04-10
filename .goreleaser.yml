@@ -42,7 +42,7 @@ checksum:
 
 release:
   github:
-    owner: selimozten
+    owner: ganbitlabs
     name: walgo
   mode: keep-existing
   draft: false
@@ -53,5 +53,5 @@ release:
 
     Installation:
     ```bash
-    curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+    curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
     ```

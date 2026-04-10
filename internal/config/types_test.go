@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/selimozten/walgo/internal/optimizer"
+	"github.com/ganbitlabs/walgo/internal/optimizer"
 	"testing"
 )
 

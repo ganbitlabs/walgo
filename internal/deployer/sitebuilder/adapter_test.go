@@ -2,8 +2,8 @@ package sitebuilder
 
 import (
 	"context"
-	"github.com/selimozten/walgo/internal/config"
-	"github.com/selimozten/walgo/internal/deployer"
+	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/deployer"
 	"testing"
 )
 

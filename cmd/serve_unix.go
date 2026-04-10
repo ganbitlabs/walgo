@@ -11,7 +11,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // killExistingHugoProcesses finds and kills any existing 'hugo serve' processes on Unix systems

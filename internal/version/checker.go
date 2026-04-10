@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selimozten/walgo/internal/deps"
-	"github.com/selimozten/walgo/internal/sui"
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/deps"
+	"github.com/ganbitlabs/walgo/internal/sui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // ToolVersion represents version information for a tool
@@ -336,7 +336,7 @@ func CheckCompatibility(walrusVersion, siteBuilderVersion string) error {
 				"    1. Update walrus:  suiup install walrus@testnet  (testnet may have v2)\n"+
 				"    2. Check suiup:    suiup show\n"+
 				"    3. Wait for walrus v2.x to be available on mainnet via suiup\n\n"+
-				"  See: https://github.com/selimozten/walgo/issues/9",
+				"  See: https://github.com/ganbitlabs/walgo/issues/9",
 			siteBuilderVersion, walrusVersion,
 		)
 	}

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/selimozten/walgo/internal/desktop"
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/desktop"
+	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -77,7 +77,7 @@ Example:
 				fmt.Fprintf(os.Stderr, "    - %s\n", path)
 			}
 			fmt.Fprintf(os.Stderr, "\n%s Install desktop app:\n", icons.Lightbulb)
-			fmt.Fprintf(os.Stderr, "  Run installer: curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash\n")
+			fmt.Fprintf(os.Stderr, "  Run installer: curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash\n")
 			return fmt.Errorf("desktop app not found in any standard location")
 		}
 

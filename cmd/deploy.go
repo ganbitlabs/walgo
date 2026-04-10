@@ -7,14 +7,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/selimozten/walgo/internal/config"
-	"github.com/selimozten/walgo/internal/deployment"
-	"github.com/selimozten/walgo/internal/hugo"
-	"github.com/selimozten/walgo/internal/metrics"
-	"github.com/selimozten/walgo/internal/projects"
-	"github.com/selimozten/walgo/internal/sui"
-	"github.com/selimozten/walgo/internal/ui"
-	"github.com/selimozten/walgo/internal/version"
+	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/deployment"
+	"github.com/ganbitlabs/walgo/internal/hugo"
+	"github.com/ganbitlabs/walgo/internal/metrics"
+	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/sui"
+	"github.com/ganbitlabs/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/version"
 
 	"github.com/spf13/cobra"
 )

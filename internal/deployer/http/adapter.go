@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/selimozten/walgo/internal/deployer"
+	"github.com/ganbitlabs/walgo/internal/deployer"
 )
 
 type Adapter struct{}

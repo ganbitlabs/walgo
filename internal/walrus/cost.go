@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selimozten/walgo/internal/deps"
-	"github.com/selimozten/walgo/internal/sui"
+	"github.com/ganbitlabs/walgo/internal/deps"
+	"github.com/ganbitlabs/walgo/internal/sui"
 )
 
 // Default RPC endpoints for Sui networks

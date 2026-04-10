@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/selimozten/walgo/internal/deployer"
+	"github.com/ganbitlabs/walgo/internal/deployer"
 )
 
 // TestDeployBlobs_FailsWhenAllUploadsFail verifies that deployment fails when all uploads fail.

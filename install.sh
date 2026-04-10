@@ -1,6 +1,6 @@
 #!/bin/bash
 # Walgo Installation Script
-# Usage: curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 
 set -e
 
@@ -15,9 +15,9 @@ case "$(uname -s)" in
         echo ""
         echo "For Windows installation, use PowerShell:"
         echo ""
-        echo "  irm https://raw.githubusercontent.com/selimozten/walgo/main/install.ps1 | iex"
+        echo "  irm https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.ps1 | iex"
         echo ""
-        echo "Or visit: https://github.com/selimozten/walgo/blob/main/docs/INSTALLATION.md"
+        echo "Or visit: https://github.com/ganbitlabs/walgo/blob/main/docs/INSTALLATION.md"
         echo ""
         exit 1
         ;;
@@ -140,7 +140,7 @@ fi
 # CONFIGURATION
 # ============================================================================
 
-REPO="selimozten/walgo"
+REPO="ganbitlabs/walgo"
 BINARY_NAME="walgo"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 USE_SUDO="${USE_SUDO:-true}"
@@ -380,9 +380,9 @@ get_latest_version() {
     # Use the redirect URL to avoid GitHub API rate limits (60/hr unauthenticated).
     # "releases/latest" redirects to "releases/tag/vX.Y.Z" — extract the tag from the redirect Location header.
     if command -v curl >/dev/null 2>&1; then
-        VERSION=$(curl -fsSI "https://github.com/$REPO/releases/latest" 2>/dev/null | grep -i '^location:' | sed -E 's|.*/tag/v?||' | tr -d '\r')
+        VERSION=$(curl -fsSI -L "https://github.com/$REPO/releases/latest" 2>/dev/null | grep -i '^location:' | tail -1 | sed -E 's|.*/tag/v?||' | tr -d '\r')
     elif command -v wget >/dev/null 2>&1; then
-        VERSION=$(wget --spider -S "https://github.com/$REPO/releases/latest" 2>&1 | grep -i '^\s*location:' | sed -E 's|.*/tag/v?||' | tr -d '\r')
+        VERSION=$(wget --spider -S "https://github.com/$REPO/releases/latest" 2>&1 | grep -i '^\s*location:' | tail -1 | sed -E 's|.*/tag/v?||' | tr -d '\r')
     else
         print_error "Neither curl nor wget found. Please install one of them."
         exit 1

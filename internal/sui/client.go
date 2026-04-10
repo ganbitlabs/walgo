@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/selimozten/walgo/internal/deps"
-	"github.com/selimozten/walgo/internal/executil"
+	"github.com/ganbitlabs/walgo/internal/deps"
+	"github.com/ganbitlabs/walgo/internal/executil"
 )
 
 // getSuiPath returns the path to the sui binary

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/selimozten/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/config"
 
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/spf13/cobra"
 )
 

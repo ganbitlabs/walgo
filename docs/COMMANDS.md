@@ -1584,7 +1584,7 @@ Available for all commands:
 
 ## Resources
 
-- **GitHub**: https://github.com/selimozten/walgo
+- **GitHub**: https://github.com/ganbitlabs/walgo
 - **SuiNS**: https://suins.io (mainnet) | https://testnet.suins.io (testnet)
 - **Walrus Docs**: https://docs.walrus.site
 - **Hugo Docs**: https://gohugo.io/documentation/

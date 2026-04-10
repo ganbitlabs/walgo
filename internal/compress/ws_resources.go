@@ -478,8 +478,8 @@ type MetadataOptions struct {
 // DefaultCreator is the default creator name for sites deployed with Walgo
 const DefaultCreator = "Walgo"
 const DefaultLink = "https://walgo.xyz"
-const DefaultProjectURL = "https://github.com/selimozten/walgo"
-const DefaultImageURL = "https://cdn.jsdelivr.net/gh/selimozten/walgo@main/walgo-logo.svg"
+const DefaultProjectURL = "https://github.com/ganbitlabs/walgo"
+const DefaultImageURL = "https://cdn.jsdelivr.net/gh/ganbitlabs/walgo@main/walgo-logo.svg"
 const DefaultCategory = "Walgo Site"
 
 // UpdateMetadata updates all metadata fields in ws-resources.json

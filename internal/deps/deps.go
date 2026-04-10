@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selimozten/walgo/internal/executil"
+	"github.com/ganbitlabs/walgo/internal/executil"
 )
 
 const (

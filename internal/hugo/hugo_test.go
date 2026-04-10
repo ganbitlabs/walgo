@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/selimozten/walgo/internal/deps"
+	"github.com/ganbitlabs/walgo/internal/deps"
 )
 
 // TestMain sets up and tears down the test environment

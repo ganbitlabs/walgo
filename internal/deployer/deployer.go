@@ -2,7 +2,7 @@ package deployer
 
 import (
 	"context"
-	"github.com/selimozten/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/config"
 )
 
 // Result captures the outcome of a deployment/update/status operation.

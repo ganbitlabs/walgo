@@ -2,8 +2,8 @@ package sitebuilder
 
 import (
 	"context"
-	"github.com/selimozten/walgo/internal/deployer"
-	"github.com/selimozten/walgo/internal/walrus"
+	"github.com/ganbitlabs/walgo/internal/deployer"
+	"github.com/ganbitlabs/walgo/internal/walrus"
 )
 
 // Adapter implements deployer.WalrusDeployer via the site-builder CLI.

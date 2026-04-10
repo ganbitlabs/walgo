@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/selimozten/walgo/internal/config"
-	"github.com/selimozten/walgo/internal/deployer"
-	sb "github.com/selimozten/walgo/internal/deployer/sitebuilder"
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/deployer"
+	sb "github.com/ganbitlabs/walgo/internal/deployer/sitebuilder"
+	"github.com/ganbitlabs/walgo/internal/ui"
 
 	"github.com/spf13/cobra"
 )

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/selimozten/walgo/internal/ai"
+	"github.com/ganbitlabs/walgo/internal/ai"
 )
 
 // =============================================================================

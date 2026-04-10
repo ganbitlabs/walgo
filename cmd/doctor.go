@@ -8,10 +8,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/selimozten/walgo/internal/deps"
-	"github.com/selimozten/walgo/internal/sui"
-	"github.com/selimozten/walgo/internal/ui"
-	"github.com/selimozten/walgo/internal/version"
+	"github.com/ganbitlabs/walgo/internal/deps"
+	"github.com/ganbitlabs/walgo/internal/sui"
+	"github.com/ganbitlabs/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/version"
 	"gopkg.in/yaml.v3"
 
 	"github.com/spf13/cobra"

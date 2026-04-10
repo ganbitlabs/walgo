@@ -8,7 +8,7 @@ Complete documentation for Walgo, the official CLI tool for deploying static sit
 
 ```bash
 # Install
-curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 
 # Create and deploy
 walgo quickstart my-blog
@@ -209,8 +209,8 @@ walgo doctor              # Diagnose environment issues
 
 ### Community
 
-- **GitHub Issues:** [Report bugs](https://github.com/selimozten/walgo/issues)
-- **GitHub Discussions:** [Ask questions](https://github.com/selimozten/walgo/discussions)
+- **GitHub Issues:** [Report bugs](https://github.com/ganbitlabs/walgo/issues)
+- **GitHub Discussions:** [Ask questions](https://github.com/ganbitlabs/walgo/discussions)
 - **Feedback Form:** [Submit feedback](https://tally.so/r/447YBO)
 
 ### External Resources

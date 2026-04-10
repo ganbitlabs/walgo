@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selimozten/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/config"
 )
 
 // ImportStats tracks statistics for the Obsidian vault import operation.

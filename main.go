@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/selimozten/walgo/cmd"
+	"github.com/ganbitlabs/walgo/cmd"
 )
 
 func main() {

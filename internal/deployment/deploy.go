@@ -7,15 +7,15 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/selimozten/walgo/internal/cache"
-	"github.com/selimozten/walgo/internal/compress"
-	"github.com/selimozten/walgo/internal/config"
-	"github.com/selimozten/walgo/internal/deployer"
-	sb "github.com/selimozten/walgo/internal/deployer/sitebuilder"
-	"github.com/selimozten/walgo/internal/projects"
-	"github.com/selimozten/walgo/internal/sui"
-	"github.com/selimozten/walgo/internal/ui"
-	"github.com/selimozten/walgo/internal/walrus"
+	"github.com/ganbitlabs/walgo/internal/cache"
+	"github.com/ganbitlabs/walgo/internal/compress"
+	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/deployer"
+	sb "github.com/ganbitlabs/walgo/internal/deployer/sitebuilder"
+	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/sui"
+	"github.com/ganbitlabs/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/walrus"
 )
 
 // DeploymentOptions contains all options for deployment

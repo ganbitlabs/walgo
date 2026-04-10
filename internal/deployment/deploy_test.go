@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/selimozten/walgo/internal/compress"
-	"github.com/selimozten/walgo/internal/config"
-	"github.com/selimozten/walgo/internal/deployer"
-	"github.com/selimozten/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/compress"
+	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/deployer"
+	"github.com/ganbitlabs/walgo/internal/projects"
 )
 
 // MockDeployer is a mock implementation of deployer.WalrusDeployer

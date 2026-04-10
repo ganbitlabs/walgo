@@ -45,12 +45,12 @@ walgo domain myblog  # Get step-by-step SuiNS setup instructions
 
 ### Quick Install (Recommended)
 ```bash
-go install github.com/selimozten/walgo@latest
+go install github.com/ganbitlabs/walgo@latest
 ```
 
 ### From Source
 ```bash
-git clone https://github.com/selimozten/walgo.git
+git clone https://github.com/ganbitlabs/walgo.git
 cd walgo
 go build -o walgo main.go
 ```
@@ -128,10 +128,10 @@ Walgo is built with:
 
 ## 🔗 Quick Links
 
-- **Documentation**: [README.md](https://github.com/selimozten/walgo/blob/main/README.md)
-- **Examples**: [examples/](https://github.com/selimozten/walgo/tree/main/examples)
-- **Contributing**: [docs/CONTRIBUTING.md](https://github.com/selimozten/walgo/blob/main/docs/CONTRIBUTING.md)
-- **Issue Tracker**: [GitHub Issues](https://github.com/selimozten/walgo/issues)
+- **Documentation**: [README.md](https://github.com/ganbitlabs/walgo/blob/main/README.md)
+- **Examples**: [examples/](https://github.com/ganbitlabs/walgo/tree/main/examples)
+- **Contributing**: [docs/CONTRIBUTING.md](https://github.com/ganbitlabs/walgo/blob/main/docs/CONTRIBUTING.md)
+- **Issue Tracker**: [GitHub Issues](https://github.com/ganbitlabs/walgo/issues)
 
 ## 🏷️ Technical Details
 
@@ -172,7 +172,7 @@ Special thanks to:
 **Ready to build on the decentralized web?** 
 
 ```bash
-go install github.com/selimozten/walgo@latest
+go install github.com/ganbitlabs/walgo@latest
 walgo --help
 ```
 

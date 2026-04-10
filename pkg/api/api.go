@@ -12,20 +12,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selimozten/walgo/internal/ai"
-	"github.com/selimozten/walgo/internal/compress"
-	"github.com/selimozten/walgo/internal/config"
-	"github.com/selimozten/walgo/internal/deployer"
-	sb "github.com/selimozten/walgo/internal/deployer/sitebuilder"
-	"github.com/selimozten/walgo/internal/deployment"
-	"github.com/selimozten/walgo/internal/deps"
-	"github.com/selimozten/walgo/internal/hugo"
-	"github.com/selimozten/walgo/internal/obsidian"
-	"github.com/selimozten/walgo/internal/projects"
-	"github.com/selimozten/walgo/internal/sui"
-	"github.com/selimozten/walgo/internal/utils"
-	"github.com/selimozten/walgo/internal/version"
-	"github.com/selimozten/walgo/internal/walrus"
+	"github.com/ganbitlabs/walgo/internal/ai"
+	"github.com/ganbitlabs/walgo/internal/compress"
+	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/deployer"
+	sb "github.com/ganbitlabs/walgo/internal/deployer/sitebuilder"
+	"github.com/ganbitlabs/walgo/internal/deployment"
+	"github.com/ganbitlabs/walgo/internal/deps"
+	"github.com/ganbitlabs/walgo/internal/hugo"
+	"github.com/ganbitlabs/walgo/internal/obsidian"
+	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/sui"
+	"github.com/ganbitlabs/walgo/internal/utils"
+	"github.com/ganbitlabs/walgo/internal/version"
+	"github.com/ganbitlabs/walgo/internal/walrus"
 	"github.com/spf13/viper"
 )
 
@@ -575,7 +575,7 @@ type CheckUpdatesResult struct {
 
 // CheckUpdates checks for available updates
 func CheckUpdates() CheckUpdatesResult {
-	const githubReleasesAPI = "https://api.github.com/repos/selimozten/walgo/releases/latest"
+	const githubReleasesAPI = "https://api.github.com/repos/ganbitlabs/walgo/releases/latest"
 
 	version := GetVersion()
 
@@ -841,7 +841,7 @@ func QuickStart(params QuickStartParams) QuickStartResult {
 			"4. **Join the Community**: Connect with other Walrus builders\n\n" +
 			"## Resources\n\n" +
 			"- **Walrus Documentation**: [docs.walrus.site](https://docs.walrus.site)\n" +
-			"- **Walgo CLI**: [github.com/selimozten/walgo](https://github.com/selimozten/walgo)\n" +
+			"- **Walgo CLI**: [github.com/ganbitlabs/walgo](https://github.com/ganbitlabs/walgo)\n" +
 			"- **Hugo Docs**: [gohugo.io/documentation](https://gohugo.io/documentation)\n" +
 			"- **Sui Network**: [sui.io](https://sui.io)\n\n" +
 			"---\n\n" +

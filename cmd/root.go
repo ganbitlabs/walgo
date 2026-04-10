@@ -50,7 +50,7 @@ Alternative deployment methods:
   walgo deploy-http   # HTTP deployment (no wallet, testnet only)
   walgo deploy        # Direct on-chain deployment (advanced)
 
-Docs: https://github.com/selimozten/walgo`,
+Docs: https://github.com/ganbitlabs/walgo`,
 }
 
 // Execute runs the root command and returns any error encountered.

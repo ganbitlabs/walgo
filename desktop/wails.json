@@ -7,8 +7,8 @@
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
-    "name": "Selim Özten",
-    "email": "selim.ozten@xprclub.com"
+    "name": "Walgo Team",
+    "email": "info@ganbitera.io"
   },
   "info": {
     "companyName": "Walgo Team",

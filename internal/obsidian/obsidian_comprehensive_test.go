@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/selimozten/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/config"
 )
 
 func TestImportVault(t *testing.T) {

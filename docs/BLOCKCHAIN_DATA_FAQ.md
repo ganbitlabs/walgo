@@ -281,7 +281,7 @@ After reinstalling:
 
 ```bash
 # Reinstall
-curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 
 # Everything still works!
 walgo status
@@ -313,7 +313,7 @@ sui keytool import <private-key> ed25519
 
 ```bash
 # 1. Reinstall tools
-curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 
 # 2. Restore wallet with seed phrase
 sui keytool import <seed-phrase> ed25519
@@ -352,7 +352,7 @@ walgo uninstall --all --force
 
 # 4. Visit the URL - still works!
 # 5. Reinstall walgo
-curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 
 # 6. Everything is back, site still live!
 ```

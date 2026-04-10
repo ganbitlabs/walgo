@@ -3,7 +3,7 @@ module walgo-desktop
 go 1.24.0
 
 require (
-	github.com/selimozten/walgo v0.0.0-00010101000000-000000000000
+	github.com/ganbitlabs/walgo v0.0.0-00010101000000-000000000000
 	github.com/wailsapp/wails/v2 v2.11.0
 )
 
@@ -58,4 +58,4 @@ require (
 	modernc.org/sqlite v1.40.0 // indirect
 )
 
-replace github.com/selimozten/walgo => ../
+replace github.com/ganbitlabs/walgo => ../

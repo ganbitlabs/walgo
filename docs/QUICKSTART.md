@@ -99,7 +99,7 @@ Next steps:
   walgo serve              # Preview locally
   hugo new posts/my-post.md # Create new content
 
-Learn more: https://github.com/selimozten/walgo/tree/main/docs
+Learn more: https://github.com/ganbitlabs/walgo/tree/main/docs
 ```
 
 ### With Custom Theme
@@ -507,7 +507,7 @@ walgo deploy
 
 ## Learn More
 
-- **Full Documentation:** [docs/](https://github.com/selimozten/walgo/tree/main/docs)
+- **Full Documentation:** [docs/](https://github.com/ganbitlabs/walgo/tree/main/docs)
 - **Commands Reference:** [COMMANDS.md](COMMANDS.md#walgo-quickstart)
 - **Getting Started Guide:** [GETTING_STARTED.md](GETTING_STARTED.md)
 - **Deployment Guide:** [DEPLOYMENT.md](DEPLOYMENT.md)
@@ -516,7 +516,7 @@ walgo deploy
 
 ```bash
 # Install Walgo (if you haven't)
-curl -fsSL https://raw.githubusercontent.com/selimozten/walgo/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | bash
 
 # Create your site
 walgo quickstart my-blog
@@ -526,4 +526,4 @@ walgo quickstart my-blog
 
 ---
 
-**Need help?** Check the [Troubleshooting Guide](TROUBLESHOOTING.md) or [open an issue](https://github.com/selimozten/walgo/issues).
+**Need help?** Check the [Troubleshooting Guide](TROUBLESHOOTING.md) or [open an issue](https://github.com/ganbitlabs/walgo/issues).

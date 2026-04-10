@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selimozten/walgo/internal/config"
-	"github.com/selimozten/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
 // LinkStyle determines how wikilinks are converted
