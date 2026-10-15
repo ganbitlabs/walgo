@@ -1,0 +1,24 @@
+review_strategy: crosscheck
+severity_threshold: important
+
+knowledge_paths:
+  - AGENTS.md
+  - docs/CONTRIBUTING.md
+  - docs/ARCHITECTURE.md
+  - docs/DEVELOPMENT.md
+  - desktop/ARCHITECTURE.md
+
+ignore_paths:
+  - go.sum
+  - desktop/go.sum
+  - desktop/frontend/package-lock.json
+  - desktop/frontend/package.json.md5
+  - desktop/frontend/wailsjs/**
+  - desktop/frontend/dist/**
+
+instructions:
+  - Treat changes to Walrus/Sui deploy paths (internal/walrus, internal/deployer, internal/sui, cmd/deploy*.go, cmd/launch.go, cmd/domain.go) as high risk. They spend real WAL/SUI; check network selection (testnet vs mainnet), gas/epoch handling, and that failures surface instead of being swallowed.
+  - Flag any code that logs, prints, or includes in error messages a Sui private key, mnemonic, or AI provider API key (for example raw sui keytool output), and any loosening of permissions on credential files under ~/.walgo.
+  - CLI commands, flags, walgo.yaml keys, and pkg/api types used by the desktop app are a public interface. Flag renames, removals, or changed defaults that break existing users or scripts unless the PR documents a migration.
+  - Commands built for the external sui, walrus, and site-builder binaries must not interpolate unvalidated user input into a shell; flag shell-string execution or missing argument validation.
+  - "This repository is public: flag anything that leaks secrets or private infrastructure details."
