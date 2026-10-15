@@ -15,4 +15,5 @@ concurrency:
 jobs:
   elek:
     uses: ganbitlabs/shared-workflows/.github/workflows/elek.yml@v1
-    secrets: inherit
+    secrets:
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
