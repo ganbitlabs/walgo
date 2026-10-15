@@ -1,7 +1,6 @@
 name: elek
 on:
   pull_request: { types: [opened, synchronize, reopened] }
-  issue_comment: { types: [created] }
 
 permissions:
   contents: read
@@ -9,7 +8,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: elek-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+  group: elek-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
