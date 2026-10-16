@@ -202,6 +202,23 @@ func TestBuildSiteStaticSiteSkipsHugo(t *testing.T) {
 	assertFile(t, filepath.Join(dist, "ws-resources.json"), `"/index.html"`)
 }
 
+func TestBuildSiteStaticSiteWithGenericConfigFile(t *testing.T) {
+	isolateHome(t)
+	site := t.TempDir()
+	writeFiles(t, site, map[string]string{
+		"walgo.yaml":      "hugo:\n  publishDir: dist\n",
+		"config.json":     `{"apiUrl": "https://api.example.com", "featureFlags": {"beta": true}}`,
+		"config.yaml":     "port: 8080\n",
+		"dist/index.html": "<p>app</p>",
+	})
+
+	if err := BuildSite(site); err != nil {
+		t.Fatalf("BuildSite: %v", err)
+	}
+	assertFile(t, filepath.Join(site, "dist", "index.html"), "<p>app</p>")
+	assertMissing(t, filepath.Join(site, "dist", "sitemap.xml"))
+}
+
 func TestBuildSiteStaticSiteWithoutPublishDir(t *testing.T) {
 	isolateHome(t)
 	site := t.TempDir()

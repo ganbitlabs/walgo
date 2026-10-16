@@ -16,14 +16,17 @@ func TestLoadConfigFromPublishDir(t *testing.T) {
 		{"no Hugo config", map[string]string{}, "public", false},
 		{"walgo.yaml wins", map[string]string{"walgo.yaml": "hugo:\n  publishDir: dist\n", "hugo.toml": "publishDir = \"x\""}, "dist", true},
 		{"hugo.toml", map[string]string{"hugo.toml": "publishDir = \"out\""}, "out", true},
-		{"config.yaml", map[string]string{"config.yaml": "publishDir: out"}, "out", true},
+		{"config.yaml", map[string]string{"config.yaml": "baseURL: https://e.com/\npublishDir: out"}, "out", true},
 		{"hugo.json lowercase key", map[string]string{"hugo.json": `{"publishdir": "out"}`}, "out", true},
-		{"config/_default", map[string]string{"config/_default/config.toml": "publishDir = \"out\""}, "out", true},
+		{"config/_default", map[string]string{"config/_default/config.toml": "baseURL = \"https://e.com/\"\npublishDir = \"out\""}, "out", true},
 		{"production overrides _default", map[string]string{
 			"config/_default/hugo.toml":   "publishDir = \"default\"",
 			"config/production/hugo.toml": "publishDir = \"prod\"",
 		}, "prod", true},
 		{"Hugo config without publishDir", map[string]string{"hugo.yml": "title: x"}, "public", true},
+		{"generic config.json is not Hugo", map[string]string{"config.json": `{"publishDir": "x", "apiUrl": "y"}`}, "public", false},
+		{"config.toml with a Hugo key", map[string]string{"config.toml": "baseURL = \"https://e.com/\""}, "public", true},
+		{"config.yaml beside a layouts dir", map[string]string{"config.yaml": "title: x", "layouts/index.html": ""}, "public", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
