@@ -62,3 +62,42 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: latest
+
+  desktop:
+    name: Desktop
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: desktop/go.mod
+          cache-dependency-path: desktop/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/frontend/package-lock.json
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+
+      - name: Build frontend
+        working-directory: desktop/frontend
+        run: |
+          npm ci
+          npm run build
+          npm test --if-present
+
+      - name: Vet and test
+        working-directory: desktop
+        run: |
+          go vet ./...
+          go test ./...

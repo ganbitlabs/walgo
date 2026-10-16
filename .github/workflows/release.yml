@@ -64,7 +64,23 @@ jobs:
           cache-dependency-path: './desktop/frontend/package-lock.json'
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        shell: bash
+        run: |
+          # Pin the CLI to the wails version desktop/go.mod builds against.
+          WAILS_VERSION=$(cd desktop && go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)
+          go install "github.com/wailsapp/wails/v2/cmd/wails@${WAILS_VERSION}"
+
+      - name: Stamp product version
+        shell: bash
+        run: |
+          # Feeds Info.plist and the Windows file version.
+          PRODUCT_VERSION="${GITHUB_REF#refs/tags/v}" node -e '
+            const fs = require("fs");
+            const p = "desktop/wails.json";
+            const c = JSON.parse(fs.readFileSync(p, "utf8"));
+            c.info.productVersion = process.env.PRODUCT_VERSION;
+            fs.writeFileSync(p, JSON.stringify(c, null, 2) + "\n");
+          '
 
       - name: Build Desktop App
         working-directory: ./desktop
@@ -85,10 +101,13 @@ jobs:
           # Get version from tag (remove 'v' prefix)
           VERSION=${GITHUB_REF#refs/tags/v}
 
-          # Ad-hoc sign the app to prevent "damaged" Gatekeeper error
+          # Ad-hoc sign so the bundle has a valid signature (required on Apple Silicon).
+          # This does not satisfy Gatekeeper for downloaded apps: users must clear the
+          # quarantine flag (xattr -dr com.apple.quarantine) or we need Developer ID
+          # signing plus notarization.
           codesign --force --deep --sign - "Walgo.app"
 
-          # Remove quarantine attributes
+          # Strip extended attributes from the bundle before packaging
           xattr -cr "Walgo.app"
 
           TAR_NAME="walgo-desktop_${VERSION}_darwin_amd64.tar.gz"
@@ -124,7 +143,23 @@ jobs:
           cache-dependency-path: './desktop/frontend/package-lock.json'
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        shell: bash
+        run: |
+          # Pin the CLI to the wails version desktop/go.mod builds against.
+          WAILS_VERSION=$(cd desktop && go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)
+          go install "github.com/wailsapp/wails/v2/cmd/wails@${WAILS_VERSION}"
+
+      - name: Stamp product version
+        shell: bash
+        run: |
+          # Feeds Info.plist and the Windows file version.
+          PRODUCT_VERSION="${GITHUB_REF#refs/tags/v}" node -e '
+            const fs = require("fs");
+            const p = "desktop/wails.json";
+            const c = JSON.parse(fs.readFileSync(p, "utf8"));
+            c.info.productVersion = process.env.PRODUCT_VERSION;
+            fs.writeFileSync(p, JSON.stringify(c, null, 2) + "\n");
+          '
 
       - name: Build Desktop App
         working-directory: ./desktop
@@ -145,10 +180,13 @@ jobs:
           # Get version from tag (remove 'v' prefix)
           VERSION=${GITHUB_REF#refs/tags/v}
 
-          # Ad-hoc sign the app to prevent "damaged" Gatekeeper error
+          # Ad-hoc sign so the bundle has a valid signature (required on Apple Silicon).
+          # This does not satisfy Gatekeeper for downloaded apps: users must clear the
+          # quarantine flag (xattr -dr com.apple.quarantine) or we need Developer ID
+          # signing plus notarization.
           codesign --force --deep --sign - "Walgo.app"
 
-          # Remove quarantine attributes
+          # Strip extended attributes from the bundle before packaging
           xattr -cr "Walgo.app"
 
           TAR_NAME="walgo-desktop_${VERSION}_darwin_arm64.tar.gz"
@@ -184,7 +222,23 @@ jobs:
           cache-dependency-path: './desktop/frontend/package-lock.json'
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        shell: bash
+        run: |
+          # Pin the CLI to the wails version desktop/go.mod builds against.
+          WAILS_VERSION=$(cd desktop && go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)
+          go install "github.com/wailsapp/wails/v2/cmd/wails@${WAILS_VERSION}"
+
+      - name: Stamp product version
+        shell: bash
+        run: |
+          # Feeds Info.plist and the Windows file version.
+          PRODUCT_VERSION="${GITHUB_REF#refs/tags/v}" node -e '
+            const fs = require("fs");
+            const p = "desktop/wails.json";
+            const c = JSON.parse(fs.readFileSync(p, "utf8"));
+            c.info.productVersion = process.env.PRODUCT_VERSION;
+            fs.writeFileSync(p, JSON.stringify(c, null, 2) + "\n");
+          '
 
       - name: Build Desktop App
         working-directory: ./desktop
@@ -237,7 +291,23 @@ jobs:
           cache-dependency-path: './desktop/frontend/package-lock.json'
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        shell: bash
+        run: |
+          # Pin the CLI to the wails version desktop/go.mod builds against.
+          WAILS_VERSION=$(cd desktop && go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)
+          go install "github.com/wailsapp/wails/v2/cmd/wails@${WAILS_VERSION}"
+
+      - name: Stamp product version
+        shell: bash
+        run: |
+          # Feeds Info.plist and the Windows file version.
+          PRODUCT_VERSION="${GITHUB_REF#refs/tags/v}" node -e '
+            const fs = require("fs");
+            const p = "desktop/wails.json";
+            const c = JSON.parse(fs.readFileSync(p, "utf8"));
+            c.info.productVersion = process.env.PRODUCT_VERSION;
+            fs.writeFileSync(p, JSON.stringify(c, null, 2) + "\n");
+          '
 
       - name: Build Desktop App
         working-directory: ./desktop
@@ -295,7 +365,23 @@ jobs:
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        shell: bash
+        run: |
+          # Pin the CLI to the wails version desktop/go.mod builds against.
+          WAILS_VERSION=$(cd desktop && go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)
+          go install "github.com/wailsapp/wails/v2/cmd/wails@${WAILS_VERSION}"
+
+      - name: Stamp product version
+        shell: bash
+        run: |
+          # Feeds Info.plist and the Windows file version.
+          PRODUCT_VERSION="${GITHUB_REF#refs/tags/v}" node -e '
+            const fs = require("fs");
+            const p = "desktop/wails.json";
+            const c = JSON.parse(fs.readFileSync(p, "utf8"));
+            c.info.productVersion = process.env.PRODUCT_VERSION;
+            fs.writeFileSync(p, JSON.stringify(c, null, 2) + "\n");
+          '
 
       - name: Build Desktop App
         working-directory: ./desktop
