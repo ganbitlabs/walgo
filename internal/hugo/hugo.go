@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -763,18 +764,98 @@ func CreateTheme(sitePath, themeName string) error {
 	return nil
 }
 
+// parseGitHubRepo validates a GitHub repository URL and returns its owner and
+// repo name. Only https://github.com/owner/repo (optionally with a trailing
+// slash and/or .git suffix) is accepted; queries, fragments, userinfo, percent
+// escapes and extra path segments are rejected. Callers must derive every
+// filesystem path and download URL from the returned parts, never from raw.
+func parseGitHubRepo(raw string) (owner, repo string, err error) {
+	if strings.ContainsAny(raw, "?#%\\") {
+		return "", "", fmt.Errorf("GitHub URL must not contain query, fragment, escapes or backslashes")
+	}
+	trimmed := strings.TrimSuffix(raw, "/")
+	trimmed = strings.TrimSuffix(trimmed, ".git")
+	trimmed = strings.TrimSuffix(trimmed, "/")
+	u, err := url.Parse(trimmed)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid GitHub URL: %w", err)
+	}
+	host := strings.ToLower(u.Hostname())
+	if u.Scheme != "https" || (host != "github.com" && host != "www.github.com") ||
+		u.User != nil || u.Port() != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
+		return "", "", fmt.Errorf("only https://github.com URLs are supported")
+	}
+	segs := strings.Split(strings.TrimPrefix(u.Path, "/"), "/")
+	if len(segs) != 2 {
+		return "", "", fmt.Errorf("GitHub URL must be of the form https://github.com/owner/repo")
+	}
+	for _, seg := range segs {
+		if !isSafeDirName(seg) {
+			return "", "", fmt.Errorf("invalid GitHub URL path segment %q", seg)
+		}
+	}
+	return segs[0], segs[1], nil
+}
+
+// isSafeDirName reports whether name is a plain single path element made of
+// letters, digits, '.', '_' and '-' (and not "." or "..").
+func isSafeDirName(name string) bool {
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '.', r == '_', r == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// themeChildPath returns filepath.Join(themesDir, name) after checking that it
+// is a direct child of themesDir. Run it before any extract or RemoveAll.
+func themeChildPath(themesDir, name string) (string, error) {
+	if !isSafeDirName(name) {
+		return "", fmt.Errorf("invalid theme directory name %q", name)
+	}
+	target := filepath.Join(themesDir, name)
+	rel, err := filepath.Rel(themesDir, target)
+	if err != nil || rel != name || strings.ContainsRune(rel, filepath.Separator) {
+		return "", fmt.Errorf("theme path %q is not a direct child of %s", name, themesDir)
+	}
+	return target, nil
+}
+
+// safeExtractPath joins an archive entry name onto dest and rejects entries
+// whose cleaned target escapes dest.
+func safeExtractPath(dest, name string) (string, error) {
+	target := filepath.Join(dest, filepath.FromSlash(name))
+	rel, err := filepath.Rel(dest, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("entry %q escapes theme directory", name)
+	}
+	return target, nil
+}
+
 // downloadThemeZip downloads a theme as a ZIP archive from GitHub and extracts it
 func downloadThemeZip(themeName, gitURL, themePath string) error {
 	// Convert git URL to ZIP download URL
 	// Example: https://github.com/theNewDynamic/gohugo-theme-ananke.git
 	//       -> https://github.com/theNewDynamic/gohugo-theme-ananke/archive/refs/heads/master.zip
-	repoURL := strings.TrimSuffix(gitURL, ".git")
+	owner, repo, err := parseGitHubRepo(gitURL)
+	if err != nil {
+		return err
+	}
+	repoURL := "https://github.com/" + owner + "/" + repo
+	if !isSafeDirName(themeName) || filepath.Base(themePath) != themeName {
+		return fmt.Errorf("invalid theme target %q", themePath)
+	}
 
 	// Try main branch first, then master (GitHub default branch varies)
 	branches := []string{"main", "master"}
 	var zipURL string
 	var resp *http.Response
-	var err error
 
 	downloadTimeout := 2 * time.Minute
 	if envTimeout := os.Getenv("WALGO_THEME_DOWNLOAD_TIMEOUT"); envTimeout != "" {
@@ -835,76 +916,9 @@ func downloadThemeZip(themeName, gitURL, themePath string) error {
 
 	// Extract ZIP archive
 	fmt.Printf("Extracting theme to %s...\n", themePath)
-	r, err := zip.OpenReader(tmpName)
+	filesExtracted, err := extractThemeZip(tmpName, themePath)
 	if err != nil {
-		return fmt.Errorf("opening theme archive: %w", err)
-	}
-	defer r.Close()
-
-	// GitHub ZIP archives have a root directory named {repo}-{branch}
-	// We need to extract contents and strip this root directory
-	var rootDir string
-	filesExtracted := 0
-	for _, f := range r.File {
-		if rootDir == "" {
-			// First entry should be the root directory
-			parts := strings.Split(f.Name, "/")
-			if len(parts) > 0 {
-				rootDir = parts[0] + "/"
-				fmt.Printf("Detected archive root directory: %s\n", strings.TrimSuffix(rootDir, "/"))
-			}
-		}
-
-		// Skip the root directory itself
-		if f.Name == strings.TrimSuffix(rootDir, "/") || f.Name == rootDir {
-			continue
-		}
-
-		// Strip root directory from path
-		relativePath := strings.TrimPrefix(f.Name, rootDir)
-		if relativePath == "" {
-			continue
-		}
-
-		targetPath := filepath.Join(themePath, relativePath)
-
-		if f.FileInfo().IsDir() {
-			// Create directory
-			if err := os.MkdirAll(targetPath, f.Mode()); err != nil {
-				return fmt.Errorf("creating directory %s: %w", targetPath, err)
-			}
-		} else {
-			// Create parent directory if needed
-			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-				return fmt.Errorf("creating parent directory for %s: %w", targetPath, err)
-			}
-
-			// Extract file
-			rc, err := f.Open()
-			if err != nil {
-				return fmt.Errorf("opening file in archive: %w", err)
-			}
-
-			outFile, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
-			if err != nil {
-				rc.Close()
-				return fmt.Errorf("creating file %s: %w", targetPath, err)
-			}
-
-			if _, err := io.Copy(outFile, rc); err != nil {
-				outFile.Close()
-				rc.Close()
-				return fmt.Errorf("extracting file %s: %w", targetPath, err)
-			}
-
-			outFile.Close()
-			rc.Close()
-			filesExtracted++
-		}
-	}
-
-	if filesExtracted == 0 {
-		return fmt.Errorf("no files were extracted from theme archive - archive may be empty or corrupted")
+		return err
 	}
 
 	// Verify theme was installed correctly by checking for theme.toml or theme.yaml
@@ -934,6 +948,92 @@ func downloadThemeZip(themeName, gitURL, themePath string) error {
 	return nil
 }
 
+// extractThemeZip extracts a GitHub zip archive into themePath, stripping the
+// archive's root directory. Entries that escape themePath are rejected and
+// symlinks are skipped. It returns the number of files written.
+func extractThemeZip(zipPath, themePath string) (int, error) {
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return 0, fmt.Errorf("opening theme archive: %w", err)
+	}
+	defer r.Close()
+
+	// GitHub ZIP archives have a root directory named {repo}-{branch}
+	// We need to extract contents and strip this root directory
+	var rootDir string
+	filesExtracted := 0
+	for _, f := range r.File {
+		if rootDir == "" {
+			// First entry should be the root directory
+			parts := strings.Split(f.Name, "/")
+			if len(parts) > 0 {
+				rootDir = parts[0] + "/"
+				fmt.Printf("Detected archive root directory: %s\n", strings.TrimSuffix(rootDir, "/"))
+			}
+		}
+
+		// Never extract symlinks: they can point outside the theme directory
+		if f.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+
+		// Skip the root directory itself
+		if f.Name == strings.TrimSuffix(rootDir, "/") || f.Name == rootDir {
+			continue
+		}
+
+		// Strip root directory from path
+		relativePath := strings.TrimPrefix(f.Name, rootDir)
+		if relativePath == "" {
+			continue
+		}
+
+		targetPath, err := safeExtractPath(themePath, relativePath)
+		if err != nil {
+			return 0, fmt.Errorf("unsafe path in theme archive: %w", err)
+		}
+
+		if f.FileInfo().IsDir() {
+			// Create directory
+			if err := os.MkdirAll(targetPath, f.Mode()); err != nil {
+				return 0, fmt.Errorf("creating directory %s: %w", targetPath, err)
+			}
+		} else {
+			// Create parent directory if needed
+			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+				return 0, fmt.Errorf("creating parent directory for %s: %w", targetPath, err)
+			}
+
+			// Extract file
+			rc, err := f.Open()
+			if err != nil {
+				return 0, fmt.Errorf("opening file in archive: %w", err)
+			}
+
+			outFile, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+			if err != nil {
+				rc.Close()
+				return 0, fmt.Errorf("creating file %s: %w", targetPath, err)
+			}
+
+			if _, err := io.Copy(outFile, rc); err != nil {
+				outFile.Close()
+				rc.Close()
+				return 0, fmt.Errorf("extracting file %s: %w", targetPath, err)
+			}
+
+			outFile.Close()
+			rc.Close()
+			filesExtracted++
+		}
+	}
+
+	if filesExtracted == 0 {
+		return 0, fmt.Errorf("no files were extracted from theme archive - archive may be empty or corrupted")
+	}
+	return filesExtracted, nil
+}
+
 // InstallThemeFromURL installs a Hugo theme from a GitHub URL
 // If themes already exist, they are backed up first
 // After installation, it tries to build the site
@@ -944,24 +1044,18 @@ func InstallThemeFromURL(sitePath, githubURL string) (string, error) {
 		return "", fmt.Errorf("github URL is required")
 	}
 
-	// Clean URL - remove .git suffix and trailing slashes
-	githubURL = strings.TrimSuffix(githubURL, ".git")
-	githubURL = strings.TrimSuffix(githubURL, "/")
-
-	// Validate it's a GitHub URL
-	if !strings.Contains(githubURL, "github.com") {
-		return "", fmt.Errorf("only GitHub URLs are supported")
-	}
-
-	// Extract theme name from URL
+	// Validate it's a GitHub URL; everything below derives from the parsed parts
 	// Example: https://github.com/theNewDynamic/gohugo-theme-ananke -> gohugo-theme-ananke
-	parts := strings.Split(githubURL, "/")
-	if len(parts) < 2 {
-		return "", fmt.Errorf("invalid GitHub URL format")
+	owner, themeName, err := parseGitHubRepo(githubURL)
+	if err != nil {
+		return "", err
 	}
-	themeName := parts[len(parts)-1]
+	githubURL = "https://github.com/" + owner + "/" + themeName
 
 	themesDir := filepath.Join(sitePath, "themes")
+	if _, err := themeChildPath(themesDir, themeName); err != nil {
+		return "", err
+	}
 
 	// Create themes directory if it doesn't exist
 	if err := os.MkdirAll(themesDir, 0755); err != nil {
@@ -1030,7 +1124,10 @@ func InstallThemeFromURL(sitePath, githubURL string) (string, error) {
 
 		fmt.Printf("Restoring previous themes...\n")
 		// Remove new theme
-		newThemePath := filepath.Join(themesDir, themeName)
+		newThemePath, err := themeChildPath(themesDir, themeName)
+		if err != nil {
+			return err
+		}
 		os.RemoveAll(newThemePath)
 
 		// Restore old themes
@@ -1068,7 +1165,10 @@ func InstallThemeFromURL(sitePath, githubURL string) (string, error) {
 
 	// Download and install new theme
 	fmt.Printf("Installing theme: %s\n", themeName)
-	themePath := filepath.Join(themesDir, themeName)
+	themePath, err := themeChildPath(themesDir, themeName)
+	if err != nil {
+		return "", err
+	}
 
 	if err := downloadThemeZip(themeName, githubURL+".git", themePath); err != nil {
 		if restoreErr := restoreBackup(); restoreErr != nil {
