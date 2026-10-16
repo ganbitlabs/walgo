@@ -11,6 +11,7 @@ export function ArchiveProject(arg1:number):Promise<api.ArchiveProjectResult>;
 export function BuildSite(arg1:string):Promise<void>;
 
 export function CancelDeploy(arg1:string):Promise<boolean>;
+
 export function CheckDirectoryDepth(arg1:string):Promise<main.CheckDirectoryDepthResult>;
 
 export function CheckSetupDeps():Promise<api.SetupDepsResult>;
@@ -34,6 +35,8 @@ export function CreateFile(arg1:string,arg2:string):Promise<main.CreateFileResul
 export function DeleteFile(arg1:string):Promise<main.DeleteFileResult>;
 
 export function DeleteProject(arg1:api.DeleteProjectParams):Promise<api.DeleteProjectResult>;
+
+export function DetectEditors():Promise<Array<main.EditorInfo>>;
 
 export function EditProject(arg1:api.EditProjectParams):Promise<api.EditProjectResult>;
 
@@ -95,12 +98,6 @@ export function OpenInEditor(arg1:string,arg2:string):Promise<void>;
 
 export function OpenInFinder(arg1:string):Promise<void>;
 
-export function SelectFileToUpload(arg1:string):Promise<string>;
-
-export function UploadFile(arg1:string,arg2:string):Promise<main.UploadFileResult>;
-
-export function DetectEditors():Promise<Array<main.EditorInfo>>;
-
 export function ProjectNameExists(arg1:string):Promise<boolean>;
 
 export function QuickStart(arg1:api.QuickStartParams):Promise<api.QuickStartResult>;
@@ -112,6 +109,8 @@ export function RemoveAICredentials(arg1:string):Promise<void>;
 export function RenameFile(arg1:string,arg2:string):Promise<main.RenameFileResult>;
 
 export function SelectDirectory(arg1:string):Promise<string>;
+
+export function SelectFileToUpload(arg1:string):Promise<string>;
 
 export function Serve(arg1:api.ServeParams):Promise<api.ServeResult>;
 
@@ -130,5 +129,7 @@ export function UpdateContent(arg1:api.UpdateContentParams):Promise<api.UpdateCo
 export function UpdateSite(arg1:api.UpdateSiteParams):Promise<api.UpdateSiteResult>;
 
 export function UpdateTools(arg1:api.UpdateToolsParams):Promise<api.UpdateToolsResult>;
+
+export function UploadFile(arg1:string,arg2:string):Promise<main.UploadFileResult>;
 
 export function WriteFile(arg1:string,arg2:string):Promise<main.WriteFileResult>;

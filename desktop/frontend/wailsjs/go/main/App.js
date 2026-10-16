@@ -66,6 +66,10 @@ export function DeleteProject(arg1) {
   return window['go']['main']['App']['DeleteProject'](arg1);
 }
 
+export function DetectEditors() {
+  return window['go']['main']['App']['DetectEditors']();
+}
+
 export function EditProject(arg1) {
   return window['go']['main']['App']['EditProject'](arg1);
 }
@@ -186,18 +190,6 @@ export function OpenInFinder(arg1) {
   return window['go']['main']['App']['OpenInFinder'](arg1);
 }
 
-export function SelectFileToUpload(arg1) {
-  return window['go']['main']['App']['SelectFileToUpload'](arg1);
-}
-
-export function UploadFile(arg1, arg2) {
-  return window['go']['main']['App']['UploadFile'](arg1, arg2);
-}
-
-export function DetectEditors() {
-  return window['go']['main']['App']['DetectEditors']();
-}
-
 export function ProjectNameExists(arg1) {
   return window['go']['main']['App']['ProjectNameExists'](arg1);
 }
@@ -220,6 +212,10 @@ export function RenameFile(arg1, arg2) {
 
 export function SelectDirectory(arg1) {
   return window['go']['main']['App']['SelectDirectory'](arg1);
+}
+
+export function SelectFileToUpload(arg1) {
+  return window['go']['main']['App']['SelectFileToUpload'](arg1);
 }
 
 export function Serve(arg1) {
@@ -256,6 +252,10 @@ export function UpdateSite(arg1) {
 
 export function UpdateTools(arg1) {
   return window['go']['main']['App']['UpdateTools'](arg1);
+}
+
+export function UploadFile(arg1, arg2) {
+  return window['go']['main']['App']['UploadFile'](arg1, arg2);
 }
 
 export function WriteFile(arg1, arg2) {
