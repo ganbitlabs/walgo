@@ -6,6 +6,7 @@ import (
 
 	"github.com/ganbitlabs/walgo/internal/config"
 	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/sui"
 	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -112,13 +113,13 @@ func siteNetwork(sitePath, configuredNetwork string) (string, error) {
 	if pm, err := projects.NewManager(); err == nil {
 		defer pm.Close()
 		if proj, err := pm.GetProjectBySitePath(sitePath); err == nil && proj != nil && proj.Network != "" {
-			return normalizeNetwork(proj.Network), nil
+			return sui.NormalizeNetwork(proj.Network), nil
 		}
 	}
-	if configured := normalizeNetwork(configuredNetwork); configured != "" {
+	if configured := sui.NormalizeNetwork(configuredNetwork); configured != "" {
 		return configured, nil
 	}
-	return resolveDeployNetwork("")
+	return sui.ResolveDeployNetwork("")
 }
 
 func init() {

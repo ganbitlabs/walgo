@@ -12,6 +12,7 @@ import (
 	sb "github.com/ganbitlabs/walgo/internal/deployer/sitebuilder"
 	"github.com/ganbitlabs/walgo/internal/hugo"
 	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/sui"
 	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/ganbitlabs/walgo/internal/version"
 	"github.com/ganbitlabs/walgo/internal/walrus"
@@ -50,7 +51,7 @@ func updateProjectByRef(proj *projects.Project, epochs int) error {
 	// Same guards as `walgo update`: the project's recorded network must be the
 	// one site-builder will actually use, and the toolchain must be able to talk
 	// to Sui at all.
-	network, err := resolveDeployNetwork(proj.Network)
+	network, err := sui.ResolveDeployNetwork(proj.Network)
 	if err != nil {
 		if proj.Network == "" {
 			return err

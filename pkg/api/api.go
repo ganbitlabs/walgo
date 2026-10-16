@@ -16,9 +16,7 @@ import (
 	"github.com/ganbitlabs/walgo/internal/buildinfo"
 	"github.com/ganbitlabs/walgo/internal/compress"
 	"github.com/ganbitlabs/walgo/internal/config"
-	"github.com/ganbitlabs/walgo/internal/deployer"
 	sb "github.com/ganbitlabs/walgo/internal/deployer/sitebuilder"
-	"github.com/ganbitlabs/walgo/internal/deployment"
 	"github.com/ganbitlabs/walgo/internal/deps"
 	"github.com/ganbitlabs/walgo/internal/hugo"
 	"github.com/ganbitlabs/walgo/internal/obsidian"
@@ -26,8 +24,6 @@ import (
 	"github.com/ganbitlabs/walgo/internal/sui"
 	"github.com/ganbitlabs/walgo/internal/utils"
 	"github.com/ganbitlabs/walgo/internal/version"
-	"github.com/ganbitlabs/walgo/internal/walrus"
-	"github.com/spf13/viper"
 )
 
 // =============================================================================
@@ -65,6 +61,12 @@ func GetDefaultSitesDir() (string, error) {
 	}
 
 	return sitesDir, nil
+}
+
+// LookPath finds an executable in PATH or in the directories walgo's
+// installers use, which a GUI app's PATH can miss.
+func LookPath(name string) (string, error) {
+	return deps.LookPath(name)
 }
 
 // safeCleanupDir removes a directory safely by resolving symlinks and verifying
@@ -373,16 +375,11 @@ func InitSite(parentDir string, siteName string) InitSiteResult {
 
 // BuildSite builds the Hugo site at the given path
 func BuildSite(sitePath string) error {
-	// Change to site directory to ensure Hugo finds everything
-	if err := os.Chdir(sitePath); err != nil {
-		return fmt.Errorf("failed to change directory: %w", err)
+	if sitePath == "" {
+		return fmt.Errorf("site path is required")
 	}
-
-	// Load config to ensure it exists and is valid
-	viper.Reset()
-	viper.SetConfigFile(filepath.Join(sitePath, "walgo.yaml"))
-	if err := viper.ReadInConfig(); err != nil {
-		return fmt.Errorf("failed to read walgo.yaml: %w", err)
+	if _, err := config.LoadConfigFrom(sitePath); err != nil {
+		return err
 	}
 
 	if err := hugo.BuildSite(sitePath); err != nil {
@@ -486,11 +483,7 @@ type NewContentResult struct {
 func NewContent(params NewContentParams) NewContentResult {
 	sitePath := params.SitePath
 	if sitePath == "" {
-		var err error
-		sitePath, err = os.Getwd()
-		if err != nil {
-			return NewContentResult{Error: fmt.Sprintf("cannot determine current directory: %v", err)}
-		}
+		return NewContentResult{Error: "site path is required"}
 	}
 
 	// Detect available content types
@@ -1241,8 +1234,9 @@ type UpdateSiteResult struct {
 	Logs     []string `json:"logs,omitempty"`
 }
 
-// UpdateSite updates an existing project's site on Walrus (re-deploy)
-func UpdateSite(params UpdateSiteParams) UpdateSiteResult {
+// UpdateSite re-deploys an existing project's site to the object it already
+// owns on Walrus. ctx cancels the deployment.
+func UpdateSite(ctx context.Context, params UpdateSiteParams) UpdateSiteResult {
 	result := UpdateSiteResult{
 		Logs: []string{},
 	}
@@ -1252,16 +1246,17 @@ func UpdateSite(params UpdateSiteParams) UpdateSiteResult {
 		result.Error = fmt.Sprintf("failed to create project manager: %v", err)
 		return result
 	}
-	defer pm.Close()
-
-	// Get project
 	proj, err := pm.GetProject(params.ProjectID)
+	_ = pm.Close()
 	if err != nil || proj == nil {
 		result.Error = "project not found"
 		return result
 	}
+	if proj.ObjectID == "" {
+		result.Error = fmt.Sprintf("project %q has no deployed site to update; deploy it first", proj.Name)
+		return result
+	}
 
-	// Use provided epochs or fall back to current
 	epochs := params.Epochs
 	if epochs <= 0 {
 		epochs = proj.Epochs
@@ -1274,125 +1269,43 @@ func UpdateSite(params UpdateSiteParams) UpdateSiteResult {
 		return result
 	}
 
+	network, err := checkDeployTarget(proj.Network, proj.WalletAddr)
+	if err != nil {
+		result.Error = err.Error()
+		return result
+	}
+
 	result.Logs = append(result.Logs, fmt.Sprintf("🔄 Updating project: %s", proj.Name))
-	result.Logs = append(result.Logs, fmt.Sprintf("📡 Network: %s", proj.Network))
+	result.Logs = append(result.Logs, fmt.Sprintf("📡 Network: %s", network))
 	result.Logs = append(result.Logs, fmt.Sprintf("⏱  Epochs: %d", epochs))
-
-	// Load config
-	walgoCfg, err := config.LoadConfigFrom(proj.SitePath)
-	if err != nil {
-		result.Error = fmt.Sprintf("failed to load config: %v", err)
-		return result
-	}
-
-	// Build site first
 	result.Logs = append(result.Logs, "🔨 Building site...")
-	if err := hugo.BuildSite(proj.SitePath); err != nil {
-		result.Error = fmt.Sprintf("failed to build site: %v", err)
-		return result
-	}
 
-	publishDir := filepath.Join(proj.SitePath, walgoCfg.HugoConfig.PublishDir)
-	if _, err := os.Stat(publishDir); os.IsNotExist(err) {
-		result.Error = "publish directory not found"
-		return result
-	}
-
-	// Calculate site size for gas estimation
-	var siteSize int64
-	if walkErr := filepath.Walk(publishDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil // Skip files with errors, continue walking
-		}
-		if !info.IsDir() {
-			siteSize += info.Size()
-		}
-		return nil
-	}); walkErr != nil {
-		result.Error = fmt.Sprintf("failed to calculate site size: %v", walkErr)
-		return result
-	}
-
-	result.Logs = append(result.Logs, "🚀 Pushing changes to Walrus...")
-
-	// Perform update using site-builder
-	d := sb.New()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-	defer cancel()
-
-	output, err := d.Update(ctx, publishDir, proj.ObjectID, deployer.DeployOptions{
-		Epochs:    epochs,
-		Verbose:   true,
-		WalrusCfg: walgoCfg.WalrusConfig,
+	deployResult, err := deploySite(ctx, siteDeploy{
+		SitePath:    proj.SitePath,
+		Network:     network,
+		WalletAddr:  proj.WalletAddr,
+		Epochs:      epochs,
+		ProjectName: proj.Name,
+		Category:    proj.Category,
+		Description: proj.Description,
+		ImageURL:    proj.ImageURL,
 	})
-
 	if err != nil {
-		// Record failed deployment
-		deployment := &projects.DeploymentRecord{
-			ProjectID: proj.ID,
-			ObjectID:  proj.ObjectID,
-			Network:   proj.Network,
-			Epochs:    epochs,
-			Success:   false,
-			Error:     err.Error(),
-		}
-		_ = pm.RecordDeployment(deployment)
-		result.Error = fmt.Sprintf("update failed: %v", err)
+		result.Error = err.Error()
 		return result
 	}
-
-	if !output.Success {
-		result.Error = "update failed: operation unsuccessful"
-		return result
-	}
-
-	// Try to get actual gas from blockchain, fallback to estimate
-	var gasFee string
-	gasInfo, err := walrus.GetLatestTransactionGas(proj.WalletAddr, proj.Network)
-	if err == nil && gasInfo != nil {
-		if gasInfo.TotalWAL > 0 && gasInfo.TotalGasSUI > 0 {
-			gasFee = fmt.Sprintf("%.6f WAL + %.6f SUI", gasInfo.TotalWAL, gasInfo.TotalGasSUI)
-		} else if gasInfo.TotalWAL > 0 {
-			gasFee = fmt.Sprintf("%.6f WAL", gasInfo.TotalWAL)
-		} else if gasInfo.TotalGasSUI > 0 {
-			gasFee = fmt.Sprintf("%.6f SUI", gasInfo.TotalGasSUI)
-		}
-	}
-	if gasFee == "" {
-		gasFee = projects.EstimateGasFeeWithEpochs(proj.Network, siteSize, epochs)
-	}
-
-	// Update project
-	proj.Epochs = epochs
-	proj.LastDeployAt = time.Now()
-	proj.GasFee = gasFee
-
-	if err := pm.UpdateProject(proj); err != nil {
-		result.Error = fmt.Sprintf("failed to update project record: %v", err)
-		return result
-	}
-
-	// Record successful deployment
-	deployment := &projects.DeploymentRecord{
-		ProjectID: proj.ID,
-		ObjectID:  proj.ObjectID,
-		Network:   proj.Network,
-		Epochs:    epochs,
-		GasFee:    gasFee,
-		Success:   true,
-	}
-	if err := pm.RecordDeployment(deployment); err != nil {
-		result.Logs = append(result.Logs, fmt.Sprintf("⚠️  Warning: Failed to record deployment: %v", err))
+	if !deployResult.IsUpdate {
+		result.Logs = append(result.Logs, "⚠️  walgo found no existing site object, so a new site was published")
 	}
 
 	result.Success = true
-	result.ObjectID = proj.ObjectID
-	result.GasFee = gasFee
+	result.ObjectID = deployResult.ObjectID
+	result.GasFee = deployResult.GasFee
 	result.Message = "Site updated successfully"
 	result.Logs = append(result.Logs, "✅ Update completed successfully!")
-	result.Logs = append(result.Logs, fmt.Sprintf("📦 Object ID: %s", proj.ObjectID))
-	if gasFee != "" {
-		result.Logs = append(result.Logs, fmt.Sprintf("💰 Gas Fee: %s", gasFee))
+	result.Logs = append(result.Logs, fmt.Sprintf("📦 Object ID: %s", deployResult.ObjectID))
+	if result.GasFee != "" {
+		result.Logs = append(result.Logs, fmt.Sprintf("💰 Gas Fee: %s", result.GasFee))
 	}
 
 	return result
@@ -1626,11 +1539,11 @@ func ImportObsidian(params ImportObsidianParams) ImportObsidianResult {
 	// Determine parent directory
 	parentDir := params.ParentDir
 	if parentDir == "" {
-		wd, err := os.Getwd()
+		defaultDir, err := GetDefaultSitesDir()
 		if err != nil {
-			return ImportObsidianResult{Error: fmt.Sprintf("cannot determine current directory: %v", err)}
+			return ImportObsidianResult{Error: fmt.Sprintf("cannot determine walgo-sites directory: %v", err)}
 		}
-		parentDir = wd
+		parentDir = defaultDir
 	}
 
 	// Use sanitized name for directory path
@@ -2133,8 +2046,9 @@ type LaunchWizardResult struct {
 	Error    string       `json:"error"`
 }
 
-// LaunchWizard executes full launch wizard flow
-func LaunchWizard(params LaunchWizardParams) LaunchWizardResult {
+// LaunchWizard builds the site and publishes it to Walrus. ctx cancels the
+// deployment.
+func LaunchWizard(ctx context.Context, params LaunchWizardParams) LaunchWizardResult {
 	result := LaunchWizardResult{
 		Steps: []LaunchStep{},
 	}
@@ -2144,6 +2058,10 @@ func LaunchWizard(params LaunchWizardParams) LaunchWizardResult {
 		result.Error = "site path is required"
 		return result
 	}
+	if params.Epochs > 53 {
+		result.Error = "epochs cannot exceed 53 (network limit)"
+		return result
+	}
 
 	walgoCfg, err := config.LoadConfigFrom(sitePath)
 	if err != nil {
@@ -2151,53 +2069,27 @@ func LaunchWizard(params LaunchWizardParams) LaunchWizardResult {
 		return result
 	}
 
-	if err := BuildSite(sitePath); err != nil {
-		result.Error = fmt.Sprintf("failed to build site: %v", err)
+	configured := params.Network
+	if configured == "" {
+		configured = walgoCfg.WalrusConfig.Network
+	}
+	network, err := checkDeployTarget(configured, "")
+	if err != nil {
+		result.Error = err.Error()
 		return result
 	}
 
-	publishDir := filepath.Join(sitePath, walgoCfg.HugoConfig.PublishDir)
-	if _, err := os.Stat(publishDir); os.IsNotExist(err) {
-		result.Error = "publish directory not found. Please build first."
-		return result
-	}
-
-	// Validate epoch limit
-	if params.Epochs > 53 {
-		result.Error = "epochs cannot exceed 53 (network limit)"
-		return result
-	}
-
-	// Prepare deployment options
-	opts := deployment.DeploymentOptions{
+	deployResult, err := deploySite(ctx, siteDeploy{
 		SitePath:    sitePath,
-		PublishDir:  publishDir,
+		Network:     network,
 		Epochs:      params.Epochs,
-		WalgoCfg:    walgoCfg,
-		Quiet:       false,
-		Verbose:     true,
-		ForceNew:    false,
-		DryRun:      false,
-		SaveProject: true,
 		ProjectName: params.ProjectName,
 		Category:    params.Category,
-		Network:     params.Network,
 		Description: params.Description,
 		ImageURL:    params.ImageURL,
-	}
-
-	// Perform deployment
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-	defer cancel()
-
-	deployResult, err := deployment.PerformDeployment(ctx, opts)
+	})
 	if err != nil {
-		result.Error = fmt.Sprintf("deployment failed: %v", err)
-		return result
-	}
-
-	if !deployResult.Success {
-		result.Error = "deployment failed"
+		result.Error = err.Error()
 		return result
 	}
 

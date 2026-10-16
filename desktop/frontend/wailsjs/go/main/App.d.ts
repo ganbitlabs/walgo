@@ -10,6 +10,7 @@ export function ArchiveProject(arg1:number):Promise<api.ArchiveProjectResult>;
 
 export function BuildSite(arg1:string):Promise<void>;
 
+export function CancelDeploy(arg1:string):Promise<boolean>;
 export function CheckDirectoryDepth(arg1:string):Promise<main.CheckDirectoryDepthResult>;
 
 export function CheckSetupDeps():Promise<api.SetupDepsResult>;

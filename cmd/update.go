@@ -15,6 +15,7 @@ import (
 	"github.com/ganbitlabs/walgo/internal/hugo"
 	"github.com/ganbitlabs/walgo/internal/metrics"
 	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/sui"
 	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/ganbitlabs/walgo/internal/version"
 
@@ -70,7 +71,7 @@ Assumes the site has been built using 'walgo build'.`,
 
 		// Updates follow the active Sui environment; fail early if walgo.yaml
 		// disagrees rather than updating on the wrong network.
-		network, err := resolveDeployNetwork(cfg.WalrusConfig.Network)
+		network, err := sui.ResolveDeployNetwork(cfg.WalrusConfig.Network)
 		if err != nil {
 			return err
 		}
