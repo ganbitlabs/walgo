@@ -44,6 +44,8 @@ type App struct {
 	aiCancel      context.CancelFunc // cancels the running AI pipeline
 	aiDone        chan struct{}      // closed when the AI goroutine exits
 	siteRoots     func() ([]string, error)
+	uploadMu      sync.Mutex
+	uploadSource  string // last file the user picked in SelectFileToUpload
 }
 
 // NewApp initializes and returns a new App instance.
@@ -839,9 +841,14 @@ func (a *App) OpenInEditor(editorCmd string, path string) error {
 	return cmd.Start()
 }
 
-// SelectFileToUpload opens a file selection dialog and returns the chosen file path
+// SelectFileToUpload opens a file selection dialog and returns the chosen file
+// path. UploadFile accepts only this path, so the webview cannot name a source.
 func (a *App) SelectFileToUpload(title string) (string, error) {
-	return openFileDialog(a.ctx, title)
+	path, err := openFileDialog(a.ctx, title)
+	a.uploadMu.Lock()
+	a.uploadSource = path
+	a.uploadMu.Unlock()
+	return path, err
 }
 
 // UploadFileResult holds the result of uploading a file
@@ -855,6 +862,15 @@ type UploadFileResult struct {
 func (a *App) UploadFile(sourcePath string, targetDir string) UploadFileResult {
 	result := UploadFileResult{Success: false}
 
+	a.uploadMu.Lock()
+	picked := a.uploadSource
+	a.uploadSource = ""
+	a.uploadMu.Unlock()
+	if sourcePath == "" || sourcePath != picked {
+		result.Error = "access denied: upload source must be chosen in the file dialog"
+		return result
+	}
+
 	safeTarget, err := a.sitePath(targetDir)
 	if err != nil {
 		result.Error = err.Error()
@@ -862,7 +878,7 @@ func (a *App) UploadFile(sourcePath string, targetDir string) UploadFileResult {
 	}
 
 	// Read source file
-	data, err := os.ReadFile(sourcePath) // #nosec G304 - user-selected file via system dialog
+	data, err := os.ReadFile(sourcePath) // #nosec G304 - must equal the path SelectFileToUpload returned
 	if err != nil {
 		result.Error = fmt.Sprintf("Failed to read source file: %v", err)
 		return result

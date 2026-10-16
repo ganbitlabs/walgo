@@ -40,9 +40,10 @@ func (s siteSandbox) inside(p string) bool {
 	return false
 }
 
-func (s siteSandbox) isRoot(p string) bool {
+// holdsRoot reports whether p is a registered root or an ancestor of one.
+func (s siteSandbox) holdsRoot(p string) bool {
 	for _, r := range s.roots {
-		if p == r {
+		if p == r || strings.HasPrefix(r, p+string(filepath.Separator)) {
 			return true
 		}
 	}
@@ -51,8 +52,8 @@ func (s siteSandbox) isRoot(p string) bool {
 
 // resolve returns the cleaned absolute form of p when it lies inside a site
 // folder after symlinks are resolved. With allowRoot false, p must name an entry
-// strictly inside a site, so the caller may create, delete, or move it without
-// ever touching the site folder itself.
+// strictly inside a site that contains no registered site folder, so the caller
+// may create, delete, or move it without touching any site folder.
 func (s siteSandbox) resolve(p string, allowRoot bool) (string, error) {
 	if p == "" {
 		return "", errors.New("access denied: empty path")
@@ -76,7 +77,7 @@ func (s siteSandbox) resolve(p string, allowRoot bool) (string, error) {
 	if !s.inside(real) {
 		return "", errors.New("access denied: path is outside the registered site folders")
 	}
-	if !allowRoot && (!s.inside(entry) || s.isRoot(entry) || s.isRoot(real)) {
+	if !allowRoot && (!s.inside(entry) || s.holdsRoot(entry) || s.holdsRoot(real)) {
 		return "", errors.New("access denied: a site folder itself cannot be created, moved, or deleted here")
 	}
 	return abs, nil

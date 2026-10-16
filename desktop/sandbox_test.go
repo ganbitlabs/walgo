@@ -116,6 +116,40 @@ func TestSandbox_NestedSiteRootIsProtectedInAnyOrder(t *testing.T) {
 	}
 }
 
+func TestSandbox_AncestorOfNestedRootIsProtected(t *testing.T) {
+	parent := t.TempDir()
+	inner := filepath.Join(parent, "group", "blog")
+	if err := os.MkdirAll(filepath.Join(inner, "content"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	app := &App{siteRoots: func() ([]string, error) { return []string{parent, inner}, nil }}
+	group := filepath.Join(parent, "group")
+
+	d := app.DeleteFile(group)
+	assertDenied(t, "DeleteFile ancestor of nested root", d.Success, d.Error)
+	m := app.MoveFile(group, filepath.Join(parent, "moved"))
+	assertDenied(t, "MoveFile ancestor of nested root", m.Success, m.Error)
+	if _, err := os.Stat(filepath.Join(inner, "content")); err != nil {
+		t.Fatalf("nested site must survive: %v", err)
+	}
+}
+
+func TestUploadFile_OnlyAcceptsTheDialogPick(t *testing.T) {
+	app, site, outside := newSiteApp(t)
+	secret := filepath.Join(outside, "secret")
+	target := filepath.Join(site, "content")
+
+	r := app.UploadFile(secret, target)
+	assertDenied(t, "UploadFile without a dialog pick", r.Success, r.Error)
+
+	app.uploadSource = secret
+	if r := app.UploadFile(secret, target); !r.Success {
+		t.Fatalf("UploadFile of the picked file: %+v", r)
+	}
+	r = app.UploadFile(secret, target)
+	assertDenied(t, "UploadFile reusing a consumed pick", r.Success, r.Error)
+}
+
 func TestSandbox_ResolvesSymlinks(t *testing.T) {
 	app, site, outside := newSiteApp(t)
 	link := filepath.Join(site, "content", "escape")
