@@ -61,7 +61,14 @@ func (g *Generator) GeneratePage(ctx context.Context, plan *SitePlan, page *Page
 	}
 
 	// Check if file already exists (strip "content/" prefix if present to avoid duplication)
-	fullPath := filepath.Join(g.config.ContentDir, strings.TrimPrefix(page.Path, "content/"))
+	rel, err := contentRelPath(page.Path)
+	if err != nil {
+		output.Error = NewValidationError("path", page.Path, err.Error())
+		output.ErrorMsg = fmt.Sprintf("invalid page path %q: %v", page.Path, err)
+		output.Duration = time.Since(startTime)
+		return output
+	}
+	fullPath := filepath.Join(g.config.ContentDir, rel)
 
 	if !g.config.OverwriteExisting {
 		if _, err := os.Stat(fullPath); err == nil {

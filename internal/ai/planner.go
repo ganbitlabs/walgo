@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -308,6 +309,9 @@ func (p *Planner) validatePlan(plan *SitePlan) error {
 			return NewValidationError(fmt.Sprintf("pages[%d].path", i), page.Path,
 				"path must start with 'content/'")
 		}
+		if _, err := contentRelPath(page.Path); err != nil {
+			return NewValidationError(fmt.Sprintf("pages[%d].path", i), page.Path, err.Error())
+		}
 
 		// Title is optional at this stage - can be in frontmatter
 	}
@@ -398,4 +402,22 @@ func CleanJSONResponse(response string) string {
 	}
 
 	return strings.TrimSpace(response)
+}
+
+// contentRelPath validates a plan page path and returns it relative to the
+// content directory. The cleaned path must stay inside content/ (no ".."
+// escapes, not absolute) and end in .md.
+func contentRelPath(pagePath string) (string, error) {
+	p := filepath.ToSlash(filepath.Clean(filepath.FromSlash(pagePath)))
+	if filepath.IsAbs(filepath.FromSlash(pagePath)) || strings.HasPrefix(pagePath, "/") {
+		return "", fmt.Errorf("path must be relative")
+	}
+	rel, err := filepath.Rel("content", filepath.FromSlash(p))
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("path must stay inside 'content/'")
+	}
+	if strings.ToLower(filepath.Ext(rel)) != ".md" {
+		return "", fmt.Errorf("path must end in .md")
+	}
+	return rel, nil
 }
