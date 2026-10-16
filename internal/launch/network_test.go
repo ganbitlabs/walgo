@@ -67,7 +67,6 @@ func TestClassifySite(t *testing.T) {
 		want                              SiteAction
 	}{
 		{"no project", "", "mainnet", "testnet", SiteNew},
-		{"placeholder", placeholderProjectID, "mainnet", "testnet", SiteNew},
 		{"same network", "0xabc", "mainnet", "mainnet", SiteUpdate},
 		{"unknown network keeps update", "0xabc", "", "testnet", SiteUpdate},
 		{"other network", "0xabc", "mainnet", "testnet", SiteOnOtherNetwork},
@@ -77,6 +76,28 @@ func TestClassifySite(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := classifySite(tt.projectID, tt.recorded, tt.chosen); got != tt.want {
 				t.Errorf("classifySite = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExistingObjectID(t *testing.T) {
+	db := &projects.Project{ObjectID: "0xdb"}
+	tests := []struct {
+		name, projectID, ws string
+		db                  *projects.Project
+		want                string
+	}{
+		{"walgo.yaml wins", "0xyaml", "0xws", db, "0xyaml"},
+		{"placeholder falls through to ws-resources", placeholderProjectID, "0xws", db, "0xws"},
+		{"ws-resources before db", "", "0xws", db, "0xws"},
+		{"db last", "", "", db, "0xdb"},
+		{"nothing", " ", "", nil, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := existingObjectID(tt.projectID, tt.ws, tt.db); got != tt.want {
+				t.Errorf("existingObjectID = %q, want %q", got, tt.want)
 			}
 		})
 	}

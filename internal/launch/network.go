@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ganbitlabs/walgo/internal/compress"
 	"github.com/ganbitlabs/walgo/internal/config"
 	"github.com/ganbitlabs/walgo/internal/projects"
 	"github.com/ganbitlabs/walgo/internal/sui"
@@ -58,10 +59,26 @@ const (
 	SiteOnOtherNetwork
 )
 
-// classifySite decides whether the recorded projectID can be updated on the
+// existingObjectID returns the site object a deploy would update, in the same
+// order deployment.PerformDeployment looks: walgo.yaml's projectID, then
+// ws-resources.json's object_id, then the projects database row.
+func existingObjectID(projectID, wsObjectID string, dbProject *projects.Project) string {
+	if projectID = strings.TrimSpace(projectID); projectID != "" && projectID != placeholderProjectID {
+		return projectID
+	}
+	if wsObjectID = strings.TrimSpace(wsObjectID); wsObjectID != "" {
+		return wsObjectID
+	}
+	if dbProject != nil {
+		return dbProject.ObjectID
+	}
+	return ""
+}
+
+// classifySite decides whether the existing objectID can be updated on the
 // chosen network. An unknown recorded network keeps the update, as before.
-func classifySite(projectID, recordedNetwork, chosen string) SiteAction {
-	if projectID == "" || projectID == placeholderProjectID {
+func classifySite(objectID, recordedNetwork, chosen string) SiteAction {
+	if objectID == "" {
 		return SiteNew
 	}
 	if recordedNetwork != "" && recordedNetwork != chosen {
@@ -138,22 +155,27 @@ func UseNetwork(network string) (restore func(), err error) {
 // network. When that site lives on another network it asks whether to publish
 // a new site instead, and returns an error if the user declines.
 func ReconcileExistingSite(sitePath string, cfg *config.WalgoConfig, network string) (SiteAction, error) {
-	projectID := strings.TrimSpace(cfg.WalrusConfig.ProjectID)
-
 	var dbProject *projects.Project
 	if pm, err := projects.NewManager(); err == nil {
 		dbProject, _ = pm.GetProjectBySitePath(sitePath)
 		_ = pm.Close()
 	}
 
-	recorded := recordedSiteNetwork(projectID, cfg.WalrusConfig.Network, dbProject)
-	action := classifySite(projectID, recorded, network)
+	var wsObjectID string
+	wsPath := filepath.Join(sitePath, cfg.HugoConfig.PublishDir, "ws-resources.json")
+	if ws, err := compress.ReadWSResourcesConfig(wsPath); err == nil {
+		wsObjectID = ws.ObjectID
+	}
+
+	objectID := existingObjectID(cfg.WalrusConfig.ProjectID, wsObjectID, dbProject)
+	recorded := recordedSiteNetwork(objectID, cfg.WalrusConfig.Network, dbProject)
+	action := classifySite(objectID, recorded, network)
 	if action != SiteOnOtherNetwork {
 		return action, nil
 	}
 
 	icons := ui.GetIcons()
-	fmt.Printf("\n%s walgo.yaml points at a site on %s (%s).\n", icons.Warning, recorded, projectID)
+	fmt.Printf("\n%s This site was deployed on %s (%s).\n", icons.Warning, recorded, objectID)
 	fmt.Printf("   That object does not exist on %s, so it cannot be updated there.\n", network)
 	fmt.Printf("   Launch can publish a new site on %s. walgo.yaml will then point at the new site,\n", network)
 	fmt.Printf("   so note the %s object ID above if you still need it.\n", recorded)

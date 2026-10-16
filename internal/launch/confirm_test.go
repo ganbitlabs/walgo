@@ -1,6 +1,8 @@
 package launch
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/ganbitlabs/walgo/internal/config"
@@ -41,5 +43,24 @@ func TestReconcileExistingSiteEOFDeclines(t *testing.T) {
 	cfg.WalrusConfig.Network = "mainnet"
 	if _, err := ReconcileExistingSite(t.TempDir(), cfg, "testnet"); err == nil {
 		t.Error("ReconcileExistingSite approved a new site on EOF")
+	}
+}
+
+func TestReconcileExistingSiteSeesWSResourcesObjectID(t *testing.T) {
+	defer resetReader()
+	setTestReader("")
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "public"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	ws := []byte(`{"object_id": "0xfeed"}`)
+	if err := os.WriteFile(filepath.Join(dir, "public", "ws-resources.json"), ws, 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.WalgoConfig{}
+	cfg.HugoConfig.PublishDir = "public"
+	cfg.WalrusConfig.Network = "mainnet"
+	if _, err := ReconcileExistingSite(dir, cfg, "testnet"); err == nil {
+		t.Error("ReconcileExistingSite let a mainnet site from ws-resources.json be updated on testnet")
 	}
 }
