@@ -565,7 +565,7 @@ func CalculateDestroyCost(network string) (*CostBreakdown, error) {
 func FormatCostBreakdown(breakdown CostBreakdown) string {
 	var builder strings.Builder
 
-	builder.WriteString("\nCost Breakdown\n")
+	builder.WriteString("\nEstimated Cost Breakdown\n")
 	builder.WriteString("─────────────────────────────────────\n\n")
 
 	if breakdown.OriginalSize > 0 {

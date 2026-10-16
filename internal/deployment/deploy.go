@@ -110,6 +110,7 @@ func PerformDeployment(ctx context.Context, opts DeploymentOptions) (*Deployment
 		}
 	}
 
+	planned := false
 	if cacheHelper != nil {
 		if !opts.Quiet {
 			fmt.Println("  [2/5] Analyzing changes...")
@@ -120,22 +121,27 @@ func PerformDeployment(ctx context.Context, opts DeploymentOptions) (*Deployment
 				fmt.Fprintf(os.Stderr, "%s Warning: Failed to analyze changes: %v\n", icons.Warning, err)
 			}
 		} else {
+			planned = true
 			if opts.Verbose {
 				plan.PrintVerboseSummary()
 			} else if !opts.Quiet {
 				plan.PrintSummary()
 			}
-
-			if opts.DryRun {
-				if !opts.Quiet {
-					fmt.Printf("\n%s Dry-run mode: No files will be uploaded\n", icons.Info)
-					fmt.Printf("%s Deployment plan complete!\n", icons.Check)
-					fmt.Printf("\n%s To actually deploy, run without --dry-run flag\n", icons.Lightbulb)
-				}
-				result.Success = true
-				return result, nil
-			}
 		}
+	}
+
+	// A dry run must never reach site-builder, whatever happened to the cache.
+	if opts.DryRun {
+		if !opts.Quiet {
+			if !planned {
+				fmt.Printf("\n%s Change analysis unavailable; a real deploy would upload every file in %s\n", icons.Warning, opts.PublishDir)
+			}
+			fmt.Printf("\n%s Dry-run mode: No files will be uploaded\n", icons.Info)
+			fmt.Printf("%s Deployment plan complete!\n", icons.Check)
+			fmt.Printf("\n%s To actually deploy, run without --dry-run flag\n", icons.Lightbulb)
+		}
+		result.Success = true
+		return result, nil
 	}
 
 	// Detect if this is an update or new deployment
@@ -237,6 +243,7 @@ func PerformDeployment(ctx context.Context, opts DeploymentOptions) (*Deployment
 			Epochs:    opts.Epochs,
 			Verbose:   opts.Verbose && !opts.Quiet,
 			WalrusCfg: opts.WalgoCfg.WalrusConfig,
+			Network:   opts.Network,
 		})
 	} else {
 		// Deploy new site
@@ -244,6 +251,7 @@ func PerformDeployment(ctx context.Context, opts DeploymentOptions) (*Deployment
 			Epochs:    opts.Epochs,
 			Verbose:   opts.Verbose && !opts.Quiet,
 			WalrusCfg: opts.WalgoCfg.WalrusConfig,
+			Network:   opts.Network,
 		})
 	}
 
@@ -257,8 +265,15 @@ func PerformDeployment(ctx context.Context, opts DeploymentOptions) (*Deployment
 		return result, result.Error
 	}
 
-	if !output.Success || output.ObjectID == "" {
-		result.Error = fmt.Errorf("deployment failed: no object ID returned")
+	if !output.Success {
+		result.Error = fmt.Errorf("deployment failed: site-builder reported no success")
+		return result, result.Error
+	}
+
+	if output.ObjectID == "" {
+		result.Error = fmt.Errorf("site-builder finished, but walgo found no site object ID in its output or in %s\n\n"+
+			"  The site may already exist on-chain. Check your wallet before deploying again:\n"+
+			"    sui client objects", filepath.Join(opts.PublishDir, "ws-resources.json"))
 		return result, result.Error
 	}
 
@@ -321,21 +336,19 @@ func PerformDeployment(ctx context.Context, opts DeploymentOptions) (*Deployment
 		fmt.Printf("  [%d/5] Saving deployment info...\n", stepNum)
 	}
 
-	// Update local ws-resources.json with object_id
+	// The site is on-chain by now, so failing to record it locally is a warning
+	// that hands over the object ID, never a deployment failure.
 	if err := compress.UpdateObjectID(wsResourcesPath, output.ObjectID); err != nil {
-		result.Error = fmt.Errorf("failed to save object_id to ws-resources.json: %w", err)
-		return result, result.Error
-	}
-	if !opts.Quiet {
+		fmt.Fprintf(os.Stderr, "%s Warning: Site deployed, but saving object_id to ws-resources.json failed: %v\n", icons.Warning, err)
+		fmt.Fprintf(os.Stderr, "  Keep this Object ID: %s\n", output.ObjectID)
+	} else if !opts.Quiet {
 		fmt.Printf("%s Saved object_id to ws-resources.json\n", icons.Check)
 	}
 
-	// Update walgo.yaml with projectID
 	if err := config.UpdateWalgoYAMLProjectID(opts.SitePath, output.ObjectID); err != nil {
-		result.Error = fmt.Errorf("failed to update walgo.yaml with Object ID: %w", err)
-		return result, result.Error
-	}
-	if !opts.Quiet {
+		fmt.Fprintf(os.Stderr, "%s Warning: Site deployed, but updating walgo.yaml failed: %v\n", icons.Warning, err)
+		fmt.Fprintf(os.Stderr, "  Set walrus.projectID to: %s\n", output.ObjectID)
+	} else if !opts.Quiet {
 		fmt.Printf("%s Updated walgo.yaml with Object ID\n", icons.Check)
 	}
 

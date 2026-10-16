@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -118,7 +119,7 @@ func TestPipeline_PlanOnly_Success(t *testing.T) {
 }
 
 func TestPipeline_Run_Success(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	planResponse := AIPlanResponse{
 		Site: AISiteInfo{Type: "blog"},
 		Pages: []AIPageInfo{
@@ -134,10 +135,10 @@ func TestPipeline_Run_Success(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
+		call := callCount.Add(1)
 
 		// First call is for planning
-		if callCount == 1 {
+		if call == 1 {
 			respJSON, _ := json.Marshal(planResponse)
 			resp := ChatResponse{
 				Choices: []struct {
@@ -216,8 +217,8 @@ func TestPipeline_Run_Success(t *testing.T) {
 		t.Errorf("expected 8 page results, got %d", len(result.Pages))
 	}
 	// 1 planning call + 8 generation calls
-	if callCount != 9 {
-		t.Errorf("expected 9 API calls, got %d", callCount)
+	if got := callCount.Load(); got != 9 {
+		t.Errorf("expected 9 API calls, got %d", got)
 	}
 }
 
@@ -543,10 +544,10 @@ func TestPipeline_Resume_AlreadyCompleted(t *testing.T) {
 }
 
 func TestPipeline_Run_ResumesExistingPlan(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
+		callCount.Add(1)
 		resp := ChatResponse{
 			Choices: []struct {
 				Index   int `json:"index"`
@@ -616,8 +617,8 @@ func TestPipeline_Run_ResumesExistingPlan(t *testing.T) {
 	}
 
 	// Only 1 page should be generated (about.md)
-	if callCount != 1 {
-		t.Errorf("expected 1 API call, got %d", callCount)
+	if got := callCount.Load(); got != 1 {
+		t.Errorf("expected 1 API call, got %d", got)
 	}
 }
 
@@ -749,13 +750,13 @@ func TestPipeline_ProgressEmission(t *testing.T) {
 }
 
 func TestPipeline_Run_PartialStatus(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
+		call := callCount.Add(1)
 
 		// First call is for planning
-		if callCount == 1 {
+		if call == 1 {
 			planResponse := AIPlanResponse{
 				Site: AISiteInfo{Type: "blog"},
 				Pages: []AIPageInfo{
@@ -791,7 +792,7 @@ func TestPipeline_Run_PartialStatus(t *testing.T) {
 		}
 
 		// Fail the second page (about.md)
-		if callCount == 3 {
+		if call == 3 {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("bad request"))
 			return

@@ -29,6 +29,9 @@ type DeployOptions struct {
 	Verbose   bool
 	JSONLogs  bool
 	WalrusCfg config.WalrusConfig
+	// Network the deploy runs against, used to price estimates. Empty means
+	// the active Sui environment.
+	Network string
 
 	// HTTP-specific
 	PublisherBaseURL  string // e.g., https://publisher.walrus-testnet.walrus.space

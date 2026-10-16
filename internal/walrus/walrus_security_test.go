@@ -23,7 +23,7 @@ func TestCommandInjectionObjectID(t *testing.T) {
 	}
 
 	// This should FAIL with validation error, not attempt execution
-	_, err := UpdateSite(context.Background(), deployDir, maliciousObjectID, 1)
+	_, err := UpdateSite(context.Background(), deployDir, maliciousObjectID, "testnet", 1)
 
 	if err == nil {
 		t.Fatal("Expected error for malicious objectID, got nil")

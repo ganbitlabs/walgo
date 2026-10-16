@@ -131,7 +131,7 @@ func TestDeploySite(t *testing.T) {
 				osStat = originalOsStat
 			}()
 
-			output, err := DeploySite(context.Background(), tt.deployDir, tt.walrusCfg, tt.epochs)
+			output, err := DeploySite(context.Background(), tt.deployDir, "testnet", tt.epochs)
 
 			if tt.expectedError && err == nil {
 				t.Errorf("DeploySite() expected error but got none")
@@ -273,7 +273,7 @@ func TestUpdateSite(t *testing.T) {
 				osStat = originalOsStat
 			}()
 
-			output, err := UpdateSite(context.Background(), tt.deployDir, tt.objectID, tt.epochs)
+			output, err := UpdateSite(context.Background(), tt.deployDir, tt.objectID, "testnet", tt.epochs)
 
 			if tt.expectedError && err == nil {
 				t.Errorf("UpdateSite() expected error but got none")
@@ -514,7 +514,7 @@ func TestConfigValidation(t *testing.T) {
 			}()
 
 			cfg := config.WalrusConfig{ProjectID: tt.projectID}
-			_, err := DeploySite(context.Background(), "/test", cfg, 1)
+			_, err := DeploySite(context.Background(), "/test", cfg.Network, 1)
 
 			// We expect the command to fail at execution (not validation)
 			if err == nil {

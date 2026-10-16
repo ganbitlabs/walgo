@@ -15,7 +15,7 @@ func New() *Adapter { return &Adapter{} }
 
 func (a *Adapter) Deploy(ctx context.Context, siteDir string, opts deployer.DeployOptions) (*deployer.Result, error) {
 	walrus.SetVerbose(opts.Verbose)
-	out, err := walrus.DeploySite(ctx, siteDir, opts.WalrusCfg, opts.Epochs)
+	out, err := walrus.DeploySite(ctx, siteDir, opts.Network, opts.Epochs)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func (a *Adapter) Deploy(ctx context.Context, siteDir string, opts deployer.Depl
 }
 
 func (a *Adapter) Update(ctx context.Context, siteDir string, objectID string, opts deployer.DeployOptions) (*deployer.Result, error) {
-	out, err := walrus.UpdateSite(ctx, siteDir, objectID, opts.Epochs)
+	out, err := walrus.UpdateSite(ctx, siteDir, objectID, opts.Network, opts.Epochs)
 	if err != nil {
 		return nil, err
 	}
