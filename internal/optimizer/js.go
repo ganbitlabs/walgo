@@ -24,10 +24,10 @@ func NewJSOptimizer(config JSConfig) *JSOptimizer {
 	return &JSOptimizer{config: config, m: m}
 }
 
-// Optimize optimizes JavaScript content
+// Optimize minifies JavaScript when minifyJS is on. Minification strips comments,
+// so removeComments has no effect on its own.
 func (j *JSOptimizer) Optimize(content []byte) ([]byte, error) {
-	cfg := j.config
-	if !cfg.Enabled || (!cfg.MinifyJS && !cfg.RemoveComments) {
+	if !j.config.Enabled || !j.config.MinifyJS {
 		return content, nil
 	}
 	return j.m.Bytes(jsMime, content)

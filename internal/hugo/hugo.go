@@ -154,12 +154,25 @@ func cleanPublicDir(publicDir string) error {
 }
 
 // resolvePublishDir returns the absolute publish directory for sitePath.
+// It refuses a directory that contains the site: hugo's --cleanDestinationDir would delete the sources,
+// and a static deploy would upload walgo.yaml and everything else in the project.
 func resolvePublishDir(sitePath string, cfg *config.WalgoConfig) (string, error) {
 	dir := cfg.HugoConfig.PublishDir
 	if !filepath.IsAbs(dir) {
 		dir = filepath.Join(sitePath, dir)
 	}
-	return filepath.Abs(dir)
+	publishDir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	absSite, err := filepath.Abs(sitePath)
+	if err != nil {
+		return "", err
+	}
+	if rel, err := filepath.Rel(publishDir, absSite); err == nil && !strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("publish directory %s contains the site itself; set hugo.publishDir in walgo.yaml to a subdirectory such as public", publishDir)
+	}
+	return publishDir, nil
 }
 
 // BuildSite builds the site in sitePath into its publish directory, then optimizes it and writes ws-resources.json.
@@ -209,15 +222,6 @@ func BuildSite(sitePath string) error {
 }
 
 func runHugoBuild(sitePath, publishDir string) error {
-	absSite, err := filepath.Abs(sitePath)
-	if err != nil {
-		return fmt.Errorf("resolving site path: %w", err)
-	}
-	// --cleanDestinationDir deletes everything in the destination that the build did not produce.
-	if rel, err := filepath.Rel(publishDir, absSite); err == nil && !strings.HasPrefix(rel, "..") {
-		return fmt.Errorf("publish directory %s contains the site itself; set hugo.publishDir in walgo.yaml to a subdirectory such as public", publishDir)
-	}
-
 	hugoPath, err := deps.LookPath("hugo")
 	if err != nil {
 		return fmt.Errorf("hugo is not installed or not found in PATH")

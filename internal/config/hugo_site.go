@@ -25,14 +25,18 @@ var (
 	hugoSiteDirs = []string{"layouts", "themes", "archetypes"}
 )
 
-// hugoConfigs returns the site's parsed Hugo configs with lowercased top-level keys, highest precedence first.
+// hugoConfigs returns the site's Hugo configs with lowercased top-level keys, highest precedence first.
+// A config that exists but does not parse is returned empty, so hugo still runs and reports the syntax error.
 func hugoConfigs(sitePath string) []map[string]any {
 	var configs []map[string]any
 	for _, dir := range hugoConfigDirs {
 		for _, base := range []string{"hugo", "config"} {
 			for _, ext := range hugoConfigExtensions {
-				values, ok := parseConfigFile(filepath.Join(sitePath, dir, base+ext))
-				if ok && (base == "hugo" || hasHugoKey(values) || hasHugoSiteDir(sitePath)) {
+				values, exists, parsed := parseConfigFile(filepath.Join(sitePath, dir, base+ext))
+				if !exists {
+					continue
+				}
+				if base == "hugo" || (parsed && hasHugoKey(values)) || hasHugoSiteDir(sitePath) {
 					configs = append(configs, values)
 				}
 			}
@@ -56,10 +60,14 @@ func defaultPublishDir(sitePath string) string {
 	return "public"
 }
 
-func parseConfigFile(file string) (map[string]any, bool) {
+func parseConfigFile(file string) (values map[string]any, exists, parsed bool) {
+	info, err := os.Stat(file)
+	if err != nil || info.IsDir() {
+		return nil, false, false
+	}
 	data, err := os.ReadFile(file) // #nosec G304 - path is built from the site directory and fixed names
 	if err != nil {
-		return nil, false
+		return nil, true, false
 	}
 	raw := map[string]any{}
 	switch filepath.Ext(file) {
@@ -71,14 +79,14 @@ func parseConfigFile(file string) (map[string]any, bool) {
 		err = yaml.Unmarshal(data, &raw)
 	}
 	if err != nil {
-		return nil, false
+		return nil, true, false
 	}
 	// Hugo config keys are case-insensitive.
-	values := make(map[string]any, len(raw))
+	values = make(map[string]any, len(raw))
 	for key, value := range raw {
 		values[strings.ToLower(key)] = value
 	}
-	return values, true
+	return values, true, true
 }
 
 func hasHugoKey(values map[string]any) bool {

@@ -20,10 +20,10 @@ func NewCSSOptimizer(config CSSConfig) *CSSOptimizer {
 	return &CSSOptimizer{config: config, m: m}
 }
 
-// Optimize optimizes CSS content
+// Optimize minifies CSS when minifyCSS is on. Minification strips comments and shortens colors,
+// so removeComments and compressColors have no effect on their own.
 func (c *CSSOptimizer) Optimize(content []byte) ([]byte, error) {
-	cfg := c.config
-	if !cfg.Enabled || (!cfg.MinifyCSS && !cfg.RemoveComments && !cfg.CompressColors) {
+	if !c.config.Enabled || !c.config.MinifyCSS {
 		return content, nil
 	}
 	return c.m.Bytes(cssMime, content)

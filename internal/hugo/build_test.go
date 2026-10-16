@@ -231,17 +231,38 @@ func TestBuildSiteStaticSiteWithoutPublishDir(t *testing.T) {
 }
 
 func TestBuildSiteRefusesPublishDirContainingSite(t *testing.T) {
+	for name, files := range map[string]map[string]string{
+		"hugo site":   {"hugo.toml": "title = \"Sample\"\n"},
+		"static site": {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			isolateHome(t)
+			site := t.TempDir()
+			files["walgo.yaml"] = "hugo:\n  publishDir: .\ncompress:\n  generateWSResources: true\n"
+			files["content/_index.md"] = "keep me"
+			writeFiles(t, site, files)
+
+			err := BuildSite(site)
+			if err == nil || !strings.Contains(err.Error(), "contains the site") {
+				t.Fatalf("expected refusal, got %v", err)
+			}
+			assertFile(t, filepath.Join(site, "content/_index.md"), "keep me")
+			assertMissing(t, filepath.Join(site, "ws-resources.json"))
+		})
+	}
+}
+
+func TestBuildSiteMalformedHugoConfigFails(t *testing.T) {
+	requireHugo(t)
 	isolateHome(t)
 	site := t.TempDir()
 	writeFiles(t, site, map[string]string{
-		"walgo.yaml":        "hugo:\n  publishDir: .\n",
-		"hugo.toml":         "title = \"Sample\"\n",
-		"content/_index.md": "keep me",
+		"walgo.yaml":        "compress:\n  generateWSResources: true\n",
+		"hugo.toml":         "title = ",
+		"public/index.html": "stale",
 	})
 
-	err := BuildSite(site)
-	if err == nil || !strings.Contains(err.Error(), "contains the site") {
-		t.Fatalf("expected refusal, got %v", err)
+	if err := BuildSite(site); err == nil {
+		t.Fatal("expected the hugo build to fail on a malformed hugo.toml")
 	}
-	assertFile(t, filepath.Join(site, "content/_index.md"), "keep me")
 }

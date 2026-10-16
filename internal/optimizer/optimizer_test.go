@@ -416,6 +416,7 @@ func TestCSSOptimizerPreservesStrings(t *testing.T) {
 func TestHTMLOptimizerCommentsWithSpecialChars(t *testing.T) {
 	config := HTMLConfig{
 		Enabled:        true,
+		MinifyHTML:     true,
 		RemoveComments: true,
 	}
 
