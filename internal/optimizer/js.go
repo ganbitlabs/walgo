@@ -27,7 +27,7 @@ func NewJSOptimizer(config JSConfig) *JSOptimizer {
 // Optimize optimizes JavaScript content
 func (j *JSOptimizer) Optimize(content []byte) ([]byte, error) {
 	cfg := j.config
-	if !cfg.Enabled || !(cfg.MinifyJS || cfg.RemoveComments) {
+	if !cfg.Enabled || (!cfg.MinifyJS && !cfg.RemoveComments) {
 		return content, nil
 	}
 	return j.m.Bytes(jsMime, content)

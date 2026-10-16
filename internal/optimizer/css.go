@@ -23,7 +23,7 @@ func NewCSSOptimizer(config CSSConfig) *CSSOptimizer {
 // Optimize optimizes CSS content
 func (c *CSSOptimizer) Optimize(content []byte) ([]byte, error) {
 	cfg := c.config
-	if !cfg.Enabled || !(cfg.MinifyCSS || cfg.RemoveComments || cfg.CompressColors) {
+	if !cfg.Enabled || (!cfg.MinifyCSS && !cfg.RemoveComments && !cfg.CompressColors) {
 		return content, nil
 	}
 	return c.m.Bytes(cssMime, content)

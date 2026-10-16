@@ -25,7 +25,7 @@ func NewHTMLOptimizer(config HTMLConfig) *HTMLOptimizer {
 		KeepDefaultAttrVals: true,
 		KeepDocumentTags:    true,
 		KeepEndTags:         true,
-		KeepWhitespace:      !(config.MinifyHTML && config.RemoveWhitespace),
+		KeepWhitespace:      !config.MinifyHTML || !config.RemoveWhitespace,
 	})
 	if config.CompressInlineCSS {
 		m.Add(cssMime, &css.Minifier{})
@@ -39,7 +39,7 @@ func NewHTMLOptimizer(config HTMLConfig) *HTMLOptimizer {
 // Optimize optimizes HTML content
 func (h *HTMLOptimizer) Optimize(content []byte) ([]byte, error) {
 	c := h.config
-	if !c.Enabled || !(c.MinifyHTML || c.RemoveComments || c.CompressInlineCSS || c.CompressInlineJS) {
+	if !c.Enabled || (!c.MinifyHTML && !c.RemoveComments && !c.CompressInlineCSS && !c.CompressInlineJS) {
 		return content, nil
 	}
 	return h.m.Bytes(htmlMime, content)
