@@ -60,21 +60,65 @@ func TestExtractThemeZipSkipsSymlinks(t *testing.T) {
 	}
 }
 
-func TestValidateGitHubURL(t *testing.T) {
-	ok := []string{"https://github.com/a/b", "https://www.github.com/a/b"}
-	bad := []string{
-		"http://github.com/a/b", "https://evil.com/github.com/a", "https://github.com.evil.com/a/b",
-		"https://evil.com/?x=github.com", "https://user@github.com/a/b", "git@github.com:a/b", "",
-		"https://github.com/foo/..", "https://github.com/foo/.", "https://github.com/foo", "https://github.com/", "https://github.com/foo/../..", "https://github.com/a/b/tree/main",
+func TestParseGitHubRepo(t *testing.T) {
+	ok := map[string][2]string{
+		"https://github.com/a/b":      {"a", "b"},
+		"https://github.com/a/b/":     {"a", "b"},
+		"https://github.com/a/b.git":  {"a", "b"},
+		"https://github.com/a/b.git/": {"a", "b"},
+		"https://www.github.com/a/b":  {"a", "b"},
 	}
-	for _, u := range ok {
-		if err := validateGitHubURL(u); err != nil {
-			t.Errorf("%q: %v", u, err)
+	for u, want := range ok {
+		o, r, err := parseGitHubRepo(u)
+		if err != nil || o != want[0] || r != want[1] {
+			t.Errorf("%q: got %q %q %v", u, o, r, err)
 		}
+	}
+	bad := []string{
+		"", "http://github.com/a/b", "https://evil.com/github.com/a", "https://github.com.evil.com/a/b",
+		"https://evil.com/?x=github.com", "https://user@github.com/a/b", "git@github.com:a/b",
+		"https://github.com/foo/..", "https://github.com/foo/.", "https://github.com/foo",
+		"https://github.com/", "https://github.com/foo/../..", "https://github.com/a/b/tree/main",
+		"https://github.com/owner/repo#/..", "https://github.com/owner/repo?x=/..",
+		"https://github.com/owner/repo/?x=/..", "https://github.com/owner/repo.git#/..",
+		"https://github.com/owner/%2e%2e", "https://github.com/owner/%2E%2E/", "https://github.com/o/r%2f..",
+		"https://github.com/owner/.git", "https://github.com/owner/..git", "https://github.com:444/a/b",
+		"https://github.com/a\\b", "https://github.com/a/b c",
 	}
 	for _, u := range bad {
-		if err := validateGitHubURL(u); err == nil {
-			t.Errorf("%q should be rejected", u)
+		if o, r, err := parseGitHubRepo(u); err == nil {
+			t.Errorf("%q should be rejected, got %q %q", u, o, r)
 		}
+	}
+}
+
+func TestThemeChildPath(t *testing.T) {
+	dir := t.TempDir()
+	if p, err := themeChildPath(dir, "ananke"); err != nil || p != filepath.Join(dir, "ananke") {
+		t.Fatalf("got %q %v", p, err)
+	}
+	for _, n := range []string{"", ".", "..", "a/b", "../x", "a\\b", "/abs"} {
+		if _, err := themeChildPath(dir, n); err == nil {
+			t.Errorf("%q should be rejected", n)
+		}
+	}
+}
+
+func TestInstallThemeFromURLRejectsTraversalURLs(t *testing.T) {
+	site := t.TempDir()
+	marker := filepath.Join(site, "keep.txt")
+	if err := os.WriteFile(marker, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range []string{
+		"https://github.com/owner/repo#/..", "https://github.com/owner/repo?x=/..",
+		"https://github.com/owner/%2e%2e", "https://github.com/foo/..",
+	} {
+		if _, err := InstallThemeFromURL(site, u); err == nil {
+			t.Errorf("%q should fail", u)
+		}
+	}
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatal("site content was removed")
 	}
 }
