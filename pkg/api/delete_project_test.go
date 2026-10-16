@@ -169,6 +169,33 @@ func TestDeleteProject_UnsafeFolderRefusedBeforeDestroy(t *testing.T) {
 	}
 }
 
+func TestDeleteProject_FolderHoldingAnotherSiteRefusedBeforeDestroy(t *testing.T) {
+	chain := &fakeChain{env: "testnet", addr: "0xabc"}
+	installFakeChain(t, chain)
+	outerID, outer := seedProject(t, "0x1234567890")
+	inner := filepath.Join(outer, "nested-site")
+	if err := os.MkdirAll(filepath.Join(inner, "content"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	pm, err := projects.NewManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pm.CreateDraftProject("nested", inner); err != nil {
+		t.Fatal(err)
+	}
+	pm.Close()
+
+	res := DeleteProject(DeleteProjectParams{ProjectID: outerID, DeleteSiteFolder: true})
+
+	if res.Success || len(chain.destroyed) != 0 || !strings.Contains(res.Error, "nested") {
+		t.Fatalf("deleting a folder that holds another site must be refused before the destroy: %+v", res)
+	}
+	if !projectExists(t, outerID) || !dirExists(filepath.Join(inner, "content")) {
+		t.Error("both projects' files and the outer record must remain")
+	}
+}
+
 // Rows from earlier releases, drafts and CLI deploys outside home alike, are
 // the sandbox roots, so existing projects stay editable after upgrading.
 func TestProjectSitePaths_IncludesEveryExistingRow(t *testing.T) {

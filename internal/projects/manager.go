@@ -621,7 +621,7 @@ func (m *Manager) DeleteProjectWithOptions(id int64, deleteSiteFolder bool) erro
 	}
 
 	if deleteSiteFolder && project.SitePath != "" {
-		if err := CheckRemovableSiteFolder(project.SitePath); err != nil {
+		if err := m.CheckDeletableSiteFolder(project); err != nil {
 			return err
 		}
 	}
@@ -669,6 +669,52 @@ func (m *Manager) DeleteProjectWithOptions(id int64, deleteSiteFolder bool) erro
 	}
 
 	return nil
+}
+
+// CheckDeletableSiteFolder refuses to delete project's site folder when
+// CheckRemovableSiteFolder does, or when the folder holds another registered
+// project's site folder, which RemoveAll would destroy along with it.
+func (m *Manager) CheckDeletableSiteFolder(project *Project) error {
+	if err := CheckRemovableSiteFolder(project.SitePath); err != nil {
+		return err
+	}
+	others, err := m.ListProjects("", "")
+	if err != nil {
+		return fmt.Errorf("refusing to delete site folder %q: cannot list other projects: %w", project.SitePath, err)
+	}
+	for _, other := range others {
+		if other.ID == project.ID || other.SitePath == "" {
+			continue
+		}
+		if pathContains(project.SitePath, other.SitePath) {
+			return fmt.Errorf("refusing to delete site folder %q: it holds the site folder of project %q (%s)", project.SitePath, other.Name, other.SitePath)
+		}
+	}
+	return nil
+}
+
+// pathContains reports whether p is dir or lies inside it, comparing both the
+// cleaned strings and file identity of p and its ancestors.
+func pathContains(dir, p string) bool {
+	dir, p = filepath.Clean(dir), filepath.Clean(p)
+	if p == dir || strings.HasPrefix(p, dir+string(filepath.Separator)) {
+		return true
+	}
+	dirInfo, err := os.Stat(dir)
+	if err != nil {
+		return false
+	}
+	if real, err := filepath.EvalSymlinks(p); err == nil {
+		p = real
+	}
+	for cur := p; ; cur = filepath.Dir(cur) {
+		if info, err := os.Stat(cur); err == nil && os.SameFile(dirInfo, info) {
+			return true
+		}
+		if filepath.Dir(cur) == cur {
+			return false
+		}
+	}
 }
 
 // CheckRemovableSiteFolder refuses to recursively delete a path that cannot be

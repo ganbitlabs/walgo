@@ -21,7 +21,7 @@ func deleteProjectByRef(proj *projects.Project) error {
 	defer pm.Close()
 
 	if proj.SitePath != "" {
-		if err := projects.CheckRemovableSiteFolder(proj.SitePath); err != nil {
+		if err := pm.CheckDeletableSiteFolder(proj); err != nil {
 			return err
 		}
 	}

@@ -62,7 +62,7 @@ func DeleteProject(params DeleteProjectParams) DeleteProjectResult {
 	}
 
 	if params.DeleteSiteFolder && proj.SitePath != "" {
-		if err := projects.CheckRemovableSiteFolder(proj.SitePath); err != nil {
+		if err := pm.CheckDeletableSiteFolder(proj); err != nil {
 			result.Error = fmt.Sprintf("%v. Nothing was deleted.", err)
 			return result
 		}
