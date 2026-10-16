@@ -59,3 +59,19 @@ func TestCheckRemovableSiteFolder_SymlinkAndCaseVariantsOfHome(t *testing.T) {
 		t.Errorf("case variant %s of home must be refused", upper)
 	}
 }
+
+func TestCheckRemovableSiteFolder_DotDotThroughSymlink(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(home, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	if err := CheckRemovableSiteFolder(link + string(filepath.Separator) + ".."); err == nil {
+		t.Error("a path whose .. resolves through a symlink to home's parent must be refused")
+	}
+}

@@ -673,8 +673,15 @@ func (m *Manager) DeleteProjectWithOptions(id int64, deleteSiteFolder bool) erro
 
 // CheckRemovableSiteFolder refuses to recursively delete a path that cannot be
 // a site folder: a relative path, a filesystem root, or the home directory or
-// one of its ancestors.
+// one of its ancestors. A ".." element is refused outright: the kernel applies
+// it after following symlinks, so it can name a different folder than the
+// cleaned path that the string checks see.
 func CheckRemovableSiteFolder(sitePath string) error {
+	for _, elem := range strings.Split(filepath.ToSlash(sitePath), "/") {
+		if elem == ".." {
+			return fmt.Errorf("refusing to delete site folder %q: path contains \"..\"", sitePath)
+		}
+	}
 	clean := filepath.Clean(sitePath)
 	if !filepath.IsAbs(clean) || filepath.Dir(clean) == clean {
 		return fmt.Errorf("refusing to delete site folder %q: not a removable folder", sitePath)
@@ -689,7 +696,7 @@ func CheckRemovableSiteFolder(sitePath string) error {
 	}
 	// File identity catches what string comparison misses: case variants on
 	// case-insensitive filesystems and symlinked home directories.
-	site, err := os.Stat(clean)
+	site, err := os.Stat(sitePath)
 	if err != nil {
 		return nil
 	}
