@@ -154,3 +154,54 @@ func TestProjectsUpdateRefusesUndeployedProject(t *testing.T) {
 		t.Errorf("site-builder ran for an undeployed project:\n%s", calls)
 	}
 }
+
+func setStoredSitePath(t *testing.T, pm *projects.Manager, proj *projects.Project, sitePath string) {
+	t.Helper()
+	proj.SitePath = sitePath
+	if err := pm.UpdateProject(proj); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestProjectsUpdateLeavesUnresolvableLegacyPathAlone(t *testing.T) {
+	sitePath, builderLog := fakeProjectsUpdateEnv(t, "")
+	proj, pm := createTestProject(t, &projects.Project{
+		Name: "legacy", Network: "testnet", ObjectID: projectsUpdateObjectID, SitePath: sitePath, Epochs: 1,
+	})
+	legacy := filepath.Join("sites", "legacy")
+	setStoredSitePath(t, pm, proj, legacy)
+	t.Chdir(sitePath)
+
+	err := updateProjectByRef(proj, 0)
+	if err == nil || !strings.Contains(err.Error(), "relative site path") {
+		t.Fatalf("err = %v, want a refusal naming the relative path", err)
+	}
+	if got, _ := pm.GetProject(proj.ID); got == nil || got.SitePath != legacy {
+		t.Errorf("stored site path = %+v, want it left as %q", got, legacy)
+	}
+	if calls, err := os.ReadFile(builderLog); err == nil {
+		t.Errorf("site-builder ran for an unresolvable site:\n%s", calls)
+	}
+}
+
+func TestProjectsUpdateRecordsResolvedLegacyPath(t *testing.T) {
+	sitePath, _ := fakeProjectsUpdateEnv(t, "")
+	proj, pm := createTestProject(t, &projects.Project{
+		Name: "legacy", Network: "testnet", ObjectID: projectsUpdateObjectID, SitePath: sitePath, Epochs: 1,
+	})
+	t.Chdir(filepath.Dir(sitePath))
+	setStoredSitePath(t, pm, proj, filepath.Base(sitePath))
+
+	if err := updateProjectByRef(proj, 0); err != nil {
+		t.Fatalf("projects update failed: %v", err)
+	}
+	wd, _ := os.Getwd()
+	want := filepath.Join(wd, filepath.Base(sitePath))
+	if got, _ := pm.GetProject(proj.ID); got == nil || got.SitePath != want {
+		t.Errorf("stored site path = %+v, want %q", got, want)
+	}
+	all, _ := pm.ListProjects("", "")
+	if len(all) != 1 {
+		t.Errorf("projects after update = %d, want the one legacy project", len(all))
+	}
+}

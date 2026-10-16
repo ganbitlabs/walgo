@@ -40,17 +40,26 @@ func updateProjectByRef(proj *projects.Project, epochs int) error {
 		fmt.Printf("  %s Epochs: %d → %d\n", icons.Info, proj.Epochs, epochs)
 	}
 
-	// The deployment saves its result by site path, so a path an older walgo stored
-	// relative must be absolute before it can match this project.
-	if !filepath.IsAbs(proj.SitePath) {
-		if err := pm.UpdateProject(proj); err != nil {
-			return fmt.Errorf("failed to record the site path as absolute: %w", err)
-		}
-	}
-
 	walgoCfg, err := config.LoadConfigFrom(proj.SitePath)
 	if err != nil {
+		if !filepath.IsAbs(proj.SitePath) {
+			return fmt.Errorf("project %q stores the relative site path %q, which does not resolve to a walgo site from this directory: %w\n\n"+
+				"  Run this command from the directory the project was created in, or re-import the site", proj.Name, proj.SitePath, err)
+		}
 		return fmt.Errorf("failed to load config from %s: %w", proj.SitePath, err)
+	}
+
+	// The deployment saves its result by absolute site path. A relative path from an older
+	// walgo is recorded as absolute only now that it has resolved to the site's walgo.yaml.
+	if !filepath.IsAbs(proj.SitePath) {
+		abs, err := filepath.Abs(proj.SitePath)
+		if err != nil {
+			return fmt.Errorf("resolving site path %q: %w", proj.SitePath, err)
+		}
+		proj.SitePath = abs
+		if err := pm.UpdateProject(proj); err != nil {
+			return fmt.Errorf("failed to record the absolute site path: %w", err)
+		}
 	}
 
 	// Same guards as `walgo update`: the project's recorded network must be the

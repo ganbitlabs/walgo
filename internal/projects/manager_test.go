@@ -566,11 +566,30 @@ func TestSitePathsStoredAbsolute(t *testing.T) {
 		t.Errorf("CreateProject stored %+v, want SitePath %q", got, filepath.Join(work, "docs"))
 	}
 
-	deployed.SitePath = filepath.Join("moved", "docs")
-	if err := manager.UpdateProject(deployed); err != nil {
+	if got, _ := manager.GetProjectBySitePath("docs"); got == nil || got.ID != deployed.ID {
+		t.Errorf("relative lookup = %+v, want project %d", got, deployed.ID)
+	}
+}
+
+func TestUpdateProjectKeepsStoredSitePath(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Chdir(t.TempDir())
+	manager, err := NewManager()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := manager.GetProjectBySitePath(filepath.Join("moved", "docs")); got == nil || got.SitePath != filepath.Join(work, "moved", "docs") {
-		t.Errorf("relative lookup after UpdateProject = %+v, want SitePath %q", got, filepath.Join(work, "moved", "docs"))
+	defer manager.Close()
+
+	project := &Project{Name: "legacy", Network: "testnet", SitePath: "/sites/legacy"}
+	if err := manager.CreateProject(project); err != nil {
+		t.Fatal(err)
+	}
+	// A relative path written by an older walgo was recorded against an unknown directory.
+	project.SitePath = filepath.Join("sites", "legacy")
+	if err := manager.UpdateProject(project); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := manager.GetProject(project.ID); got == nil || got.SitePath != filepath.Join("sites", "legacy") {
+		t.Errorf("UpdateProject rewrote the stored path: %+v", got)
 	}
 }

@@ -272,7 +272,8 @@ func (m *Manager) applyMigration2() error {
 	return nil
 }
 
-// absSitePath returns sitePath as an absolute path, so a project opens from any working directory.
+// absSitePath returns a site path just supplied by the caller as an absolute path, so the project
+// opens from any working directory.
 // It returns "" for "" and sitePath itself if the working directory is unavailable.
 func absSitePath(sitePath string) string {
 	if sitePath == "" {
@@ -449,9 +450,10 @@ func (m *Manager) ListProjects(network string, status string) ([]*Project, error
 	return projects, nil
 }
 
-// UpdateProject modifies an existing project record in the database. It stores SitePath as an absolute path.
+// UpdateProject modifies an existing project record in the database.
+// SitePath is stored as given: a relative path from an older walgo cannot be resolved without
+// knowing the directory it was recorded in.
 func (m *Manager) UpdateProject(project *Project) error {
-	project.SitePath = absSitePath(project.SitePath)
 	project.UpdatedAt = time.Now()
 
 	_, err := m.db.Exec(`
