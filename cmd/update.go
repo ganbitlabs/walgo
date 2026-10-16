@@ -126,6 +126,7 @@ Assumes the site has been built using 'walgo build'.`,
 		// re-upload when the current storage has already expired.
 		var planSiteSize int64
 		var planFileCount int
+		planned := false
 
 		if cacheHelper != nil {
 			fmt.Printf("\n%s Analyzing changes...\n", icons.Info)
@@ -148,19 +149,20 @@ Assumes the site has been built using 'walgo build'.`,
 				} else {
 					plan.PrintSummary()
 				}
-
-				if dryRun {
-					fmt.Printf("\n%s Dry-run mode: No files will be uploaded\n", icons.Info)
-					fmt.Printf("%s Would update site: %s\n", icons.File, objectID)
-					fmt.Printf("%s Update plan complete!\n", icons.Success)
-					fmt.Printf("\n%s To actually update, run without --dry-run flag\n", icons.Lightbulb)
-					return nil
-				}
+				planned = true
 			}
-		} else if dryRun {
-			fmt.Printf("\n%s Note: Dry-run without cache - cannot show file-level changes\n", icons.Warning)
-			fmt.Printf("%s Would update site %s with all files in: %s\n", icons.Info, objectID, deployDir)
-			fmt.Printf("\n%s To see detailed changes, ensure cache is enabled\n", icons.Lightbulb)
+		}
+
+		// A dry run must never reach site-builder, whatever happened to the cache.
+		if dryRun {
+			if !planned {
+				fmt.Printf("\n%s Note: Change analysis unavailable - cannot show file-level changes\n", icons.Warning)
+				fmt.Printf("%s Would update site %s with all files in: %s\n", icons.Info, objectID, deployDir)
+			}
+			fmt.Printf("\n%s Dry-run mode: No files will be uploaded\n", icons.Info)
+			fmt.Printf("%s Would update site: %s\n", icons.File, objectID)
+			fmt.Printf("%s Update plan complete!\n", icons.Success)
+			fmt.Printf("\n%s To actually update, run without --dry-run flag\n", icons.Lightbulb)
 			return nil
 		}
 
