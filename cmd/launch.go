@@ -85,6 +85,21 @@ Example:
 		fmt.Printf("%s All required tools found\n", icons.Check)
 		fmt.Println()
 
+		restoreNetwork, err := launch.UseNetwork(network)
+		if err != nil {
+			return err
+		}
+		defer restoreNetwork()
+
+		walgoCfg, err := config.LoadConfigFrom(sitePath)
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w", err)
+		}
+		siteAction, err := launch.ReconcileExistingSite(sitePath, walgoCfg, network)
+		if err != nil {
+			return err
+		}
+
 		if err := version.CheckAndUpdateVersions(false); err != nil {
 			fmt.Fprintf(os.Stderr, "%s Warning: Version check failed: %v\n", icons.Warning, err)
 			fmt.Fprintf(os.Stderr, "  Continuing with deployment...\n")
@@ -93,7 +108,7 @@ Example:
 		// Step 2: Check wallet
 		fmt.Println("Step 2: Wallet & Balance")
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━")
-		walletAddr, suiBalance, walBalance, err := launch.CheckWallet(network)
+		walletAddr, suiBalance, walBalance, err := launch.CheckWallet()
 		if err != nil {
 			return err
 		}
@@ -197,9 +212,13 @@ Example:
 			return fmt.Errorf("failed to get current directory: %w", err)
 		}
 
-		walgoCfg, err := config.LoadConfigFrom(sitePath)
+		walgoCfg, err = config.LoadConfigFrom(sitePath)
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
+		}
+		forceNew := siteAction == launch.SiteOnOtherNetwork
+		if forceNew {
+			walgoCfg.WalrusConfig.ProjectID = ""
 		}
 
 		err = hugo.BuildSite(sitePath)
@@ -215,7 +234,7 @@ Example:
 			WalgoCfg:    walgoCfg,
 			Quiet:       false,
 			Verbose:     true,
-			ForceNew:    false,
+			ForceNew:    forceNew,
 			DryRun:      false,
 			SaveProject: true,
 			ProjectName: projectDetails.Name,
@@ -238,6 +257,10 @@ Example:
 
 		if !result.Success {
 			return fmt.Errorf("deployment failed: no object ID returned")
+		}
+
+		if err := launch.PersistNetwork(sitePath, network); err != nil {
+			fmt.Fprintf(os.Stderr, "%s Warning: failed to record walrus.network in walgo.yaml: %v\n", icons.Warning, err)
 		}
 
 		// Success!

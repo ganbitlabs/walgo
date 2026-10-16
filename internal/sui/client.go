@@ -4,6 +4,7 @@ package sui
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/ganbitlabs/walgo/internal/deps"
@@ -417,9 +418,11 @@ const (
 	ImportFromPrivateKey ImportMethod = "key"
 )
 
-// ImportAddressWithInput imports an address using provided mnemonic or private key
-// This is suitable for GUI applications where user input is collected separately
-// Correct format: sui keytool import "<input>" <keyScheme> [derivation_path]
+// ImportAddressWithInput imports an address from a mnemonic or private key.
+//
+// `sui keytool import` accepts the secret only as a positional argument, so it
+// is visible in the process list for the moment the command runs. Errors never
+// carry the secret: sui's output is redacted before it is returned.
 func ImportAddressWithInput(method ImportMethod, keyScheme, input string) (string, error) {
 	suiPath, err := getSuiPath()
 	if err != nil {
@@ -430,13 +433,11 @@ func ImportAddressWithInput(method ImportMethod, keyScheme, input string) (strin
 		keyScheme = "ed25519"
 	}
 
-	// Correct command format: sui keytool import "<input>" <keyScheme>
-	// Input is passed as argument, not via stdin
 	cmd := executil.Command(suiPath, "keytool", "import", input, keyScheme, "--json")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("import failed: %w - %s", err, string(output))
+		return "", fmt.Errorf("import failed: %w - %s", err, redactSecret(string(output), input))
 	}
 
 	// Parse JSON output
@@ -464,6 +465,25 @@ func ImportAddressWithInput(method ImportMethod, keyScheme, input string) (strin
 	}
 
 	return "", fmt.Errorf("could not extract address from JSON output")
+}
+
+// redactSecret removes secret, and each word of a multi-word secret such as a
+// mnemonic, from s.
+func redactSecret(s, secret string) string {
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return s
+	}
+	s = strings.ReplaceAll(s, secret, "[redacted]")
+	words := strings.Fields(secret)
+	if len(words) < 2 {
+		return s
+	}
+	quoted := make([]string, len(words))
+	for i, w := range words {
+		quoted[i] = regexp.QuoteMeta(w)
+	}
+	return regexp.MustCompile(`\b(?:`+strings.Join(quoted, "|")+`)\b`).ReplaceAllString(s, "[redacted]")
 }
 
 // GetExplorerURL returns the explorer URL for a given object ID on the specified network

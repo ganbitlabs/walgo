@@ -12,6 +12,7 @@ import (
 	"github.com/ganbitlabs/walgo/internal/projects"
 	"github.com/ganbitlabs/walgo/internal/sui"
 	"github.com/ganbitlabs/walgo/internal/ui"
+	"golang.org/x/term"
 )
 
 // sharedReader is a shared bufio.Reader to avoid creating multiple readers
@@ -42,6 +43,21 @@ func ReadlineInput(prompt string) string {
 	return strings.TrimSpace(line)
 }
 
+// readSecret reads a line without echoing it when stdin is a terminal.
+func readSecret(prompt string) string {
+	fd := int(os.Stdin.Fd())
+	if !term.IsTerminal(fd) {
+		return ReadlineInput(prompt)
+	}
+	fmt.Print(prompt)
+	secret, err := term.ReadPassword(fd)
+	fmt.Println()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(secret))
+}
+
 // readlineInputWithDefault reads input with a default value shown
 func readlineInputWithDefault(prompt, defaultVal string) string {
 	var fullPrompt string
@@ -58,39 +74,10 @@ func readlineInputWithDefault(prompt, defaultVal string) string {
 	return result
 }
 
-// SelectNetwork prompts the user to select a network
-func SelectNetwork() (string, error) {
-	// Get current active network using sui package
-	currentNetwork, err := sui.GetActiveEnv()
-	if err != nil {
-		currentNetwork = "testnet"
-	}
-
-	fmt.Printf("Current network: %s\n\n", currentNetwork)
-	fmt.Println("Available networks:")
-	fmt.Println("  1) testnet  - For testing (1 epoch = 1 day)")
-	fmt.Println("  2) mainnet  - For production (1 epoch = 2 weeks, requires SuiNS)")
-
-	input := readlineInputWithDefault("\nSelect network", "1")
-
-	if input == "" || input == "1" {
-		return "testnet", nil
-	} else if input == "2" {
-		return "mainnet", nil
-	}
-
-	return "testnet", nil
-}
-
-// CheckWallet checks wallet and balance, returns (address, suiBalance, walBalance, error)
-func CheckWallet(network string) (string, string, string, error) {
-
+// CheckWallet checks wallet and balance on the active Sui environment (see
+// UseNetwork), returns (address, suiBalance, walBalance, error)
+func CheckWallet() (string, string, string, error) {
 	icons := ui.GetIcons()
-
-	// Switch to the selected network
-	if err := sui.SwitchEnv(network); err != nil {
-		return "", "", "", fmt.Errorf("failed to switch to %s: %w", network, err)
-	}
 
 	// Get active address
 	activeAddr, err := sui.GetActiveAddress()
@@ -479,12 +466,12 @@ func importAddress() (string, string, string, error) {
 		method = sui.ImportFromMnemonic
 		fmt.Printf("\n%s Enter your recovery phrase (12-24 words)\n", icons.Warning)
 		keyScheme = readlineInputWithDefault("Key scheme", "ed25519")
-		importInput = readlineInputWithDefault("Recovery phrase", "")
+		importInput = readSecret("Recovery phrase (hidden): ")
 	} else {
 		method = sui.ImportFromPrivateKey
 		keyScheme = "ed25519"
 		fmt.Printf("\n%s Enter your private key (suiprivkey1... or hex format)\n", icons.Warning)
-		importInput = readlineInputWithDefault("Private key", "")
+		importInput = readSecret("Private key (hidden): ")
 	}
 
 	// Import the address
@@ -494,6 +481,10 @@ func importAddress() (string, string, string, error) {
 		return "", "", "", fmt.Errorf("failed to import address: %w", err)
 	}
 	fmt.Printf("\n%s Address imported: %s\n", icons.Check, newAddr)
+
+	if err := sui.SwitchAddress(newAddr); err != nil {
+		return "", "", "", fmt.Errorf("imported %s but failed to make it the active address: %w", newAddr, err)
+	}
 
 	suiBal, walBal := getBalance(newAddr)
 	fmt.Printf("%s Balance: %s SUI | %s WAL\n", icons.Arrow, suiBal, walBal)
