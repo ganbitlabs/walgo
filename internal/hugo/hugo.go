@@ -3,6 +3,7 @@ package hugo
 import (
 	"archive/zip"
 	"embed"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -202,12 +203,20 @@ func BuildSite(sitePath string) error {
 			optimizerEngine.PrintStats(stats)
 		}
 	} else {
+		var hints []string
+		for _, file := range config.IgnoredConfigFiles(sitePath) {
+			hints = append(hints, fmt.Sprintf("%s was not treated as a Hugo config; if this is a Hugo site, rename it to hugo%s", file, filepath.Ext(file)))
+		}
 		if info, err := os.Stat(publishDir); err != nil || !info.IsDir() {
-			return fmt.Errorf("no Hugo config (hugo.toml, config.toml, ...) found in %s and publish directory %s does not exist", sitePath, publishDir)
+			msg := fmt.Sprintf("no Hugo config (hugo.toml, config.toml, ...) found in %s and publish directory %s does not exist", sitePath, publishDir)
+			for _, hint := range hints {
+				msg += "\n  " + hint
+			}
+			return errors.New(msg)
 		}
 		fmt.Printf("No Hugo config found; deploying static files from %s as-is.\n", publishDir)
-		for _, file := range config.IgnoredConfigFiles(sitePath) {
-			fmt.Fprintf(os.Stderr, "Warning: %s was not treated as a Hugo config. If this is a Hugo site, rename it to hugo%s.\n", file, filepath.Ext(file))
+		for _, hint := range hints {
+			fmt.Fprintf(os.Stderr, "Warning: %s.\n", hint)
 		}
 	}
 

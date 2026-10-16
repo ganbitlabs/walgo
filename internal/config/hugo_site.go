@@ -80,9 +80,11 @@ func IgnoredConfigFiles(sitePath string) []string {
 }
 
 // defaultPublishDir returns the publishDir set in the site's Hugo config, else Hugo's default "public".
+// An absolute Hugo publishDir is ignored: callers join PublishDir onto the site path, and BuildSite
+// passes --destination, so the build and every caller agree on the same directory.
 func defaultPublishDir(sitePath string) string {
 	for _, values := range hugoConfigs(sitePath) {
-		if dir, ok := values["publishdir"].(string); ok && dir != "" {
+		if dir, ok := values["publishdir"].(string); ok && dir != "" && !filepath.IsAbs(dir) {
 			return dir
 		}
 	}

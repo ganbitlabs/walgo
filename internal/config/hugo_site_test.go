@@ -27,6 +27,7 @@ func TestLoadConfigFromPublishDir(t *testing.T) {
 		}, "prod", true},
 		{"Hugo config without publishDir", map[string]string{"hugo.yml": "title: x"}, "public", true},
 		{"generic config.json is not Hugo", map[string]string{"config.json": `{"publishDir": "x", "apiUrl": "y"}`}, "public", false},
+		{"absolute Hugo publishDir is ignored", map[string]string{"hugo.toml": "publishDir = \"/srv/site\""}, "public", true},
 		{"config.toml is Hugo", map[string]string{"config.toml": "title = \"x\""}, "public", true},
 		{"malformed hugo.toml is still Hugo", map[string]string{"hugo.toml": "title = "}, "public", true},
 		{"malformed config.toml is still Hugo", map[string]string{"config.toml": "title = "}, "public", true},

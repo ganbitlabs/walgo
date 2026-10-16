@@ -222,6 +222,20 @@ func TestBuildSiteStaticSiteWithGenericConfigFile(t *testing.T) {
 	assertMissing(t, filepath.Join(site, "dist", "sitemap.xml"))
 }
 
+func TestBuildSiteMissingPublishDirNamesIgnoredConfig(t *testing.T) {
+	isolateHome(t)
+	site := t.TempDir()
+	writeFiles(t, site, map[string]string{
+		"walgo.yaml":  "compress:\n  generateWSResources: true\n",
+		"config.yaml": "title: My Hugo site\n",
+	})
+
+	err := BuildSite(site)
+	if err == nil || !strings.Contains(err.Error(), "hugo.yaml") {
+		t.Fatalf("expected the error to suggest renaming config.yaml to hugo.yaml, got %v", err)
+	}
+}
+
 func TestBuildSiteStaticSiteWithoutPublishDir(t *testing.T) {
 	isolateHome(t)
 	site := t.TempDir()
