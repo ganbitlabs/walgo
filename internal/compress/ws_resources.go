@@ -3,6 +3,7 @@ package compress
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -482,9 +483,12 @@ const DefaultProjectURL = "https://github.com/ganbitlabs/walgo"
 const DefaultImageURL = "https://cdn.jsdelivr.net/gh/ganbitlabs/walgo@main/walgo-logo.svg"
 const DefaultCategory = "Walgo Site"
 
-// UpdateMetadata updates all metadata fields in ws-resources.json
+// UpdateMetadata updates all metadata fields in ws-resources.json, creating the file if it does not exist.
 func UpdateMetadata(wsResourcesPath string, opts MetadataOptions) error {
 	config, err := ReadWSResourcesConfig(wsResourcesPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		config, err = &WSResourcesConfig{}, nil
+	}
 	if err != nil {
 		return fmt.Errorf("failed to read ws-resources.json: %w", err)
 	}

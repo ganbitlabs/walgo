@@ -26,7 +26,6 @@ This command runs the 'hugo' command to generate static files typically into the
 
 		fmt.Printf("%s Building site...\n", icons.Package)
 
-		fmt.Printf("Running Hugo build...\n")
 		if err := hugo.BuildSite(sitePath); err != nil {
 			fmt.Fprintf(os.Stderr, "\n%s Troubleshooting:\n", icons.Lightbulb)
 			fmt.Fprintf(os.Stderr, "  - Check that Hugo is installed: hugo version\n")
@@ -35,7 +34,7 @@ This command runs the 'hugo' command to generate static files typically into the
 			return fmt.Errorf("hugo build failed: %w", err)
 		}
 
-		fmt.Printf("\n%s Build complete! Output: %s\n", icons.Success, sitePath+"/public")
+		fmt.Printf("\n%s Build complete!\n", icons.Success)
 		fmt.Printf("\n%s Next steps:\n", icons.Lightbulb)
 		fmt.Printf("  - Preview: walgo serve\n")
 		fmt.Printf("  - Deploy:  walgo launch\n")

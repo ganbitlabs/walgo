@@ -3,6 +3,7 @@ package hugo
 import (
 	"archive/zip"
 	"embed"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,7 +21,6 @@ import (
 	"github.com/ganbitlabs/walgo/internal/executil"
 	"github.com/ganbitlabs/walgo/internal/optimizer"
 	"github.com/ganbitlabs/walgo/internal/projects"
-	"gopkg.in/yaml.v3"
 )
 
 //go:embed tomls/*.toml
@@ -127,7 +127,8 @@ func InitializeSite(sitePath string) error {
 	return nil
 }
 
-// cleanPublicDir removes unnecessary files from the public directory
+// cleanPublicDir removes OS metadata files from the publish directory.
+// Everything else there is either build output or the user's own files, so it stays.
 func cleanPublicDir(publicDir string) error {
 	var deletedCount int
 
@@ -135,38 +136,14 @@ func cleanPublicDir(publicDir string) error {
 		if err != nil {
 			return err
 		}
-
-		// Skip directories
-		if info.IsDir() {
+		if info.IsDir() || info.Name() != ".DS_Store" {
 			return nil
 		}
-
-		// Check if file should be deleted
-		ext := filepath.Ext(path)
-		baseName := filepath.Base(path)
-
-		shouldDelete := false
-		switch {
-		case ext == ".map":
-			// Source map files
-			shouldDelete = true
-		case baseName == ".DS_Store":
-			// macOS system files
-			shouldDelete = true
-		case ext == ".br", ext == ".gz":
-			// Compressed files (.br, .gz)
-			shouldDelete = true
+		if err := os.Remove(path); err != nil {
+			fmt.Printf("Warning: failed to delete %s: %v\n", path, err)
+		} else {
+			deletedCount++
 		}
-
-		if shouldDelete {
-			if err := os.Remove(path); err != nil {
-				// Log but don't fail the entire operation
-				fmt.Printf("Warning: failed to delete %s: %v\n", path, err)
-			} else {
-				deletedCount++
-			}
-		}
-
 		return nil
 	})
 
@@ -177,51 +154,118 @@ func cleanPublicDir(publicDir string) error {
 	return err
 }
 
-// BuildSite runs the Hugo build process in the given site path.
+// resolvePublishDir returns the absolute publish directory for sitePath.
+// It refuses a directory that contains the site: hugo's --cleanDestinationDir would delete the sources,
+// and a static deploy would upload walgo.yaml and everything else in the project.
+func resolvePublishDir(sitePath string, cfg *config.WalgoConfig) (string, error) {
+	dir := cfg.HugoConfig.PublishDir
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join(sitePath, dir)
+	}
+	publishDir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	absSite, err := filepath.Abs(sitePath)
+	if err != nil {
+		return "", err
+	}
+	if rel, err := filepath.Rel(publishDir, absSite); err == nil && !strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("publish directory %s contains the site itself; set hugo.publishDir in walgo.yaml to a subdirectory such as public", publishDir)
+	}
+	return publishDir, nil
+}
+
+// BuildSite builds the site in sitePath into its publish directory, then optimizes it and writes ws-resources.json.
+// The publish directory is walgo.yaml's hugo.publishDir, else the Hugo config's publishDir, else public.
+// A site with no Hugo config is treated as prebuilt static files and its publish directory is used as-is.
 func BuildSite(sitePath string) error {
+	cfg, err := config.LoadConfigFrom(sitePath)
+	if err != nil {
+		return err
+	}
+	publishDir, err := resolvePublishDir(sitePath, cfg)
+	if err != nil {
+		return fmt.Errorf("resolving publish directory: %w", err)
+	}
+
+	if config.IsHugoSite(sitePath) {
+		if err := runHugoBuild(sitePath, publishDir); err != nil {
+			return err
+		}
+		if cfg.OptimizerConfig.Enabled {
+			fmt.Printf("Optimizing assets...\n")
+			optimizerEngine := optimizer.NewEngine(cfg.OptimizerConfig)
+			stats, err := optimizerEngine.OptimizeDirectory(publishDir)
+			if err != nil {
+				return fmt.Errorf("failed to optimize directory: %w", err)
+			}
+			optimizerEngine.PrintStats(stats)
+		}
+	} else {
+		var hints []string
+		for _, file := range config.IgnoredConfigFiles(sitePath) {
+			hints = append(hints, fmt.Sprintf("%s was not treated as a Hugo config; if this is a Hugo site, rename it to hugo%s", file, filepath.Ext(file)))
+		}
+		if info, err := os.Stat(publishDir); err != nil || !info.IsDir() {
+			msg := fmt.Sprintf("no Hugo config (hugo.toml, config.toml, ...) found in %s and publish directory %s does not exist", sitePath, publishDir)
+			for _, hint := range hints {
+				msg += "\n  " + hint
+			}
+			return errors.New(msg)
+		}
+		fmt.Printf("No Hugo config found; deploying static files from %s as-is.\n", publishDir)
+		for _, hint := range hints {
+			fmt.Fprintf(os.Stderr, "Warning: %s.\n", hint)
+		}
+	}
+
+	if err := cleanPublicDir(publishDir); err != nil {
+		fmt.Printf("Warning: failed to clean public directory: %v\n", err)
+	}
+
+	if cfg.CompressConfig.GenerateWSResources {
+		if err := writeWSResources(sitePath, publishDir, cfg); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// hugoSourceDirs are the site directories hugo reads from or caches into.
+var hugoSourceDirs = []string{"archetypes", "assets", "config", "content", "data", "i18n", "layouts", "resources", "static", "themes"}
+
+func runHugoBuild(sitePath, publishDir string) error {
+	absSite, err := filepath.Abs(sitePath)
+	if err != nil {
+		return fmt.Errorf("resolving site path: %w", err)
+	}
+	// --cleanDestinationDir deletes every file in the destination that the build did not produce.
+	for _, dir := range hugoSourceDirs {
+		if rel, err := filepath.Rel(filepath.Join(absSite, dir), publishDir); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("publish directory %s is inside the Hugo source directory %s; set hugo.publishDir in walgo.yaml to a separate directory such as public", publishDir, dir)
+		}
+	}
+
 	hugoPath, err := deps.LookPath("hugo")
 	if err != nil {
 		return fmt.Errorf("hugo is not installed or not found in PATH")
 	}
 
-	walgoCfg := filepath.Join(sitePath, "walgo.yaml")
-	if _, err := os.Stat(walgoCfg); os.IsNotExist(err) {
-		return fmt.Errorf("walgo.yaml not found in %s", sitePath)
-	}
-
-	content, err := os.ReadFile(walgoCfg)
-	if err != nil {
-		return fmt.Errorf("failed to read walgo.yaml: %w", err)
-	}
-
-	var walgoCfgData config.WalgoConfig
-	if err := yaml.Unmarshal(content, &walgoCfgData); err != nil {
-		return fmt.Errorf("failed to unmarshal walgo.yaml: %w", err)
-	}
-
-	configFile := filepath.Join(sitePath, "hugo.toml")
-	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		configFile = filepath.Join(sitePath, "config.toml")
-		if _, err := os.Stat(configFile); os.IsNotExist(err) {
-			return fmt.Errorf("hugo configuration file (hugo.toml/config.toml) not found in %s. Are you in a Hugo site directory?", sitePath)
-		}
-	}
-
 	fmt.Printf("Building Hugo site in %s...\n", sitePath)
 
-	// Check if themes directory exists and has content
 	themesDir := filepath.Join(sitePath, "themes")
 	if _, err := os.Stat(themesDir); os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "Warning: themes/ directory not found. Hugo might fail if a theme is required.\n")
 	} else {
-		// Check if themes directory is empty
 		entries, err := os.ReadDir(themesDir)
 		if err == nil && len(entries) == 0 {
 			fmt.Fprintf(os.Stderr, "Warning: themes/ directory is empty. Hugo might fail if a theme is required.\n")
 		}
 	}
 
-	cmd := executil.Command(hugoPath, "build", "--environment", "production", "--minify", "--gc", "--cleanDestinationDir")
+	cmd := executil.Command(hugoPath, "build", "--environment", "production", "--minify", "--gc", "--cleanDestinationDir", "--destination", publishDir)
 	cmd.Dir = sitePath
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -229,133 +273,83 @@ func BuildSite(sitePath string) error {
 	if err := cmd.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "\nHugo build failed. Common issues:\n")
 		fmt.Fprintf(os.Stderr, "  1. Missing theme - check if themes/ directory contains your theme\n")
-		fmt.Fprintf(os.Stderr, "  2. Configuration error - verify hugo.toml/config.toml is valid\n")
+		fmt.Fprintf(os.Stderr, "  2. Configuration error - verify your Hugo config (hugo.toml, config.toml, ...) is valid\n")
 		fmt.Fprintf(os.Stderr, "  3. Content error - check your markdown files for syntax issues\n")
 		fmt.Fprintf(os.Stderr, "\nFor more details, run: hugo build --verbose\n")
 		return fmt.Errorf("failed to build Hugo site: %v (check Hugo output above for details)", err)
 	}
 
 	fmt.Println("Hugo site built successfully.")
-	publicDir := filepath.Join(sitePath, "public")
-	fmt.Printf("Static files generated in: %s\n", publicDir)
+	fmt.Printf("Static files generated in: %s\n", publishDir)
+	return nil
+}
 
-	if walgoCfgData.OptimizerConfig.Enabled {
-		fmt.Printf("Optimizing assets...\n")
-		optimizerEngine := optimizer.NewEngine(walgoCfgData.OptimizerConfig)
-		stats, err := optimizerEngine.OptimizeDirectory(publicDir)
+func writeWSResources(sitePath, publicDir string, cfg *config.WalgoConfig) error {
+	fmt.Printf("Generating ws-resources.json...\n")
 
-		if err != nil {
-			return fmt.Errorf("failed to optimize directory: %w", err)
-		} else {
-			optimizerEngine.PrintStats(stats)
+	cacheConfig := compress.DefaultCacheControlConfig()
+	cacheConfig.Enabled = cfg.CacheConfig.Enabled
+	if cfg.CacheConfig.ImmutableMaxAge != 0 {
+		cacheConfig.ImmutableMaxAge = cfg.CacheConfig.ImmutableMaxAge
+	}
+	if cfg.CacheConfig.MutableMaxAge != 0 {
+		cacheConfig.MutableMaxAge = cfg.CacheConfig.MutableMaxAge
+	}
+
+	wsOptions := compress.WSResourcesOptions{
+		CacheConfig:  cacheConfig,
+		CustomRoutes: cfg.CompressConfig.CustomRoutes,
+		CustomIgnore: cfg.CompressConfig.IgnorePatterns,
+		SiteName:     filepath.Base(sitePath),
+		ImageURL:     compress.DefaultImageURL,
+		Link:         compress.DefaultLink,
+		ProjectURL:   compress.DefaultProjectURL,
+		Creator:      compress.DefaultCreator,
+		Category:     compress.DefaultCategory,
+	}
+
+	var existingObjectID string
+	pm, err := projects.NewManager()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Could not access project database: %v (using defaults)\n", err)
+	} else {
+		defer pm.Close()
+		if project, err := pm.GetProjectBySitePath(sitePath); err == nil && project != nil {
+			wsOptions.SiteName = project.Name
+			wsOptions.Description = project.Description
+			wsOptions.ImageURL = project.ImageURL
+			wsOptions.Category = project.Category
+			existingObjectID = project.ObjectID
 		}
 	}
 
-	if walgoCfgData.CompressConfig.GenerateWSResources {
-		fmt.Printf("Generating ws-resources.json...\n")
-
-		cacheConfig := compress.CacheControlConfig{
-			Enabled:         walgoCfgData.CacheConfig.Enabled,
-			ImmutableMaxAge: walgoCfgData.CacheConfig.ImmutableMaxAge,
-			MutableMaxAge:   walgoCfgData.CacheConfig.MutableMaxAge,
-		}
-
-		if cacheConfig.ImmutableMaxAge == 0 {
-			cacheConfig.ImmutableMaxAge = 31536000 // 1 year default
-		}
-		if cacheConfig.MutableMaxAge == 0 {
-			cacheConfig.MutableMaxAge = 300 // 5 minutes default
-		}
-
-		if len(cacheConfig.ImmutablePatterns) == 0 {
-			cacheConfig.ImmutablePatterns = compress.DefaultCacheControlConfig().ImmutablePatterns
-		}
-
-		wsOptions := compress.WSResourcesOptions{
-			CacheConfig:  cacheConfig,
-			CustomRoutes: walgoCfgData.CompressConfig.CustomRoutes,
-			CustomIgnore: walgoCfgData.CompressConfig.IgnorePatterns,
-		}
-
-		// Try to get project metadata (non-fatal if not found)
-		var existingObjectID string
-		pm, err := projects.NewManager()
-		if err == nil {
-			defer pm.Close()
-			project, err := pm.GetProjectBySitePath(sitePath)
-			if err == nil && project != nil {
-				// Use project metadata if available
-				wsOptions.SiteName = project.Name
-				wsOptions.Description = project.Description
-				wsOptions.ImageURL = project.ImageURL
-				wsOptions.Link = compress.DefaultLink
-				wsOptions.ProjectURL = compress.DefaultProjectURL
-				wsOptions.Creator = compress.DefaultCreator
-				wsOptions.Category = project.Category
-				existingObjectID = project.ObjectID
-			} else {
-				// Project not found - use defaults
-				wsOptions.SiteName = filepath.Base(sitePath)
-				wsOptions.Description = ""
-				wsOptions.ImageURL = compress.DefaultImageURL
-				wsOptions.Link = compress.DefaultLink
-				wsOptions.ProjectURL = compress.DefaultProjectURL
-				wsOptions.Creator = compress.DefaultCreator
-				wsOptions.Category = compress.DefaultCategory
-			}
-		} else {
-			// Project manager failed - use defaults
-			fmt.Fprintf(os.Stderr, "Warning: Could not access project database: %v (using defaults)\n", err)
-			wsOptions.SiteName = filepath.Base(sitePath)
-			wsOptions.Description = ""
-			wsOptions.ImageURL = compress.DefaultImageURL
-			wsOptions.Link = compress.DefaultLink
-			wsOptions.ProjectURL = compress.DefaultProjectURL
-			wsOptions.Creator = compress.DefaultCreator
-			wsOptions.Category = compress.DefaultCategory
-		}
-
-		// Check for existing ObjectID in old ws-resources.json
-		outputPath := filepath.Join(publicDir, "ws-resources.json")
-		if existingObjectID == "" {
-			if oldConfig, err := compress.ReadWSResourcesConfig(outputPath); err == nil && oldConfig.ObjectID != "" {
-				existingObjectID = oldConfig.ObjectID
-			}
-		}
-
-		// Generate new ws-resources.json
-		wsConfig, err := compress.GenerateWSResourcesConfig(publicDir, wsOptions)
-		if err != nil {
-			return fmt.Errorf("failed to generate ws-resources.json: %w", err)
-		}
-
-		// Preserve existing ObjectID if found
-		if existingObjectID != "" {
-			wsConfig.ObjectID = existingObjectID
-		}
-
-		// Write ws-resources.json (critical operation)
-		if err := compress.WriteWSResourcesConfig(wsConfig, outputPath); err != nil {
-			return fmt.Errorf("failed to write ws-resources.json: %w", err)
-		}
-		fmt.Printf("Generated ws-resources.json (%d resources)\n", len(wsConfig.Headers))
-
-		// Generate and merge routes
-		routes, err := compress.GenerateRoutesFromPublic(publicDir)
-		if err != nil {
-			return fmt.Errorf("failed to generate routes: %w", err)
-		}
-
-		if err := compress.MergeRoutesIntoWSResources(outputPath, routes); err != nil {
-			return fmt.Errorf("failed to merge routes into ws-resources.json: %w", err)
+	outputPath := filepath.Join(publicDir, "ws-resources.json")
+	if existingObjectID == "" {
+		if oldConfig, err := compress.ReadWSResourcesConfig(outputPath); err == nil && oldConfig.ObjectID != "" {
+			existingObjectID = oldConfig.ObjectID
 		}
 	}
 
-	// Clean up unnecessary files from public directory
-	if err := cleanPublicDir(publicDir); err != nil {
-		fmt.Printf("Warning: failed to clean public directory: %v\n", err)
+	wsConfig, err := compress.GenerateWSResourcesConfig(publicDir, wsOptions)
+	if err != nil {
+		return fmt.Errorf("failed to generate ws-resources.json: %w", err)
+	}
+	if existingObjectID != "" {
+		wsConfig.ObjectID = existingObjectID
 	}
 
+	if err := compress.WriteWSResourcesConfig(wsConfig, outputPath); err != nil {
+		return fmt.Errorf("failed to write ws-resources.json: %w", err)
+	}
+	fmt.Printf("Generated ws-resources.json (%d resources)\n", len(wsConfig.Headers))
+
+	routes, err := compress.GenerateRoutesFromPublic(publicDir)
+	if err != nil {
+		return fmt.Errorf("failed to generate routes: %w", err)
+	}
+	if err := compress.MergeRoutesIntoWSResources(outputPath, routes); err != nil {
+		return fmt.Errorf("failed to merge routes into ws-resources.json: %w", err)
+	}
 	return nil
 }
 

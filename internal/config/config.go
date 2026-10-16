@@ -62,20 +62,24 @@ func LoadConfig() (*WalgoConfig, error) {
 		return nil, fmt.Errorf("error unmarshaling configuration from %s: %w. Please check the file format and structure", viper.ConfigFileUsed(), err)
 	}
 
+	applyDefaults(&cfg, filepath.Dir(viper.ConfigFileUsed()))
+	return &cfg, nil
+}
+
+// applyDefaults fills settings walgo.yaml leaves unset. An unset publishDir follows the site's Hugo config.
+func applyDefaults(cfg *WalgoConfig, sitePath string) {
 	if cfg.HugoConfig.PublishDir == "" {
-		cfg.HugoConfig.PublishDir = "public"
+		cfg.HugoConfig.PublishDir = defaultPublishDir(sitePath)
 	}
 	if cfg.HugoConfig.ContentDir == "" {
 		cfg.HugoConfig.ContentDir = "content"
 	}
 	if cfg.HugoConfig.ResourceDir == "" {
-		cfg.HugoConfig.ResourceDir = "resources" // Hugo's default
+		cfg.HugoConfig.ResourceDir = "resources"
 	}
 	if cfg.WalrusConfig.Entrypoint == "" {
 		cfg.WalrusConfig.Entrypoint = "index.html"
 	}
-
-	return &cfg, nil
 }
 
 // LoadConfigFrom reads and parses the Walgo configuration from a specific directory.
@@ -99,20 +103,7 @@ func LoadConfigFrom(sitePath string) (*WalgoConfig, error) {
 		return nil, fmt.Errorf("failed to parse config file %s: %w", configPath, err)
 	}
 
-	// Apply defaults
-	if cfg.HugoConfig.PublishDir == "" {
-		cfg.HugoConfig.PublishDir = "public"
-	}
-	if cfg.HugoConfig.ContentDir == "" {
-		cfg.HugoConfig.ContentDir = "content"
-	}
-	if cfg.HugoConfig.ResourceDir == "" {
-		cfg.HugoConfig.ResourceDir = "resources"
-	}
-	if cfg.WalrusConfig.Entrypoint == "" {
-		cfg.WalrusConfig.Entrypoint = "index.html"
-	}
-
+	applyDefaults(&cfg, sitePath)
 	return &cfg, nil
 }
 

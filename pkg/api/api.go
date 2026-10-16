@@ -1126,6 +1126,9 @@ func GetProject(projectID int64) (*Project, error) {
 	var siteSize int64
 	var fileCount int
 	publicDir := filepath.Join(proj.SitePath, "public")
+	if cfg, err := config.LoadConfigFrom(proj.SitePath); err == nil {
+		publicDir = filepath.Join(proj.SitePath, cfg.HugoConfig.PublishDir)
+	}
 	if _, err := os.Stat(publicDir); err == nil {
 		_ = filepath.Walk(publicDir, func(path string, info os.FileInfo, walkErr error) error {
 			if walkErr != nil || info.IsDir() {
