@@ -199,6 +199,9 @@ compress_config:
 				if err := os.WriteFile(walgoPath, []byte(walgoContent), 0644); err != nil {
 					t.Fatal(err)
 				}
+				if err := os.WriteFile(filepath.Join(tmpDir, "hugo.toml"), []byte(`title = "x"`), 0644); err != nil {
+					t.Fatal(err)
+				}
 				return tmpDir, func() {}
 			},
 			hugoNotFound: true,

@@ -20,7 +20,7 @@ func NewHTMLOptimizer(config HTMLConfig) *HTMLOptimizer {
 	m := minify.New()
 	// The Keep* settings mirror Hugo's minify defaults, so output matches what `hugo --minify` produces.
 	m.Add(htmlMime, &html.Minifier{
-		KeepComments:            !config.RemoveComments,
+		KeepComments:        !config.RemoveComments,
 		KeepSpecialComments: true,
 		KeepDefaultAttrVals: true,
 		KeepDocumentTags:    true,
