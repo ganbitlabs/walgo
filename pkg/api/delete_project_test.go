@@ -144,6 +144,32 @@ func TestDeleteProject_WrongNetworkOrAddressRefusesDestroy(t *testing.T) {
 	}
 }
 
+// Rows from earlier releases, drafts and CLI deploys outside home alike, are
+// the sandbox roots, so existing projects stay editable after upgrading.
+func TestProjectSitePaths_IncludesEveryExistingRow(t *testing.T) {
+	_, deployed := seedProject(t, "0x1234567890")
+	pm, err := projects.NewManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft := filepath.Join(t.TempDir(), "draft")
+	if err := pm.CreateDraftProject("draft", draft); err != nil {
+		t.Fatal(err)
+	}
+	pm.Close()
+
+	paths, err := ProjectSitePaths()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Join(paths, "\n")
+	for _, want := range []string{deployed, draft} {
+		if !strings.Contains(got, want) {
+			t.Errorf("ProjectSitePaths missing %s: %v", want, paths)
+		}
+	}
+}
+
 func TestDeleteProject_SkipOnChainRemovesLocally(t *testing.T) {
 	chain := &fakeChain{env: "mainnet", addr: "0xdef"}
 	installFakeChain(t, chain)
