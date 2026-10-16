@@ -270,8 +270,8 @@ func runHugoBuild(sitePath, publishDir string) error {
 	cmd := executil.Command(hugoPath, "build", "--environment", "production", "--minify", "--gc", "--cleanDestinationDir", "--destination", publishDir)
 	cmd.Dir = sitePath
 	output := &lockedBuffer{}
-	cmd.Stdout = io.MultiWriter(os.Stdout, output)
-	cmd.Stderr = io.MultiWriter(os.Stderr, output)
+	cmd.Stdout = io.MultiWriter(output, bestEffort{os.Stdout})
+	cmd.Stderr = io.MultiWriter(output, bestEffort{os.Stderr})
 
 	if err := cmd.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "\nHugo build failed. Common issues:\n")
@@ -320,6 +320,15 @@ func (b *lockedBuffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.buf.String()
+}
+
+// bestEffort ignores write errors. A GUI app on Windows has no console, so
+// os.Stdout fails every write, and that must not fail the build.
+type bestEffort struct{ w io.Writer }
+
+func (b bestEffort) Write(p []byte) (int, error) {
+	_, _ = b.w.Write(p)
+	return len(p), nil
 }
 
 func lastBytes(s string, n int) string {
