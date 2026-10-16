@@ -1,0 +1,29 @@
+/* Theme stylesheet */
+:root {
+  --black-text: #000000;
+  --accent: #ff6600;
+  --space: calc(1rem + 2px);
+}
+
+.post-list a :hover,
+.post-list > li + li {
+  color: var(--accent);
+  margin: 0px 0.5em;
+}
+
+.hero::before {
+  content: "/* not a comment */";
+  background: url("/images/hero bg.png") no-repeat;
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url(/fonts/inter.woff2) format("woff2");
+  unicode-range: U+0000-00FF;
+}
+
+.fade { transition: opacity 0s ease 0.25s; }

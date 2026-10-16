@@ -1,0 +1,3 @@
+/*!
+ * Theme helpers. License: MIT
+ */(function(){"use strict";const STORAGE_KEY="theme",pattern=/\/\*.*?\*\//g,cdn="https://cdn.example.com/assets/";function stripComments(src){return src.replace(pattern,"")}function preferred(storage,media){const saved=storage[STORAGE_KEY];return saved==="dark"||saved==="light"?saved:media?"dark":"light"}const total=[1,2,3].map(n=>n*2).reduce((acc,n)=>acc+n,0),ratio=total/4/2,label=`${preferred({},!0)} mode, total=${total}, ratio=${ratio}`;globalThis.result={stripped:stripComments("a /* b */ c"),url:cdn+"logo.svg",light:preferred({theme:"light"},!0),label}})()

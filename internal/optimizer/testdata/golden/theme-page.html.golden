@@ -1,0 +1,4 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><title>My Walrus Site</title><style>:root{--black-text:#000000}body{color:var(--black-text);margin:0}.nav a :hover{text-decoration:underline}</style><script>const msg="/* not a comment */";document.documentElement.dataset.msg=msg</script></head><body><nav class=nav><a href=/>Home</a> <a href=/posts/>Posts</a></nav><main><p>Read <a href=/about/>about me</a> or <em>skip</em> <strong>ahead</strong>.</p><pre><code>func main() {
+    fmt.Println("hi")
+}</code></pre><textarea>  keep
+  this  </textarea></main><script src=/js/theme.js></script></body></html>

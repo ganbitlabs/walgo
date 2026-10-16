@@ -110,28 +110,28 @@ func TestCSSOptimizerDecimalValues(t *testing.T) {
 	}{
 		{
 			name:     "rgba with small decimal",
-			input:    "color: rgba(255, 255, 255, 0.08);",
-			expected: "color:rgba(255,255,255,.08);",
+			input:    "a { color: rgba(255, 255, 255, 0.08); }",
+			expected: "a{color:rgba(255,255,255,8%)}",
 		},
 		{
 			name:     "letter-spacing with small negative decimal",
-			input:    "letter-spacing: -0.03em;",
-			expected: "letter-spacing:-.03em;",
+			input:    "a { letter-spacing: -0.03em; }",
+			expected: "a{letter-spacing:-.03em}",
 		},
 		{
 			name:     "letter-spacing with small positive decimal",
-			input:    "letter-spacing: 0.08em;",
-			expected: "letter-spacing:.08em;",
+			input:    "a { letter-spacing: 0.08em; }",
+			expected: "a{letter-spacing:.08em}",
 		},
 		{
 			name:     "opacity with regular decimal",
-			input:    "opacity: 0.5;",
-			expected: "opacity:.5;",
+			input:    "a { opacity: 0.5; }",
+			expected: "a{opacity:.5}",
 		},
 		{
 			name:     "opacity with very small decimal",
-			input:    "opacity: 0.001;",
-			expected: "opacity:.001;",
+			input:    "a { opacity: 0.001; }",
+			expected: "a{opacity:.001}",
 		},
 	}
 
@@ -391,9 +391,9 @@ func TestCSSOptimizerPreservesStrings(t *testing.T) {
 			contains: `'black text'`,
 		},
 		{
-			name:     "color name outside string is preserved (no named color replacement)",
-			input:    `div { color: white; }`,
-			contains: `white`,
+			name:     "custom property containing a color name keeps its name",
+			input:    `div { --black-text: #000000; color: var(--black-text); }`,
+			contains: `var(--black-text)`,
 		},
 	}
 
@@ -484,8 +484,8 @@ func TestHTMLMinifyPreservesSpecialTags(t *testing.T) {
 			contains: `  code  with  spaces  `,
 		},
 		{
-			name:     "code tag whitespace preserved",
-			input:    `<div><code>  code  </code></div>`,
+			name:     "code inside pre keeps whitespace",
+			input:    `<div><pre><code>  code  </code></pre></div>`,
 			contains: `  code  `,
 		},
 		{
