@@ -383,7 +383,7 @@ func BuildSite(sitePath string) error {
 	}
 
 	if err := hugo.BuildSite(sitePath); err != nil {
-		return fmt.Errorf("hugo build failed: %w", err)
+		return buildFailure(err)
 	}
 
 	return nil

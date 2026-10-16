@@ -91,7 +91,7 @@ func deploySite(ctx context.Context, d siteDeploy) (*siteDeployResult, error) {
 	}
 
 	if err := hugo.BuildSite(d.SitePath); err != nil {
-		return nil, fmt.Errorf("failed to build site: %w", err)
+		return nil, buildFailure(err)
 	}
 
 	publishDir := filepath.Join(d.SitePath, walgoCfg.HugoConfig.PublishDir)
@@ -180,4 +180,14 @@ func gasFeeText(res *deployment.DeploymentResult, network string, epochs int) st
 	default:
 		return projects.EstimateGasFeeWithEpochs(network, res.SiteSize, epochs)
 	}
+}
+
+// buildFailure explains a failed site build. The desktop app has no terminal,
+// so hugo's own output goes into the message instead of "see output above".
+func buildFailure(err error) error {
+	var buildErr *hugo.BuildError
+	if errors.As(err, &buildErr) && strings.TrimSpace(buildErr.Output) != "" {
+		return fmt.Errorf("failed to build site: hugo build failed: %v\n\n%s", buildErr.Err, strings.TrimSpace(buildErr.Output))
+	}
+	return fmt.Errorf("failed to build site: %w", err)
 }

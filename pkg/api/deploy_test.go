@@ -219,3 +219,22 @@ func TestLaunchWizardRefusesNetworkMismatch(t *testing.T) {
 		t.Errorf("site-builder ran despite the refusal:\n%s", calls)
 	}
 }
+
+func TestUpdateSiteShowsHugoOutputOnBuildFailure(t *testing.T) {
+	env := fakeDeployEnv(t, "testnet", "")
+	writeFile(t, filepath.Join(env.bin, "hugo"), "#!/bin/sh\necho 'Error: module \"ananke\" not found' >&2\nexit 1\n")
+	proj := createProject(t, &projects.Project{
+		Name: "blog", Network: "testnet", ObjectID: testObjectID, SitePath: env.sitePath, Epochs: 1,
+	})
+
+	result := UpdateSite(context.Background(), UpdateSiteParams{ProjectID: proj.ID})
+	if result.Success {
+		t.Fatal("UpdateSite succeeded although hugo failed")
+	}
+	if !strings.Contains(result.Error, `module "ananke" not found`) {
+		t.Errorf("error = %q, want hugo's own output", result.Error)
+	}
+	if calls, err := os.ReadFile(env.builderLog); err == nil {
+		t.Errorf("site-builder ran after a failed build:\n%s", calls)
+	}
+}
