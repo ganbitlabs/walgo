@@ -41,13 +41,31 @@ func (s siteSandbox) inside(p string) bool {
 }
 
 // holdsRoot reports whether p is a registered root or an ancestor of one.
+// It compares file identity as well as strings, so a case variant of a path on a
+// case-insensitive filesystem cannot slip past.
 func (s siteSandbox) holdsRoot(p string) bool {
+	info, statErr := os.Stat(p)
 	for _, r := range s.roots {
 		if p == r || strings.HasPrefix(r, p+string(filepath.Separator)) {
 			return true
 		}
+		if statErr == nil && isSameOrAncestor(info, r) {
+			return true
+		}
 	}
 	return false
+}
+
+// isSameOrAncestor reports whether target is path or one of its ancestors.
+func isSameOrAncestor(target os.FileInfo, path string) bool {
+	for p := path; ; p = filepath.Dir(p) {
+		if info, err := os.Stat(p); err == nil && os.SameFile(target, info) {
+			return true
+		}
+		if filepath.Dir(p) == p {
+			return false
+		}
+	}
 }
 
 // resolve returns the cleaned absolute form of p when it lies inside a site

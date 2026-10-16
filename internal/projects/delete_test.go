@@ -3,6 +3,7 @@ package projects
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -29,5 +30,32 @@ func TestDeleteProjectRefusesToRemoveHomeOrRoot(t *testing.T) {
 	}
 	if _, err := os.Stat(home); err != nil {
 		t.Fatalf("home must survive: %v", err)
+	}
+}
+
+func TestCheckRemovableSiteFolder_SymlinkAndCaseVariantsOfHome(t *testing.T) {
+	real := filepath.Join(t.TempDir(), "realhome")
+	if err := os.MkdirAll(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "home")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	t.Setenv("HOME", link)
+
+	if err := CheckRemovableSiteFolder(real); err == nil {
+		t.Error("the real target of a symlinked home must be refused")
+	}
+	if err := CheckRemovableSiteFolder(filepath.Dir(real)); err == nil {
+		t.Error("an ancestor of the real home must be refused")
+	}
+
+	upper := filepath.Join(filepath.Dir(real), strings.ToUpper(filepath.Base(real)))
+	if _, err := os.Stat(upper); err != nil {
+		t.Skip("filesystem is case-sensitive")
+	}
+	if err := CheckRemovableSiteFolder(upper); err == nil {
+		t.Errorf("case variant %s of home must be refused", upper)
 	}
 }

@@ -679,10 +679,32 @@ func CheckRemovableSiteFolder(sitePath string) error {
 	if !filepath.IsAbs(clean) || filepath.Dir(clean) == clean {
 		return fmt.Errorf("refusing to delete site folder %q: not a removable folder", sitePath)
 	}
-	if home, err := os.UserHomeDir(); err == nil {
-		home = filepath.Clean(home)
-		if clean == home || strings.HasPrefix(home, clean+string(filepath.Separator)) {
-			return fmt.Errorf("refusing to delete site folder %q: it contains the home directory", sitePath)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("refusing to delete site folder %q: cannot determine the home directory: %w", sitePath, err)
+	}
+	home = filepath.Clean(home)
+	if clean == home || strings.HasPrefix(home, clean+string(filepath.Separator)) {
+		return fmt.Errorf("refusing to delete site folder %q: it contains the home directory", sitePath)
+	}
+	// File identity catches what string comparison misses: case variants on
+	// case-insensitive filesystems and symlinked home directories.
+	site, err := os.Stat(clean)
+	if err != nil {
+		return nil
+	}
+	homes := []string{home}
+	if real, err := filepath.EvalSymlinks(home); err == nil {
+		homes = append(homes, real)
+	}
+	for _, h := range homes {
+		for p := h; ; p = filepath.Dir(p) {
+			if info, err := os.Stat(p); err == nil && os.SameFile(site, info) {
+				return fmt.Errorf("refusing to delete site folder %q: it contains the home directory", sitePath)
+			}
+			if filepath.Dir(p) == p {
+				break
+			}
 		}
 	}
 	return nil

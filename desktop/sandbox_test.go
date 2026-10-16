@@ -134,6 +134,26 @@ func TestSandbox_AncestorOfNestedRootIsProtected(t *testing.T) {
 	}
 }
 
+func TestSandbox_CaseVariantOfNestedRootIsProtected(t *testing.T) {
+	parent := t.TempDir()
+	inner := filepath.Join(parent, "group", "blog")
+	if err := os.MkdirAll(filepath.Join(inner, "content"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(parent, "GROUP")); err != nil {
+		t.Skip("filesystem is case-sensitive")
+	}
+	app := &App{siteRoots: func() ([]string, error) { return []string{parent, inner}, nil }}
+
+	for _, p := range []string{filepath.Join(parent, "GROUP"), filepath.Join(parent, "group", "BLOG")} {
+		d := app.DeleteFile(p)
+		assertDenied(t, "DeleteFile "+p, d.Success, d.Error)
+	}
+	if _, err := os.Stat(filepath.Join(inner, "content")); err != nil {
+		t.Fatalf("nested site must survive: %v", err)
+	}
+}
+
 func TestUploadFile_OnlyAcceptsTheDialogPick(t *testing.T) {
 	app, site, outside := newSiteApp(t)
 	secret := filepath.Join(outside, "secret")
