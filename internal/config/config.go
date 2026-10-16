@@ -62,14 +62,28 @@ func LoadConfig() (*WalgoConfig, error) {
 		return nil, fmt.Errorf("error unmarshaling configuration from %s: %w. Please check the file format and structure", viper.ConfigFileUsed(), err)
 	}
 
+	if err := validateSiteKind(cfg.SiteConfig.Kind); err != nil {
+		return nil, fmt.Errorf("%s: %w", viper.ConfigFileUsed(), err)
+	}
 	applyDefaults(&cfg, filepath.Dir(viper.ConfigFileUsed()))
 	return &cfg, nil
+}
+
+func validateSiteKind(kind SiteKind) error {
+	switch kind {
+	case "", SiteKindHugo, SiteKindStatic:
+		return nil
+	}
+	return fmt.Errorf("site.kind is %q; use %q or %q, or leave it unset to detect", kind, SiteKindHugo, SiteKindStatic)
 }
 
 // applyDefaults fills settings walgo.yaml leaves unset. An unset publishDir follows the site's Hugo config.
 func applyDefaults(cfg *WalgoConfig, sitePath string) {
 	if cfg.HugoConfig.PublishDir == "" {
-		cfg.HugoConfig.PublishDir = defaultPublishDir(sitePath)
+		cfg.HugoConfig.PublishDir = "public"
+		if cfg.SiteConfig.Kind != SiteKindStatic {
+			cfg.HugoConfig.PublishDir = defaultPublishDir(sitePath)
+		}
 	}
 	if cfg.HugoConfig.ContentDir == "" {
 		cfg.HugoConfig.ContentDir = "content"
@@ -103,6 +117,9 @@ func LoadConfigFrom(sitePath string) (*WalgoConfig, error) {
 		return nil, fmt.Errorf("failed to parse config file %s: %w", configPath, err)
 	}
 
+	if err := validateSiteKind(cfg.SiteConfig.Kind); err != nil {
+		return nil, fmt.Errorf("%s: %w", configPath, err)
+	}
 	applyDefaults(&cfg, sitePath)
 	return &cfg, nil
 }

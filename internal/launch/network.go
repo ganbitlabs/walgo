@@ -162,9 +162,10 @@ func ReconcileExistingSite(sitePath string, cfg *config.WalgoConfig, network str
 	}
 
 	var wsObjectID string
-	wsPath := filepath.Join(sitePath, cfg.HugoConfig.PublishDir, "ws-resources.json")
-	if ws, err := compress.ReadWSResourcesConfig(wsPath); err == nil {
-		wsObjectID = ws.ObjectID
+	if publishDir, err := config.ResolvePublishDir(sitePath, cfg); err == nil {
+		if ws, err := compress.ReadWSResourcesConfig(filepath.Join(publishDir, "ws-resources.json")); err == nil {
+			wsObjectID = ws.ObjectID
+		}
 	}
 
 	objectID := existingObjectID(cfg.WalrusConfig.ProjectID, wsObjectID, dbProject)

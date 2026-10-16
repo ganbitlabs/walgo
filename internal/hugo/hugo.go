@@ -156,28 +156,6 @@ func cleanPublicDir(publicDir string) error {
 	return err
 }
 
-// resolvePublishDir returns the absolute publish directory for sitePath.
-// It refuses a directory that contains the site: hugo's --cleanDestinationDir would delete the sources,
-// and a static deploy would upload walgo.yaml and everything else in the project.
-func resolvePublishDir(sitePath string, cfg *config.WalgoConfig) (string, error) {
-	dir := cfg.HugoConfig.PublishDir
-	if !filepath.IsAbs(dir) {
-		dir = filepath.Join(sitePath, dir)
-	}
-	publishDir, err := filepath.Abs(dir)
-	if err != nil {
-		return "", err
-	}
-	absSite, err := filepath.Abs(sitePath)
-	if err != nil {
-		return "", err
-	}
-	if rel, err := filepath.Rel(publishDir, absSite); err == nil && !strings.HasPrefix(rel, "..") {
-		return "", fmt.Errorf("publish directory %s contains the site itself; set hugo.publishDir in walgo.yaml to a subdirectory such as public", publishDir)
-	}
-	return publishDir, nil
-}
-
 // BuildSite builds the site in sitePath into its publish directory, then optimizes it and writes ws-resources.json.
 // The publish directory is walgo.yaml's hugo.publishDir, else the Hugo config's publishDir, else public.
 // A site with no Hugo config is treated as prebuilt static files and its publish directory is used as-is.
@@ -186,7 +164,7 @@ func BuildSite(sitePath string) error {
 	if err != nil {
 		return err
 	}
-	publishDir, err := resolvePublishDir(sitePath, cfg)
+	publishDir, err := config.ResolvePublishDir(sitePath, cfg)
 	if err != nil {
 		return fmt.Errorf("resolving publish directory: %w", err)
 	}
@@ -207,16 +185,16 @@ func BuildSite(sitePath string) error {
 	} else {
 		var hints []string
 		for _, file := range config.IgnoredConfigFiles(sitePath) {
-			hints = append(hints, fmt.Sprintf("%s was not treated as a Hugo config; if this is a Hugo site, rename it to hugo%s", file, filepath.Ext(file)))
+			hints = append(hints, fmt.Sprintf("%s was not treated as a Hugo config; if this is a Hugo site, rename it to hugo%s or set site.kind: hugo in walgo.yaml", file, filepath.Ext(file)))
 		}
 		if info, err := os.Stat(publishDir); err != nil || !info.IsDir() {
-			msg := fmt.Sprintf("no Hugo config (hugo.toml, config.toml, ...) found in %s and publish directory %s does not exist", sitePath, publishDir)
+			msg := fmt.Sprintf("%s is a static site (no Hugo config such as hugo.toml, or site.kind: static in walgo.yaml) and its publish directory %s does not exist", sitePath, publishDir)
 			for _, hint := range hints {
 				msg += "\n  " + hint
 			}
 			return errors.New(msg)
 		}
-		fmt.Printf("No Hugo config found; deploying static files from %s as-is.\n", publishDir)
+		fmt.Printf("Static site; deploying files from %s as-is.\n", publishDir)
 		for _, hint := range hints {
 			fmt.Fprintf(os.Stderr, "Warning: %s.\n", hint)
 		}
@@ -341,17 +319,8 @@ func lastBytes(s string, n int) string {
 func writeWSResources(sitePath, publicDir string, cfg *config.WalgoConfig) error {
 	fmt.Printf("Generating ws-resources.json...\n")
 
-	cacheConfig := compress.DefaultCacheControlConfig()
-	cacheConfig.Enabled = cfg.CacheConfig.Enabled
-	if cfg.CacheConfig.ImmutableMaxAge != 0 {
-		cacheConfig.ImmutableMaxAge = cfg.CacheConfig.ImmutableMaxAge
-	}
-	if cfg.CacheConfig.MutableMaxAge != 0 {
-		cacheConfig.MutableMaxAge = cfg.CacheConfig.MutableMaxAge
-	}
-
 	wsOptions := compress.WSResourcesOptions{
-		CacheConfig:  cacheConfig,
+		CacheConfig:  cfg.CacheConfig.CacheControl(),
 		CustomRoutes: cfg.CompressConfig.CustomRoutes,
 		CustomIgnore: cfg.CompressConfig.IgnorePatterns,
 		SiteName:     filepath.Base(sitePath),
@@ -623,8 +592,7 @@ func CopyExampleSite(sitePath string, siteType SiteType) error {
 		}
 
 		// Skip config files — our TOML template takes precedence
-		base := filepath.Base(relPath)
-		if base == "hugo.toml" || base == "config.toml" || base == "hugo.yaml" || base == "config.yaml" {
+		if config.IsHugoConfigFileName(filepath.Base(relPath)) {
 			return nil
 		}
 
@@ -1116,19 +1084,11 @@ func InstallThemeFromURL(sitePath, githubURL string) (string, error) {
 	var oldConfigContent []byte
 	var configPath string
 
-	// Find config file
-	configFiles := []string{
-		filepath.Join(sitePath, "hugo.toml"),
-		filepath.Join(sitePath, "config.toml"),
-	}
-	for _, cf := range configFiles {
-		if _, err := os.Stat(cf); err == nil {
-			configPath = cf
-			oldConfigContent, err = os.ReadFile(cf)
-			if err != nil {
-				return "", fmt.Errorf("failed to read config %s for backup: %w", cf, err)
-			}
-			break
+	if configPath = config.HugoConfigFile(sitePath); configPath != "" {
+		var err error
+		oldConfigContent, err = os.ReadFile(configPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to read config %s for backup: %w", configPath, err)
 		}
 	}
 
@@ -1227,8 +1187,8 @@ func InstallThemeFromURL(sitePath, githubURL string) (string, error) {
 
 	// Update hugo.toml with the new theme name
 	if err := updateHugoConfigTheme(sitePath, themeName); err != nil {
-		fmt.Printf("Warning: Could not update hugo.toml with theme name: %v\n", err)
-		fmt.Printf("Please manually set 'theme = \"%s\"' in your hugo.toml\n", themeName)
+		fmt.Printf("Warning: Could not set the theme in the Hugo config: %v\n", err)
+		fmt.Printf("Please set the theme to %q in your Hugo config by hand\n", themeName)
 	}
 
 	// Update site config with theme-specific params
@@ -1295,24 +1255,11 @@ func copyDir(src, dst string) error {
 	})
 }
 
-// updateHugoConfigTheme updates the theme setting in hugo.toml or config.toml
+// updateHugoConfigTheme sets theme in the site's TOML Hugo config.
 func updateHugoConfigTheme(sitePath, themeName string) error {
-	// Try hugo.toml first, then config.toml
-	configFiles := []string{
-		filepath.Join(sitePath, "hugo.toml"),
-		filepath.Join(sitePath, "config.toml"),
-	}
-
-	var configPath string
-	for _, cf := range configFiles {
-		if _, err := os.Stat(cf); err == nil {
-			configPath = cf
-			break
-		}
-	}
-
-	if configPath == "" {
-		return fmt.Errorf("no hugo.toml or config.toml found")
+	configPath, err := config.HugoTOMLConfigFile(sitePath)
+	if err != nil {
+		return err
 	}
 
 	content, err := os.ReadFile(configPath)
@@ -1486,16 +1433,8 @@ func SetupDocsThemeOverrides(sitePath string) error {
 	return nil
 }
 
-// UpdateDocsParams updates hugo-book theme params based on AI plan
+// UpdateDocsParams fills an empty description in the docs homepage with the AI plan's description.
 func UpdateDocsParams(sitePath, description string) error {
-	configPath := filepath.Join(sitePath, "hugo.toml")
-	content, err := os.ReadFile(configPath)
-	if err != nil {
-		return fmt.Errorf("reading config: %w", err)
-	}
-
-	configStr := string(content)
-
 	// Update description in homepage _index.md if it exists
 	indexPath := filepath.Join(sitePath, "content", "_index.md")
 	if _, err := os.Stat(indexPath); err == nil {
@@ -1510,13 +1449,6 @@ func UpdateDocsParams(sitePath, description string) error {
 					return fmt.Errorf("writing index: %w", err)
 				}
 			}
-		}
-	}
-
-	// Write back config if changed
-	if configStr != string(content) {
-		if err := os.WriteFile(configPath, []byte(configStr), 0644); err != nil {
-			return fmt.Errorf("writing config: %w", err)
 		}
 	}
 

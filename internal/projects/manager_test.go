@@ -535,3 +535,42 @@ func setupTestManager(t *testing.T) *Manager {
 
 	return manager
 }
+
+func TestSitePathsStoredAbsolute(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	work := t.TempDir()
+	t.Chdir(work)
+	manager, err := NewManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer manager.Close()
+
+	want := filepath.Join(work, "sites", "blog")
+	if err := manager.CreateDraftProject("blog", filepath.Join("sites", "blog")); err != nil {
+		t.Fatal(err)
+	}
+	draft, err := manager.GetProjectByName("blog")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if draft.SitePath != want {
+		t.Errorf("draft SitePath = %q, want %q", draft.SitePath, want)
+	}
+
+	deployed := &Project{Name: "docs", Network: "testnet", SitePath: "docs"}
+	if err := manager.CreateProject(deployed); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := manager.GetProject(deployed.ID); got == nil || got.SitePath != filepath.Join(work, "docs") {
+		t.Errorf("CreateProject stored %+v, want SitePath %q", got, filepath.Join(work, "docs"))
+	}
+
+	deployed.SitePath = filepath.Join("moved", "docs")
+	if err := manager.UpdateProject(deployed); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := manager.GetProjectBySitePath(filepath.Join("moved", "docs")); got == nil || got.SitePath != filepath.Join(work, "moved", "docs") {
+		t.Errorf("relative lookup after UpdateProject = %+v, want SitePath %q", got, filepath.Join(work, "moved", "docs"))
+	}
+}

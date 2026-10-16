@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/ganbitlabs/walgo/internal/config"
 	"github.com/ganbitlabs/walgo/internal/optimizer"
@@ -26,21 +25,21 @@ HTML Optimization:
 CSS Optimization:
 • Minify CSS by removing whitespace and comments
 • Compress color values (e.g., #ffffff -> #fff)
-• Remove unused CSS rules (when enabled)
-• Remove unnecessary quotes and semicolons
 
 JavaScript Optimization:
 • Minify JavaScript by removing whitespace and comments
-• Basic variable name obfuscation (when enabled)
-• Preserve string contents and regular expressions
+• Shorten local variable names (when obfuscate is enabled)
 
-The optimization settings can be configured in walgo.yaml under the 'optimizer' section.`,
+Minification uses tdewolff/minify. The settings live in walgo.yaml under the 'optimizer'
+section; see docs/OPTIMIZER.md.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		icons := ui.GetIcons()
 		var targetDir string
+		var siteCfg *config.WalgoConfig
 		if len(args) > 0 {
 			targetDir = args[0]
+			siteCfg, _ = config.LoadConfigFrom(targetDir)
 		} else {
 			sitePath, err := os.Getwd()
 			if err != nil {
@@ -49,7 +48,12 @@ The optimization settings can be configured in walgo.yaml under the 'optimizer' 
 			}
 
 			if cfg, err := config.LoadConfigFrom(sitePath); err == nil {
-				publishDir := filepath.Join(sitePath, cfg.HugoConfig.PublishDir)
+				siteCfg = cfg
+				publishDir, err := config.ResolvePublishDir(sitePath, cfg)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s Error: %v\n", icons.Error, err)
+					return err
+				}
 				if _, err := os.Stat(publishDir); err == nil {
 					targetDir = publishDir
 					fmt.Printf("Using Hugo publish directory: %s\n", publishDir)
@@ -69,8 +73,8 @@ The optimization settings can be configured in walgo.yaml under the 'optimizer' 
 		fmt.Printf("Optimizing files in: %s\n", targetDir)
 
 		var optimizerConfig optimizer.OptimizerConfig
-		if cfg, err := config.LoadConfigFrom(targetDir); err == nil {
-			optimizerConfig = cfg.OptimizerConfig
+		if siteCfg != nil {
+			optimizerConfig = siteCfg.OptimizerConfig
 		} else {
 			optimizerConfig = optimizer.NewDefaultOptimizerConfig()
 			fmt.Println("Using default optimization settings (no walgo.yaml found)")
@@ -147,5 +151,5 @@ func init() {
 	optimizeCmd.Flags().Bool("html", true, "Enable HTML optimization")
 	optimizeCmd.Flags().Bool("css", true, "Enable CSS optimization")
 	optimizeCmd.Flags().Bool("js", true, "Enable JavaScript optimization")
-	optimizeCmd.Flags().Bool("remove-unused-css", false, "Remove unused CSS rules (aggressive)")
+	optimizeCmd.Flags().Bool("remove-unused-css", false, "Not implemented; has no effect")
 }

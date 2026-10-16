@@ -51,6 +51,20 @@ type DeploymentResult struct {
 	TransactionDigest string  // Transaction digest for reference
 }
 
+// GasFee reports the cost read from the chain, or an estimate from the site size when the chain query found nothing.
+func (r *DeploymentResult) GasFee(network string, epochs int) string {
+	switch {
+	case r.ActualWAL > 0 && r.ActualGasSUI > 0:
+		return fmt.Sprintf("%.6f WAL + %.6f SUI", r.ActualWAL, r.ActualGasSUI)
+	case r.ActualWAL > 0:
+		return fmt.Sprintf("%.6f WAL", r.ActualWAL)
+	case r.ActualGasSUI > 0:
+		return fmt.Sprintf("%.6f SUI", r.ActualGasSUI)
+	default:
+		return projects.EstimateGasFeeWithEpochs(network, r.SiteSize, epochs)
+	}
+}
+
 // PerformDeployment handles the complete site deployment workflow
 func PerformDeployment(ctx context.Context, opts DeploymentOptions) (*DeploymentResult, error) {
 	icons := ui.GetIcons()
@@ -417,22 +431,7 @@ func PerformDeployment(ctx context.Context, opts DeploymentOptions) (*Deployment
 				existingProj.Epochs = opts.Epochs
 				existingProj.LastDeployAt = time.Now()
 
-				// Use actual costs from blockchain query (balance changes)
-				// Format: "X.XXXXXX WAL + Y.YYYYYY SUI"
-				var gasFee string
-				if result.ActualGasSUI > 0 || result.ActualWAL > 0 {
-					// We have actual costs from blockchain
-					if result.ActualWAL > 0 && result.ActualGasSUI > 0 {
-						gasFee = fmt.Sprintf("%.6f WAL + %.6f SUI", result.ActualWAL, result.ActualGasSUI)
-					} else if result.ActualWAL > 0 {
-						gasFee = fmt.Sprintf("%.6f WAL", result.ActualWAL)
-					} else {
-						gasFee = fmt.Sprintf("%.6f SUI", result.ActualGasSUI)
-					}
-				} else {
-					// Fallback to estimated gas fee
-					gasFee = projects.EstimateGasFeeWithEpochs(network, siteSize, opts.Epochs)
-				}
+				gasFee := result.GasFee(network, opts.Epochs)
 				existingProj.GasFee = gasFee
 
 				// Update metadata if provided
@@ -477,22 +476,7 @@ func PerformDeployment(ctx context.Context, opts DeploymentOptions) (*Deployment
 					category = "website"
 				}
 
-				// Use actual costs from blockchain query (balance changes)
-				// Format: "X.XXXXXX WAL + Y.YYYYYY SUI"
-				var gasFee string
-				if result.ActualGasSUI > 0 || result.ActualWAL > 0 {
-					// We have actual costs from blockchain
-					if result.ActualWAL > 0 && result.ActualGasSUI > 0 {
-						gasFee = fmt.Sprintf("%.6f WAL + %.6f SUI", result.ActualWAL, result.ActualGasSUI)
-					} else if result.ActualWAL > 0 {
-						gasFee = fmt.Sprintf("%.6f WAL", result.ActualWAL)
-					} else {
-						gasFee = fmt.Sprintf("%.6f SUI", result.ActualGasSUI)
-					}
-				} else {
-					// Fallback to estimated gas fee
-					gasFee = projects.EstimateGasFeeWithEpochs(network, siteSize, opts.Epochs)
-				}
+				gasFee := result.GasFee(network, opts.Epochs)
 
 				project := &projects.Project{
 					Name:        projectName,

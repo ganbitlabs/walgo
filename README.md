@@ -291,9 +291,13 @@ walgo launch
 Walgo uses a `walgo.yaml` configuration file in your project directory:
 
 ```yaml
+# Optional: hugo or static. Unset means walgo detects it from the Hugo config files.
+site:
+  kind: hugo
+
 # Hugo settings
 hugo:
-  publishDir: "public"
+  publishDir: "public" # Relative to the site, or absolute
   contentDir: "content"
   build_draft: false
   minify: true

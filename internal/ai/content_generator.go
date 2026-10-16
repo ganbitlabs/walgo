@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -220,45 +221,29 @@ func GetContentStructure(sitePath string) (*ContentStructure, error) {
 	return structure, nil
 }
 
-// loadSiteConfig reads hugo.toml and extracts site configuration dynamically
+// loadSiteConfig reads the site's Hugo config and extracts site configuration dynamically
 func loadSiteConfig(sitePath string) *SiteConfigInfo {
-	// Try hugo.toml first, then config.toml, then yaml variants
-	configFiles := []string{
-		filepath.Join(sitePath, "hugo.toml"),
-		filepath.Join(sitePath, "config.toml"),
-		filepath.Join(sitePath, "hugo.yaml"),
-		filepath.Join(sitePath, "config.yaml"),
-	}
-
-	var configPath string
-	var isYAML bool
-	for _, cf := range configFiles {
-		if _, err := os.Stat(cf); err == nil {
-			configPath = cf
-			isYAML = strings.HasSuffix(cf, ".yaml") || strings.HasSuffix(cf, ".yml")
-			break
-		}
-	}
-
+	configPath := config.HugoConfigFile(sitePath)
 	if configPath == "" {
 		return nil
 	}
 
-	content, err := os.ReadFile(configPath)
+	content, err := os.ReadFile(configPath) // #nosec G304 - path is a Hugo config file inside the site
 	if err != nil {
 		return nil
 	}
 
-	// Parse into generic map
 	var rawConfig map[string]interface{}
-	if isYAML {
-		if err := yaml.Unmarshal(content, &rawConfig); err != nil {
-			return nil
-		}
-	} else {
-		if err := toml.Unmarshal(content, &rawConfig); err != nil {
-			return nil
-		}
+	switch filepath.Ext(configPath) {
+	case ".toml":
+		err = toml.Unmarshal(content, &rawConfig)
+	case ".json":
+		err = json.Unmarshal(content, &rawConfig)
+	default:
+		err = yaml.Unmarshal(content, &rawConfig)
+	}
+	if err != nil {
+		return nil
 	}
 
 	cfg := &SiteConfigInfo{

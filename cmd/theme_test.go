@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -260,73 +259,6 @@ func TestThemeSubcommandsHaveRunE(t *testing.T) {
 			}
 		})
 	}
-}
-
-// --- isHugoSite helper function ---
-
-func TestIsHugoSite(t *testing.T) {
-	t.Run("Directory with hugo.toml", func(t *testing.T) {
-		tempDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(tempDir, "hugo.toml"), []byte(`title = "Test"`), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if !isHugoSite(tempDir) {
-			t.Error("Should detect hugo.toml as a Hugo site")
-		}
-	})
-
-	t.Run("Directory with config.toml", func(t *testing.T) {
-		tempDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(tempDir, "config.toml"), []byte(`title = "Test"`), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if !isHugoSite(tempDir) {
-			t.Error("Should detect config.toml as a Hugo site")
-		}
-	})
-
-	t.Run("Directory with hugo.yaml", func(t *testing.T) {
-		tempDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(tempDir, "hugo.yaml"), []byte(`title: Test`), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if !isHugoSite(tempDir) {
-			t.Error("Should detect hugo.yaml as a Hugo site")
-		}
-	})
-
-	t.Run("Directory with config.yaml", func(t *testing.T) {
-		tempDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(`title: Test`), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if !isHugoSite(tempDir) {
-			t.Error("Should detect config.yaml as a Hugo site")
-		}
-	})
-
-	t.Run("Empty directory is not a Hugo site", func(t *testing.T) {
-		tempDir := t.TempDir()
-		if isHugoSite(tempDir) {
-			t.Error("Empty directory should not be detected as a Hugo site")
-		}
-	})
-
-	t.Run("Directory with unrelated files", func(t *testing.T) {
-		tempDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(tempDir, "readme.md"), []byte("# Readme"), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if isHugoSite(tempDir) {
-			t.Error("Directory without Hugo config files should not be detected as a Hugo site")
-		}
-	})
-
-	t.Run("Non-existent directory", func(t *testing.T) {
-		if isHugoSite("/nonexistent/path/that/does/not/exist") {
-			t.Error("Non-existent directory should not be detected as a Hugo site")
-		}
-	})
 }
 
 // --- Theme install execution tests ---

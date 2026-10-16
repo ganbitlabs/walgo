@@ -16,7 +16,7 @@ type OptimizerConfig struct {
 	JS JSConfig `mapstructure:"js" yaml:"js"`
 
 	// General settings
-	OutputDir    string   `mapstructure:"outputDir" yaml:"outputDir,omitempty"`       // Override output directory
+	OutputDir    string   `mapstructure:"outputDir" yaml:"outputDir,omitempty"`       // Not implemented; accepted so existing configs still load
 	SkipPatterns []string `mapstructure:"skipPatterns" yaml:"skipPatterns,omitempty"` // Files/patterns to skip
 	Verbose      bool     `mapstructure:"verbose" yaml:"verbose"`
 }
@@ -36,8 +36,8 @@ type CSSConfig struct {
 	Enabled        bool `mapstructure:"enabled" yaml:"enabled"`
 	MinifyCSS      bool `mapstructure:"minifyCSS" yaml:"minifyCSS"`
 	RemoveComments bool `mapstructure:"removeComments" yaml:"removeComments"`
-	RemoveUnused   bool `mapstructure:"removeUnused" yaml:"removeUnused"`     // Remove unused CSS rules
-	Autoprefixer   bool `mapstructure:"autoprefixer" yaml:"autoprefixer"`     // Add vendor prefixes
+	RemoveUnused   bool `mapstructure:"removeUnused" yaml:"removeUnused"`     // Not implemented; accepted so existing configs still load
+	Autoprefixer   bool `mapstructure:"autoprefixer" yaml:"autoprefixer"`     // Not implemented; accepted so existing configs still load
 	CompressColors bool `mapstructure:"compressColors" yaml:"compressColors"` // Compress color values
 }
 
@@ -46,8 +46,8 @@ type JSConfig struct {
 	Enabled        bool `mapstructure:"enabled" yaml:"enabled"`
 	MinifyJS       bool `mapstructure:"minifyJS" yaml:"minifyJS"`
 	RemoveComments bool `mapstructure:"removeComments" yaml:"removeComments"`
-	Obfuscate      bool `mapstructure:"obfuscate" yaml:"obfuscate"`   // Basic variable name obfuscation
-	SourceMaps     bool `mapstructure:"sourceMaps" yaml:"sourceMaps"` // Generate source maps
+	Obfuscate      bool `mapstructure:"obfuscate" yaml:"obfuscate"`   // Shorten local variable names during minification
+	SourceMaps     bool `mapstructure:"sourceMaps" yaml:"sourceMaps"` // Not implemented; accepted so existing configs still load
 }
 
 // OptimizationStats holds statistics about the optimization process

@@ -119,10 +119,13 @@ func editProjectByRef(proj *projects.Project, opts editProjectOptions) error {
 		fmt.Fprintf(os.Stderr, "  %s Warning: Could not load config from %s: %v\n", icons.Warning, proj.SitePath, err)
 		fmt.Fprintf(os.Stderr, "  %s Skipping ws-resources.json update\n", icons.Info)
 	} else {
-		publishDir := filepath.Join(proj.SitePath, walgoCfg.HugoConfig.PublishDir)
+		publishDir, resolveErr := config.ResolvePublishDir(proj.SitePath, walgoCfg)
 		wsResourcesPath := filepath.Join(publishDir, "ws-resources.json")
 
-		if _, err := os.Stat(publishDir); os.IsNotExist(err) {
+		if resolveErr != nil {
+			fmt.Fprintf(os.Stderr, "  %s Warning: %v\n", icons.Warning, resolveErr)
+			fmt.Fprintf(os.Stderr, "  %s Skipping ws-resources.json update\n", icons.Info)
+		} else if _, err := os.Stat(publishDir); os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "  %s Warning: Publish directory does not exist: %s\n", icons.Warning, publishDir)
 			fmt.Fprintf(os.Stderr, "  %s Run 'walgo build' first to create the publish directory\n", icons.Lightbulb)
 		} else {

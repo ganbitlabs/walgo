@@ -1119,7 +1119,9 @@ func GetProject(projectID int64) (*Project, error) {
 	var fileCount int
 	publicDir := filepath.Join(proj.SitePath, "public")
 	if cfg, err := config.LoadConfigFrom(proj.SitePath); err == nil {
-		publicDir = filepath.Join(proj.SitePath, cfg.HugoConfig.PublishDir)
+		if dir, err := config.ResolvePublishDir(proj.SitePath, cfg); err == nil {
+			publicDir = dir
+		}
 	}
 	if _, err := os.Stat(publicDir); err == nil {
 		_ = filepath.Walk(publicDir, func(path string, info os.FileInfo, walkErr error) error {
@@ -1387,7 +1389,13 @@ func EditProject(params EditProjectParams) EditProjectResult {
 		}
 	}
 
-	publishDir := filepath.Join(proj.SitePath, walgoCfg.HugoConfig.PublishDir)
+	publishDir, err := config.ResolvePublishDir(proj.SitePath, walgoCfg)
+	if err != nil {
+		return EditProjectResult{
+			Success: true,
+			Message: fmt.Sprintf("project updated successfully (ws-resources.json not updated: %v)", err),
+		}
+	}
 	wsResourcesPath := filepath.Join(publishDir, "ws-resources.json")
 
 	// Check if publish directory exists
@@ -1968,7 +1976,11 @@ func EstimateGasFee(params GasEstimateParams) GasEstimateResult {
 		return result
 	}
 
-	publishDir := filepath.Join(params.SitePath, walgoCfg.HugoConfig.PublishDir)
+	publishDir, err := config.ResolvePublishDir(params.SitePath, walgoCfg)
+	if err != nil {
+		result.Error = err.Error()
+		return result
+	}
 
 	// Check if publish directory exists
 	if _, err := os.Stat(publishDir); os.IsNotExist(err) {
@@ -2291,13 +2303,11 @@ func AICreateSiteWithProgress(ctx context.Context, params AICreateSiteParams, pr
 	}
 
 	if pipelineResult.Plan != nil {
-		hugoTomlPath := filepath.Join(sitePath, "hugo.toml")
-		if _, err := os.Stat(hugoTomlPath); os.IsNotExist(err) {
-			hugoTomlPath = filepath.Join(sitePath, "config.toml")
-		}
-		if _, err := os.Stat(hugoTomlPath); err == nil {
+		if configPath, err := config.HugoTOMLConfigFile(sitePath); err != nil {
+			fmt.Printf("Skipping menu configuration: %v\n", err)
+		} else {
 			fmt.Printf("Updating Hugo menu configuration...\n")
-			if err := hugo.ApplyMenuFromSitePlan(pipelineResult.Plan, hugoTomlPath); err != nil {
+			if err := hugo.ApplyMenuFromSitePlan(pipelineResult.Plan, configPath); err != nil {
 				return AICreateSiteResult{Error: fmt.Sprintf("failed to apply menu: %v", err)}
 			}
 		}

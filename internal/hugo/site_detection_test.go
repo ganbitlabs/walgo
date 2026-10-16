@@ -81,165 +81,83 @@ func TestDirExists(t *testing.T) {
 }
 
 // =============================================================================
-// extractThemeFromConfig Tests
+// siteTypeForTheme Tests
 // =============================================================================
 
-func TestExtractThemeFromConfig(t *testing.T) {
-	tests := []struct {
-		name   string
-		config string
-		want   string
-	}{
-		{
-			name:   "Standard theme line with double quotes",
-			config: `theme = "ananke"`,
-			want:   "ananke",
-		},
-		{
-			name:   "Standard theme line with single quotes",
-			config: `theme = 'hugo-book'`,
-			want:   "hugo-book",
-		},
-		{
-			name: "Theme line among other config",
-			config: `baseURL = "https://example.com/"
-title = "My Site"
-theme = "PaperMod"
-languageCode = "en-us"`,
-			want: "PaperMod",
-		},
-		{
-			name:   "Theme with spaces around equals",
-			config: `theme  =  "blowfish"`,
-			want:   "blowfish",
-		},
-		{
-			name:   "No theme line",
-			config: `baseURL = "https://example.com/"`,
-			want:   "",
-		},
-		{
-			name:   "Empty config",
-			config: "",
-			want:   "",
-		},
-		{
-			name:   "Theme without quotes (bare value)",
-			config: `theme = myTheme`,
-			want:   "myTheme",
-		},
-		{
-			name:   "Commented out theme line is skipped",
-			config: `# theme = "oldtheme"`,
-			want:   "",
-		},
-		{
-			name: "themeDir is not matched — only exact theme key",
-			config: `themeDir = "mythemes"
-theme = "actual-theme"`,
-			want: "actual-theme",
-		},
-		{
-			name: "theme line before themeDir returns correct theme",
-			config: `theme = "actual-theme"
-themeDir = "mythemes"`,
-			want: "actual-theme",
-		},
-		{
-			name:   "themeColor is not matched",
-			config: `themeColor = "#ff0000"`,
-			want:   "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := extractThemeFromConfig(tt.config)
-			if got != tt.want {
-				t.Errorf("extractThemeFromConfig() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-// =============================================================================
-// parseConfigForTheme Tests
-// =============================================================================
-
-func TestParseConfigForTheme(t *testing.T) {
+func TestSiteTypeForTheme(t *testing.T) {
 	tests := []struct {
 		name      string
-		config    string
+		theme     string
 		setupSite func(t *testing.T) string // returns sitePath
 		want      ai.SiteType
 	}{
 		{
-			name:   "walgo-biolink theme detected",
-			config: `theme = "walgo-biolink"`,
+			name:  "walgo-biolink theme detected",
+			theme: "walgo-biolink",
 			setupSite: func(t *testing.T) string {
 				return t.TempDir()
 			},
 			want: ai.SiteTypeBiolink,
 		},
 		{
-			name:   "walgo-whitepaper theme detected (case insensitive)",
-			config: `theme = "Walgo-Whitepaper"`,
+			name:  "walgo-whitepaper theme detected (case insensitive)",
+			theme: "Walgo-Whitepaper",
 			setupSite: func(t *testing.T) string {
 				return t.TempDir()
 			},
 			want: ai.SiteTypeWhitepaper,
 		},
 		{
-			name:   "hugo-book theme detected as docs",
-			config: `theme = "hugo-book"`,
+			name:  "hugo-book theme detected as docs",
+			theme: "hugo-book",
 			setupSite: func(t *testing.T) string {
 				return t.TempDir()
 			},
 			want: ai.SiteTypeDocs,
 		},
 		{
-			name:   "docsy theme detected as docs",
-			config: `theme = "docsy"`,
+			name:  "docsy theme detected as docs",
+			theme: "docsy",
 			setupSite: func(t *testing.T) string {
 				return t.TempDir()
 			},
 			want: ai.SiteTypeDocs,
 		},
 		{
-			name:   "learn theme detected as docs",
-			config: `theme = "learn"`,
+			name:  "learn theme detected as docs",
+			theme: "learn",
 			setupSite: func(t *testing.T) string {
 				return t.TempDir()
 			},
 			want: ai.SiteTypeDocs,
 		},
 		{
-			name:   "doks theme detected as docs",
-			config: `theme = "doks"`,
+			name:  "doks theme detected as docs",
+			theme: "doks",
 			setupSite: func(t *testing.T) string {
 				return t.TempDir()
 			},
 			want: ai.SiteTypeDocs,
 		},
 		{
-			name:   "geekdoc theme detected as docs",
-			config: `theme = "geekdoc"`,
+			name:  "geekdoc theme detected as docs",
+			theme: "geekdoc",
 			setupSite: func(t *testing.T) string {
 				return t.TempDir()
 			},
 			want: ai.SiteTypeDocs,
 		},
 		{
-			name:   "techdoc theme detected as docs",
-			config: `theme = "techdoc"`,
+			name:  "techdoc theme detected as docs",
+			theme: "techdoc",
 			setupSite: func(t *testing.T) string {
 				return t.TempDir()
 			},
 			want: ai.SiteTypeDocs,
 		},
 		{
-			name:   "Generic theme falls back to content detection - docs dir",
-			config: `theme = "ananke"`,
+			name:  "Generic theme falls back to content detection - docs dir",
+			theme: "ananke",
 			setupSite: func(t *testing.T) string {
 				dir := t.TempDir()
 				mkdirAll(t, dir, "content", "docs")
@@ -248,8 +166,8 @@ func TestParseConfigForTheme(t *testing.T) {
 			want: ai.SiteTypeDocs,
 		},
 		{
-			name:   "Generic theme falls back to content detection - whitepaper dir",
-			config: `theme = "ananke"`,
+			name:  "Generic theme falls back to content detection - whitepaper dir",
+			theme: "ananke",
 			setupSite: func(t *testing.T) string {
 				dir := t.TempDir()
 				mkdirAll(t, dir, "content", "whitepaper")
@@ -258,8 +176,8 @@ func TestParseConfigForTheme(t *testing.T) {
 			want: ai.SiteTypeWhitepaper,
 		},
 		{
-			name:   "Generic theme falls back to blog when no special dirs",
-			config: `theme = "ananke"`,
+			name:  "Generic theme falls back to blog when no special dirs",
+			theme: "ananke",
 			setupSite: func(t *testing.T) string {
 				dir := t.TempDir()
 				mkdirAll(t, dir, "content", "posts")
@@ -268,8 +186,8 @@ func TestParseConfigForTheme(t *testing.T) {
 			want: ai.SiteTypeBlog,
 		},
 		{
-			name:   "No theme in config falls back to blog",
-			config: `baseURL = "/"`,
+			name:  "No theme in config falls back to blog",
+			theme: "",
 			setupSite: func(t *testing.T) string {
 				return t.TempDir()
 			},
@@ -280,9 +198,9 @@ func TestParseConfigForTheme(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sitePath := tt.setupSite(t)
-			got := parseConfigForTheme(tt.config, sitePath)
+			got := siteTypeForTheme(tt.theme, sitePath)
 			if got != tt.want {
-				t.Errorf("parseConfigForTheme() = %v, want %v", got, tt.want)
+				t.Errorf("siteTypeForTheme() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -365,10 +283,10 @@ func TestDetectSiteTypeFromContent(t *testing.T) {
 }
 
 // =============================================================================
-// detectFromConfig Tests
+// DetectSiteType config Tests
 // =============================================================================
 
-func TestDetectFromConfig(t *testing.T) {
+func TestDetectSiteTypeFromConfig(t *testing.T) {
 	tests := []struct {
 		name      string
 		setupSite func(t *testing.T) string
@@ -433,16 +351,16 @@ func TestDetectFromConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sitePath := tt.setupSite(t)
-			got := detectFromConfig(sitePath)
+			got := DetectSiteType(sitePath)
 			if got != tt.want {
-				t.Errorf("detectFromConfig() = %v, want %v", got, tt.want)
+				t.Errorf("DetectSiteType() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 // =============================================================================
-// DetectSiteType Tests (exported function - integration of detectFromConfig + detectFromContentStructure)
+// DetectSiteType Tests
 // =============================================================================
 
 func TestDetectSiteType(t *testing.T) {
@@ -548,6 +466,42 @@ func TestGetThemeName(t *testing.T) {
 				return dir
 			},
 			want: "ananke",
+		},
+		{
+			name: "Theme from hugo.yaml",
+			setupSite: func(t *testing.T) string {
+				dir := t.TempDir()
+				writeFile(t, filepath.Join(dir, "hugo.yaml"), "theme: PaperMod\n")
+				return dir
+			},
+			want: "PaperMod",
+		},
+		{
+			name: "Theme from config/_default/hugo.json",
+			setupSite: func(t *testing.T) string {
+				dir := t.TempDir()
+				writeFile(t, filepath.Join(dir, "config", "_default", "hugo.json"), `{"theme": "docsy"}`)
+				return dir
+			},
+			want: "docsy",
+		},
+		{
+			name: "First theme from a theme list",
+			setupSite: func(t *testing.T) string {
+				dir := t.TempDir()
+				writeFile(t, filepath.Join(dir, "hugo.toml"), `theme = ["hugo-book", "extras"]`)
+				return dir
+			},
+			want: "hugo-book",
+		},
+		{
+			name: "theme key inside a section is not the site theme",
+			setupSite: func(t *testing.T) string {
+				dir := t.TempDir()
+				writeFile(t, filepath.Join(dir, "hugo.toml"), "[params]\ntheme = \"dark\"\n")
+				return dir
+			},
+			want: "",
 		},
 		{
 			name: "No config files returns empty string",

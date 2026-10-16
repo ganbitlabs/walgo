@@ -238,3 +238,28 @@ func TestUpdateSiteShowsHugoOutputOnBuildFailure(t *testing.T) {
 		t.Errorf("site-builder ran after a failed build:\n%s", calls)
 	}
 }
+
+func TestUpdateSiteDeploysAbsolutePublishDir(t *testing.T) {
+	env := fakeDeployEnv(t, "testnet", "")
+	out := filepath.Join(t.TempDir(), "built")
+	writeFile(t, filepath.Join(out, "index.html"), "<h1>static</h1>")
+	if err := os.Remove(filepath.Join(env.sitePath, "hugo.toml")); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(env.sitePath, "walgo.yaml"), "hugo:\n  publishDir: "+out+"\n")
+	proj := createProject(t, &projects.Project{
+		Name: "static", Network: "testnet", ObjectID: testObjectID, SitePath: env.sitePath, Epochs: 1,
+	})
+
+	result := UpdateSite(context.Background(), UpdateSiteParams{ProjectID: proj.ID})
+	if !result.Success {
+		t.Fatalf("UpdateSite failed: %s", result.Error)
+	}
+	calls, err := os.ReadFile(env.builderLog)
+	if err != nil {
+		t.Fatalf("site-builder never ran: %v", err)
+	}
+	if !strings.Contains(string(calls), out) || strings.Contains(string(calls), filepath.Join(env.sitePath, out)) {
+		t.Errorf("site-builder was not pointed at the absolute publish dir %s:\n%s", out, calls)
+	}
+}

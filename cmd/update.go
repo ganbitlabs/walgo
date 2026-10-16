@@ -62,7 +62,11 @@ Assumes the site has been built using 'walgo build'.`,
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		deployDir := filepath.Join(sitePath, cfg.HugoConfig.PublishDir)
+		deployDir, err := config.ResolvePublishDir(sitePath, cfg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s Error: %v\n", icons.Error, err)
+			return err
+		}
 		if _, err := os.Stat(deployDir); os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "%s Error: Publish directory '%s' not found\n", icons.Error, deployDir)
 			fmt.Fprintf(os.Stderr, "%s Run 'walgo build' first\n", icons.Lightbulb)

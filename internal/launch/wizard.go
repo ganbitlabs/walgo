@@ -290,7 +290,10 @@ func VerifySite() (string, string, int64, error) {
 		return "", "", 0, fmt.Errorf("no walgo.yaml found - run 'walgo init' first")
 	}
 
-	publishDir := filepath.Join(sitePath, walgoCfg.HugoConfig.PublishDir)
+	publishDir, err := config.ResolvePublishDir(sitePath, walgoCfg)
+	if err != nil {
+		return "", "", 0, err
+	}
 
 	// Check if public directory exists
 	_, err = os.Stat(publishDir)

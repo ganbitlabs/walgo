@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -107,7 +106,11 @@ Example (Mainnet):
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		publishDir := filepath.Join(sitePath, cfg.HugoConfig.PublishDir)
+		publishDir, err := config.ResolvePublishDir(sitePath, cfg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s Error: %v\n", icons.Error, err)
+			return err
+		}
 		if _, err := os.Stat(publishDir); os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "%s Error: Publish directory '%s' not found\n", icons.Error, publishDir)
 			fmt.Fprintf(os.Stderr, "%s Run 'walgo build' first\n", icons.Lightbulb)
