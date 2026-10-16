@@ -20,9 +20,16 @@ func goldenInputs(t *testing.T) []string {
 		t.Fatal(err)
 	}
 	var names []string
+	present := map[string]bool{}
 	for _, e := range entries {
+		present[e.Name()] = true
 		if !strings.HasSuffix(e.Name(), ".golden") {
 			names = append(names, e.Name())
+		}
+	}
+	for name := range present {
+		if input, ok := strings.CutSuffix(name, ".golden"); ok && !present[input] {
+			t.Errorf("%s has no input file %s (check .gitignore)", name, input)
 		}
 	}
 	return names
