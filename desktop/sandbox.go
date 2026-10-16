@@ -31,13 +31,22 @@ func newSiteSandbox(sitePaths []string) siteSandbox {
 	return siteSandbox{roots: roots}
 }
 
-func (s siteSandbox) rootOf(p string) string {
+func (s siteSandbox) inside(p string) bool {
 	for _, r := range s.roots {
 		if p == r || strings.HasPrefix(p, r+string(filepath.Separator)) {
-			return r
+			return true
 		}
 	}
-	return ""
+	return false
+}
+
+func (s siteSandbox) isRoot(p string) bool {
+	for _, r := range s.roots {
+		if p == r {
+			return true
+		}
+	}
+	return false
 }
 
 // resolve returns the cleaned absolute form of p when it lies inside a site
@@ -64,15 +73,11 @@ func (s siteSandbox) resolve(p string, allowRoot bool) (string, error) {
 		}
 	}
 
-	realRoot := s.rootOf(real)
-	if realRoot == "" {
+	if !s.inside(real) {
 		return "", errors.New("access denied: path is outside the registered site folders")
 	}
-	if !allowRoot {
-		entryRoot := s.rootOf(entry)
-		if entryRoot == "" || entry == entryRoot || real == realRoot {
-			return "", errors.New("access denied: a site folder itself cannot be created, moved, or deleted here")
-		}
+	if !allowRoot && (!s.inside(entry) || s.isRoot(entry) || s.isRoot(real)) {
+		return "", errors.New("access denied: a site folder itself cannot be created, moved, or deleted here")
 	}
 	return abs, nil
 }

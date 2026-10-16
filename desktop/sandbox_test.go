@@ -98,6 +98,24 @@ func TestSandbox_NeverRemovesOrReplacesSiteRoot(t *testing.T) {
 	}
 }
 
+func TestSandbox_NestedSiteRootIsProtectedInAnyOrder(t *testing.T) {
+	parent := t.TempDir()
+	inner := filepath.Join(parent, "blog")
+	if err := os.MkdirAll(filepath.Join(inner, "content"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, roots := range [][]string{{parent, inner}, {inner, parent}} {
+		app := &App{siteRoots: func() ([]string, error) { return roots, nil }}
+		d := app.DeleteFile(inner)
+		assertDenied(t, "DeleteFile nested root", d.Success, d.Error)
+		rn := app.RenameFile(inner, "renamed")
+		assertDenied(t, "RenameFile nested root", rn.Success, rn.Error)
+	}
+	if _, err := os.Stat(filepath.Join(inner, "content")); err != nil {
+		t.Fatalf("nested site must survive: %v", err)
+	}
+}
+
 func TestSandbox_ResolvesSymlinks(t *testing.T) {
 	app, site, outside := newSiteApp(t)
 	link := filepath.Join(site, "content", "escape")
