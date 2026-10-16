@@ -298,14 +298,20 @@ compress_config:
 				os.Stderr = oldStderr
 			}()
 
-			// Create pipes for capturing output
-			_, wOut, _ := os.Pipe()
-			_, wErr, _ := os.Pipe()
+			// An unread pipe would SIGPIPE the hugo child once its read end is collected.
+			wOut, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wErr, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
 			os.Stdout = wOut
 			os.Stderr = wErr
 
 			// Run the function
-			err := BuildSite(sitePath)
+			err = BuildSite(sitePath)
 
 			// Close writers
 			wOut.Close()
