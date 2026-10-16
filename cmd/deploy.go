@@ -128,11 +128,8 @@ Example: walgo deploy --epochs 5`,
 				fmt.Fprintf(os.Stderr, "  Continuing with deployment...\n")
 			}
 		}
-		if err := version.RequireDeployToolchain(); err != nil {
-			if !dryRun {
-				return err
-			}
-			fmt.Fprintf(os.Stderr, "%s Warning: a real deploy would stop here: %v\n", icons.Warning, err)
+		if err := deployToolchainGate(skipVersionCheck, dryRun); err != nil {
+			return err
 		}
 
 		err = hugo.BuildSite(sitePath)
@@ -224,6 +221,27 @@ Example: walgo deploy --epochs 5`,
 	},
 }
 
+// deployToolchainGate blocks a deploy whose sui, walrus or site-builder is
+// missing or too old. --skip-version-check and --dry-run still inspect the
+// tools, but only warn about what they find.
+func deployToolchainGate(skipVersionCheck, dryRun bool) error {
+	err := version.RequireDeployToolchain()
+	if err == nil {
+		return nil
+	}
+	icons := ui.GetIcons()
+	switch {
+	case skipVersionCheck:
+		fmt.Fprintf(os.Stderr, "\n%s WARNING: --skip-version-check is set, so walgo is deploying despite these toolchain problems:\n%v\n\n", icons.Warning, err)
+		return nil
+	case dryRun:
+		fmt.Fprintf(os.Stderr, "%s Warning: a real deploy would stop here: %v\n", icons.Warning, err)
+		return nil
+	default:
+		return err
+	}
+}
+
 func init() {
 	rootCmd.AddCommand(deployCmd)
 
@@ -233,7 +251,7 @@ func init() {
 	deployCmd.Flags().BoolP("quiet", "q", false, "Suppress output (used internally by quickstart)")
 	deployCmd.Flags().Bool("dry-run", false, "Preview deployment plan without actually deploying")
 	deployCmd.Flags().Bool("telemetry", false, "Record deployment metrics to local JSON file (~/.walgo/metrics.json)")
-	deployCmd.Flags().Bool("skip-version-check", false, "Skip version checking and updating (not recommended for mainnet)")
+	deployCmd.Flags().Bool("skip-version-check", false, "Skip the tool-update offer, and deploy even when sui, walrus or site-builder is missing or below the minimum version (problems are still printed as warnings; not recommended)")
 	deployCmd.Flags().Bool("save-project", false, "Save deployment as a project with default name (directory name)")
 	deployCmd.Flags().String("project-name", "", "Custom project name (default: directory name)")
 	deployCmd.Flags().String("category", "", "Project category (default: website)")
