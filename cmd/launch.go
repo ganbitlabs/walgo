@@ -16,7 +16,6 @@ import (
 	"github.com/ganbitlabs/walgo/internal/projects"
 	"github.com/ganbitlabs/walgo/internal/sui"
 	"github.com/ganbitlabs/walgo/internal/ui"
-	"github.com/ganbitlabs/walgo/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -100,7 +99,7 @@ Example:
 			return err
 		}
 
-		if err := version.CheckAndUpdateVersions(false); err != nil {
+		if err := launch.CheckToolVersions(network); err != nil {
 			fmt.Fprintf(os.Stderr, "%s Warning: Version check failed: %v\n", icons.Warning, err)
 			fmt.Fprintf(os.Stderr, "  Continuing with deployment...\n")
 		}
