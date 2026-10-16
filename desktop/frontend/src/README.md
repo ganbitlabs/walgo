@@ -153,6 +153,8 @@ const {
   currentPath,
   selectedFile,
   fileContent,
+  fileLoadError, // set when the read failed; editing and saving are blocked
+  fileReady,
   loading,
   saving,
   saveFile,

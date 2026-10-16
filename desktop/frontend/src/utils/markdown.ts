@@ -1,19 +1,22 @@
+import DOMPurify from 'dompurify';
+
 /**
- * Simple markdown to HTML converter for preview
- * This is a basic implementation for preview purposes
- * For production, consider using a library like marked or remark
+ * Simple markdown to HTML converter for the editor preview.
+ *
+ * The preview renders inside the app webview, where bound Go methods can read
+ * and write files, so its output goes through DOMPurify with a fixed tag list
+ * and a URL allowlist of http, https, mailto, and scheme-less relative URLs.
  */
 
-export const sanitizeHtml = (html: string): string => {
-  return html
-    .replace(/<script[\s>][\s\S]*?<\/script>/gi, '')
-    .replace(/<script[\s>]/gi, '&lt;script')
-    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
-    .replace(/on\w+\s*=\s*\S+/gi, '')
-    .replace(/href\s*=\s*["']javascript:[^"']*["']/gi, 'href="#"')
-    .replace(/src\s*=\s*["']javascript:[^"']*["']/gi, 'src=""')
-    .replace(/src\s*=\s*["']data:[^"']*["']/gi, 'src=""');
-};
+const ALLOWED_URI = /^(?:(?:https?|mailto):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i;
+
+export const sanitizeHtml = (html: string): string =>
+  DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['h1', 'h2', 'h3', 'p', 'strong', 'em', 'a', 'img', 'br'],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'class'],
+    ALLOWED_URI_REGEXP: ALLOWED_URI,
+    ALLOW_DATA_ATTR: false,
+  });
 
 export const escapeHtml = (text: string): string => {
   return text
@@ -35,4 +38,18 @@ export const renderMarkdown = (content: string): string => {
     .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2" class="text-accent hover:underline">$1</a>')
     .replace(/\n/gim, '<br>');
   return sanitizeHtml(html);
+};
+
+/**
+ * Returns the URL a preview link may open in the system browser, or null.
+ * Only absolute http(s) URLs leave the app; everything else is inert.
+ */
+export const externalLinkTarget = (href: string | null): string | null => {
+  if (!href) return null;
+  try {
+    const url = new URL(href.trim());
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
 };

@@ -620,6 +620,12 @@ func (m *Manager) DeleteProjectWithOptions(id int64, deleteSiteFolder bool) erro
 		return fmt.Errorf("failed to get project details: %w", err)
 	}
 
+	if deleteSiteFolder && project.SitePath != "" {
+		if err := checkRemovableSiteFolder(project.SitePath); err != nil {
+			return err
+		}
+	}
+
 	// Start a transaction for atomicity
 	tx, err := m.db.Begin()
 	if err != nil {
@@ -662,6 +668,23 @@ func (m *Manager) DeleteProjectWithOptions(id int64, deleteSiteFolder bool) erro
 		// If folder doesn't exist, that's fine - it may have been manually deleted
 	}
 
+	return nil
+}
+
+// checkRemovableSiteFolder refuses to recursively delete a path that cannot be
+// a site folder: a relative path, a filesystem root, or the home directory or
+// one of its ancestors.
+func checkRemovableSiteFolder(sitePath string) error {
+	clean := filepath.Clean(sitePath)
+	if !filepath.IsAbs(clean) || filepath.Dir(clean) == clean {
+		return fmt.Errorf("refusing to delete site folder %q: not a removable folder", sitePath)
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		home = filepath.Clean(home)
+		if clean == home || strings.HasPrefix(home, clean+string(filepath.Separator)) {
+			return fmt.Errorf("refusing to delete site folder %q: it contains the home directory", sitePath)
+		}
+	}
 	return nil
 }
 
