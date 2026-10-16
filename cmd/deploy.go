@@ -121,11 +121,18 @@ Example: walgo deploy --epochs 5`,
 		if !quiet {
 			fmt.Println("  [2/5] Checking environment...")
 		}
-		if !skipVersionCheck {
+		// A dry run installs nothing, so it skips the offer to update tools.
+		if !skipVersionCheck && !dryRun {
 			if err := version.CheckAndUpdateVersions(quiet); err != nil && !quiet {
 				fmt.Fprintf(os.Stderr, "%s Warning: Version check failed: %v\n", icons.Warning, err)
 				fmt.Fprintf(os.Stderr, "  Continuing with deployment...\n")
 			}
+		}
+		if err := version.RequireDeployToolchain(); err != nil {
+			if !dryRun {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "%s Warning: a real deploy would stop here: %v\n", icons.Warning, err)
 		}
 
 		err = hugo.BuildSite(sitePath)

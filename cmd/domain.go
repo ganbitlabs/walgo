@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/ganbitlabs/walgo/internal/config"
-
+	"github.com/ganbitlabs/walgo/internal/projects"
 	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -42,10 +42,11 @@ For Mainnet: https://suins.io`,
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		// Check network - SuiNS is mainnet only
-		network := cfg.WalrusConfig.Network
-		if network == "" {
-			network = "testnet" // Default to testnet
+		// SuiNS is mainnet only, so this must be the network the site was
+		// actually deployed on, not a walgo.yaml default.
+		network, err := siteNetwork(sitePath, cfg.WalrusConfig.Network)
+		if err != nil {
+			return err
 		}
 
 		if network != "mainnet" {
@@ -102,6 +103,22 @@ For Mainnet: https://suins.io`,
 
 		return nil
 	},
+}
+
+// siteNetwork is the network the site at sitePath lives on: the one recorded
+// when it was deployed, else walgo.yaml's (deploy refuses to run when that
+// disagrees with Sui), else the active Sui environment a deploy would use.
+func siteNetwork(sitePath, configuredNetwork string) (string, error) {
+	if pm, err := projects.NewManager(); err == nil {
+		defer pm.Close()
+		if proj, err := pm.GetProjectBySitePath(sitePath); err == nil && proj != nil && proj.Network != "" {
+			return normalizeNetwork(proj.Network), nil
+		}
+	}
+	if configured := normalizeNetwork(configuredNetwork); configured != "" {
+		return configured, nil
+	}
+	return resolveDeployNetwork("")
 }
 
 func init() {

@@ -3,17 +3,14 @@ package walrus
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
-// UpdateSite handles updating an existing site on Walrus.
-// It executes the `site-builder deploy` command which auto-detects updates via ws-resources.json.
-// The context can be used to cancel or timeout the operation.
-func UpdateSite(ctx context.Context, deployDir, objectID string, epochs int) (*SiteBuilderOutput, error) {
+// UpdateSite updates an existing site on Walrus with `site-builder update`.
+// network prices the cost estimate, as in DeploySite.
+func UpdateSite(ctx context.Context, deployDir, objectID, network string, epochs int) (*SiteBuilderOutput, error) {
 	if err := validateObjectID(objectID); err != nil {
 		return nil, fmt.Errorf("invalid object ID: %w", err)
 	}
@@ -51,30 +48,10 @@ func UpdateSite(ctx context.Context, deployDir, objectID string, epochs int) (*S
 	fmt.Printf("%s Executing: %s %s\n", icons.Info, builderPath, strings.Join(args, " "))
 	fmt.Printf("%s Updating site files on Walrus...\n", icons.Upload)
 
-	var totalSize int64
-	var fileCount int
-	var walkErrors int
-	_ = filepath.Walk(deployDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			walkErrors++
-			return nil
-		}
-		if !info.IsDir() {
-			fileCount++
-			totalSize += info.Size()
-		}
-		return nil
-	})
-	if walkErrors > 0 {
-		fmt.Fprintf(os.Stderr, "%s Warning: Could not access %d file(s) during size calculation\n", icons.Warning, walkErrors)
-	}
-
-	sizeMB := float64(totalSize) / (1024 * 1024)
-	simpleCost := sizeMB * 0.01 * float64(epochs)
-	fmt.Printf("   %s Estimated cost: ~%.4f SUI (%d files, %.2f MB)\n", icons.Info, simpleCost, fileCount, sizeMB)
+	printCostEstimate(deployDir, network, epochs, true)
 
 	fmt.Printf("%s This may take several minutes depending on file count and network conditions...\n", icons.Hourglass)
-	fmt.Printf("   (timeout: %v)\n", DefaultCommandTimeout)
+	fmt.Printf("   (timeout: %v)\n", commandTimeout(ctx))
 	fmt.Println()
 
 	stdoutStr, stderrStr, err := runCommandWithTimeout(ctx, builderPath, args, true)

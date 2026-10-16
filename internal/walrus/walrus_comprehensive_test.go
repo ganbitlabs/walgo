@@ -36,37 +36,6 @@ func TestSetVerbose(t *testing.T) {
 	}
 }
 
-func TestPreflightCheck(t *testing.T) {
-	tests := []struct {
-		name    string
-		wantErr bool
-	}{
-		{
-			name:    "Preflight check with all tools available",
-			wantErr: false, // Will pass if walrus/sui are installed
-		},
-		{
-			name:    "Preflight check execution",
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := PreflightCheck()
-
-			// The function will error if walrus/sui aren't installed
-			// which is expected in test environment
-			if err != nil {
-				// Check that error message is informative
-				if !strings.Contains(err.Error(), "walrus") && !strings.Contains(err.Error(), "sui") && !strings.Contains(err.Error(), "Pre-flight") {
-					t.Logf("Preflight check error (expected if tools not installed): %v", err)
-				}
-			}
-		})
-	}
-}
-
 func TestSetupSiteBuilder(t *testing.T) {
 	tests := []struct {
 		name    string

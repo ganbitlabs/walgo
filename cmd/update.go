@@ -16,6 +16,7 @@ import (
 	"github.com/ganbitlabs/walgo/internal/metrics"
 	"github.com/ganbitlabs/walgo/internal/projects"
 	"github.com/ganbitlabs/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/version"
 
 	"github.com/spf13/cobra"
 )
@@ -163,6 +164,10 @@ Assumes the site has been built using 'walgo build'.`,
 			return nil
 		}
 
+		if err := version.RequireDeployToolchain(); err != nil {
+			return err
+		}
+
 		epochs, err := cmd.Flags().GetInt("epochs")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s Error: reading epochs flag: %v\n", icons.Error, err)
@@ -194,7 +199,7 @@ Assumes the site has been built using 'walgo build'.`,
 		d := sb.New()
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		defer cancel()
-		output, err := d.Update(ctx, deployDir, objectID, deployer.DeployOptions{Epochs: epochs, WalrusCfg: cfg.WalrusConfig})
+		output, err := d.Update(ctx, deployDir, objectID, deployer.DeployOptions{Epochs: epochs, WalrusCfg: cfg.WalrusConfig, Network: network})
 		if telemetry {
 			deployMetrics.UploadDuration = time.Since(uploadStart).Milliseconds()
 		}
@@ -214,69 +219,71 @@ Assumes the site has been built using 'walgo build'.`,
 				} else {
 					fmt.Printf("  %s Cache updated\n", icons.Check)
 				}
+			}
 
-				fmt.Printf("\n%s Updating metadata...\n", icons.Package)
-				wsResourcesPath := filepath.Join(deployDir, "ws-resources.json")
-				if err := compress.UpdateObjectID(wsResourcesPath, objectID); err != nil {
-					fmt.Fprintf(os.Stderr, "%s Error: Failed to save objectID to ws-resources.json: %v\n", icons.Error, err)
-					return fmt.Errorf("failed to save objectID to ws-resources.json: %w", err)
-				}
+			// The update is on-chain by now, so local bookkeeping failures
+			// are warnings, not a failed update.
+			fmt.Printf("\n%s Updating metadata...\n", icons.Package)
+			wsResourcesPath := filepath.Join(deployDir, "ws-resources.json")
+			if err := compress.UpdateObjectID(wsResourcesPath, objectID); err != nil {
+				fmt.Fprintf(os.Stderr, "%s Warning: Site updated, but saving objectID to ws-resources.json failed: %v\n", icons.Warning, err)
+			} else {
 				fmt.Printf("  %s ObjectID saved to ws-resources.json\n", icons.Check)
+			}
 
-				// Update walgo.yaml with objectID
-				if err := config.UpdateWalgoYAMLProjectID(sitePath, objectID); err != nil {
-					fmt.Fprintf(os.Stderr, "%s Error: Failed to update walgo.yaml: %v\n", icons.Error, err)
-					return fmt.Errorf("failed to update walgo.yaml with Object ID: %w", err)
-				}
+			if err := config.UpdateWalgoYAMLProjectID(sitePath, objectID); err != nil {
+				fmt.Fprintf(os.Stderr, "%s Warning: Site updated, but updating walgo.yaml failed: %v\n", icons.Warning, err)
+				fmt.Fprintf(os.Stderr, "  Set walrus.projectID to: %s\n", objectID)
+			} else {
 				fmt.Printf("  %s Updated walgo.yaml\n", icons.Check)
+			}
 
-				pm, err := projects.NewManager()
-				if err == nil {
-					defer pm.Close()
+			pm, err := projects.NewManager()
+			if err == nil {
+				defer pm.Close()
 
-					existingProj, err := pm.GetProjectBySitePath(sitePath)
-					if err == nil && existingProj != nil {
-						var siteSize int64
-						if err := filepath.Walk(deployDir, func(path string, info os.FileInfo, err error) error {
-							if err == nil && !info.IsDir() {
-								siteSize += info.Size()
-							}
-							return nil
-						}); err != nil {
-							// Log warning but continue
-							fmt.Fprintf(os.Stderr, "%s Warning: Failed to calculate site size: %v\n", icons.Warning, err)
+				existingProj, err := pm.GetProjectBySitePath(sitePath)
+				if err == nil && existingProj != nil {
+					var siteSize int64
+					if err := filepath.Walk(deployDir, func(path string, info os.FileInfo, err error) error {
+						if err == nil && !info.IsDir() {
+							siteSize += info.Size()
 						}
+						return nil
+					}); err != nil {
+						// Log warning but continue
+						fmt.Fprintf(os.Stderr, "%s Warning: Failed to calculate site size: %v\n", icons.Warning, err)
+					}
 
-						existingProj.ObjectID = objectID
-						existingProj.Epochs = epochs
-						existingProj.LastDeployAt = time.Now()
-						// Older records were written without a network, which
-						// makes every epoch-based estimate for them wrong.
-						if existingProj.Network == "" {
-							existingProj.Network = network
+					existingProj.ObjectID = objectID
+					existingProj.Epochs = epochs
+					existingProj.LastDeployAt = time.Now()
+					// Older records were written without a network, which
+					// makes every epoch-based estimate for them wrong.
+					if existingProj.Network == "" {
+						existingProj.Network = network
+					}
+
+					if err := pm.UpdateProject(existingProj); err != nil {
+						fmt.Fprintf(os.Stderr, "%s Warning: Failed to update project in database: %v\n", icons.Warning, err)
+					} else {
+						// Prefer what the chain actually charged; fall back to
+						// the epoch-aware estimate when it cannot be read.
+						gasFee := projects.EstimateGasFeeWithEpochs(existingProj.Network, siteSize, epochs)
+						if actual := actualUpdateCost(network); actual != "" {
+							gasFee = actual
 						}
-
-						if err := pm.UpdateProject(existingProj); err != nil {
-							fmt.Fprintf(os.Stderr, "%s Warning: Failed to update project in database: %v\n", icons.Warning, err)
-						} else {
-							// Prefer what the chain actually charged; fall back to
-							// the epoch-aware estimate when it cannot be read.
-							gasFee := projects.EstimateGasFeeWithEpochs(existingProj.Network, siteSize, epochs)
-							if actual := actualUpdateCost(network); actual != "" {
-								gasFee = actual
-							}
-							deployment := &projects.DeploymentRecord{
-								ProjectID: existingProj.ID,
-								ObjectID:  objectID,
-								Network:   existingProj.Network,
-								Epochs:    epochs,
-								GasFee:    gasFee,
-								Success:   true,
-							}
-							_ = pm.RecordDeployment(deployment)
-
-							fmt.Printf("  %s Project updated in database\n", icons.Check)
+						deployment := &projects.DeploymentRecord{
+							ProjectID: existingProj.ID,
+							ObjectID:  objectID,
+							Network:   existingProj.Network,
+							Epochs:    epochs,
+							GasFee:    gasFee,
+							Success:   true,
 						}
+						_ = pm.RecordDeployment(deployment)
+
+						fmt.Printf("  %s Project updated in database\n", icons.Check)
 					}
 				}
 			}

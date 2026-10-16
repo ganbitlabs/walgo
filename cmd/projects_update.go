@@ -13,6 +13,7 @@ import (
 	"github.com/ganbitlabs/walgo/internal/hugo"
 	"github.com/ganbitlabs/walgo/internal/projects"
 	"github.com/ganbitlabs/walgo/internal/ui"
+	"github.com/ganbitlabs/walgo/internal/version"
 	"github.com/ganbitlabs/walgo/internal/walrus"
 )
 
@@ -46,12 +47,47 @@ func updateProjectByRef(proj *projects.Project, epochs int) error {
 		return fmt.Errorf("site not built - run 'walgo build' first")
 	}
 
+	// Same guards as `walgo update`: the project's recorded network must be the
+	// one site-builder will actually use, and the toolchain must be able to talk
+	// to Sui at all.
+	network, err := resolveDeployNetwork(proj.Network)
+	if err != nil {
+		if proj.Network == "" {
+			return err
+		}
+		return fmt.Errorf("project %q is recorded on %s: %w", proj.Name, proj.Network, err)
+	}
+	if err := version.RequireDeployToolchain(); err != nil {
+		return err
+	}
+	if proj.Network == "" {
+		proj.Network = network
+	}
+
 	fmt.Printf("%s Pushing changes to Walrus...\n", icons.Spinner)
 
 	err = hugo.BuildSite(proj.SitePath)
 	if err != nil {
 		return fmt.Errorf("failed to build site: %w", err)
 	}
+
+	var siteSize int64
+	var fileCount int
+	_ = filepath.Walk(publishDir, func(path string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			siteSize += info.Size()
+			fileCount++
+		}
+		return nil
+	})
+
+	checkExpiryBeforeUpdate(updateExpiryCheck{
+		ObjectID:  proj.ObjectID,
+		Network:   network,
+		Epochs:    epochs,
+		SiteSize:  siteSize,
+		FileCount: fileCount,
+	})
 
 	d := sb.New()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
@@ -61,13 +97,14 @@ func updateProjectByRef(proj *projects.Project, epochs int) error {
 		Epochs:    epochs,
 		Verbose:   true,
 		WalrusCfg: walgoCfg.WalrusConfig,
+		Network:   network,
 	})
 
 	if err != nil {
 		deployment := &projects.DeploymentRecord{
 			ProjectID: proj.ID,
 			ObjectID:  proj.ObjectID,
-			Network:   proj.Network,
+			Network:   network,
 			Epochs:    epochs,
 			Success:   false,
 			Error:     err.Error(),
@@ -81,18 +118,9 @@ func updateProjectByRef(proj *projects.Project, epochs int) error {
 		return fmt.Errorf("update failed: operation unsuccessful")
 	}
 
-	// Calculate site size for gas estimation
-	var siteSize int64
-	_ = filepath.Walk(publishDir, func(path string, info os.FileInfo, err error) error {
-		if err == nil && !info.IsDir() {
-			siteSize += info.Size()
-		}
-		return nil
-	})
-
 	// Try to get actual gas from blockchain, fallback to estimate
 	var gasFee string
-	gasInfo, err := walrus.GetLatestTransactionGas(proj.WalletAddr, proj.Network)
+	gasInfo, err := walrus.GetLatestTransactionGas(proj.WalletAddr, network)
 	if err == nil && gasInfo != nil {
 		if gasInfo.TotalWAL > 0 && gasInfo.TotalGasSUI > 0 {
 			gasFee = fmt.Sprintf("%.6f WAL + %.6f SUI", gasInfo.TotalWAL, gasInfo.TotalGasSUI)
@@ -104,7 +132,7 @@ func updateProjectByRef(proj *projects.Project, epochs int) error {
 	}
 	// Fallback to estimate if actual gas not available
 	if gasFee == "" {
-		gasFee = projects.EstimateGasFeeWithEpochs(proj.Network, siteSize, epochs)
+		gasFee = projects.EstimateGasFeeWithEpochs(network, siteSize, epochs)
 	}
 
 	proj.Epochs = epochs
@@ -118,7 +146,7 @@ func updateProjectByRef(proj *projects.Project, epochs int) error {
 	deployment := &projects.DeploymentRecord{
 		ProjectID: proj.ID,
 		ObjectID:  proj.ObjectID,
-		Network:   proj.Network,
+		Network:   network,
 		Epochs:    epochs,
 		GasFee:    gasFee,
 		Success:   true,

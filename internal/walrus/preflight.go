@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ganbitlabs/walgo/internal/sui"
 	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/ganbitlabs/walgo/internal/version"
 )
@@ -140,58 +139,4 @@ func handleSiteBuilderError(err error, errorOutput string) error {
 		return fmt.Errorf("failed to execute site-builder: %v\n\nError output:\n%s", err, strings.TrimSpace(errorOutput))
 	}
 	return fmt.Errorf("failed to execute site-builder: %v", err)
-}
-
-// PreflightCheck validates environment before deployment.
-func PreflightCheck() error {
-	icons := ui.GetIcons()
-	fmt.Printf("%s Running pre-flight checks...\n", icons.Search)
-
-	walrusPath, err := execLookPath("walrus")
-	if err != nil {
-		return fmt.Errorf("walrus CLI not found in PATH")
-	}
-	fmt.Printf("   %s Walrus CLI found at: %s\n", icons.Check, walrusPath)
-
-	// Check walrus/site-builder version compatibility before attempting deployment
-	if err := version.CheckInstalledCompatibility(); err != nil {
-		return fmt.Errorf("%s %v", icons.Error, err)
-	}
-	fmt.Printf("   %s Walrus and site-builder versions are compatible\n", icons.Check)
-
-	walrusContext := GetWalrusContext()
-	infoCmd := execCommand("walrus", "info", "--json", "--context", walrusContext)
-	infoCmd.Stdout = nil
-	infoCmd.Stderr = nil
-	if err := infoCmd.Run(); err != nil {
-		return fmt.Errorf("cannot connect to Walrus network (%s)", walrusContext)
-	}
-	fmt.Printf("   %s Walrus network is reachable (%s)\n", icons.Check, walrusContext)
-
-	suiPath, err := execLookPath("sui")
-	if err != nil {
-		return fmt.Errorf("sui CLI not found. Install via suiup:\n   curl -sSfL https://raw.githubusercontent.com/MystenLabs/suiup/main/install.sh | sh\n   suiup install sui@testnet\n\n   Or run: walgo setup-deps")
-	}
-	fmt.Printf("   %s Sui CLI found at: %s\n", icons.Check, suiPath)
-
-	balance, err := sui.GetBalance()
-	if err != nil {
-		fmt.Printf("   %s Could not check wallet balance (continuing anyway)\n", icons.Warning)
-	} else {
-		if balance.SUI > 0 {
-			fmt.Printf("   %s SUI balance: %.2f SUI\n", icons.Check, balance.SUI)
-		} else {
-			fmt.Printf("   %s Warning: No SUI balance detected. You may need testnet SUI from:\n", icons.Warning)
-			fmt.Println("      https://discord.com/channels/916379725201563759/971488439931392130")
-		}
-
-		if balance.WAL > 0 {
-			fmt.Printf("   %s WAL balance: %.2f WAL\n", icons.Check, balance.WAL)
-		} else {
-			fmt.Printf("   %s No WAL tokens found (may need for storage quota)\n", icons.Info)
-		}
-	}
-
-	fmt.Printf("%s Pre-flight checks passed\n", icons.Success)
-	return nil
 }

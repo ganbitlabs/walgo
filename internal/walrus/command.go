@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"sync/atomic"
+	"time"
 
 	"github.com/ganbitlabs/walgo/internal/deps"
 	"github.com/ganbitlabs/walgo/internal/executil"
@@ -53,12 +54,28 @@ func (s safeWriter) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-// runCommandWithTimeout executes a command with a timeout context.
+// commandTimeout is how long a command started now under ctx may run: the
+// caller's deadline when it set one, DefaultCommandTimeout otherwise.
+func commandTimeout(ctx context.Context) time.Duration {
+	if ctx != nil {
+		if deadline, ok := ctx.Deadline(); ok {
+			return time.Until(deadline).Round(time.Second)
+		}
+	}
+	return DefaultCommandTimeout
+}
+
+// runCommandWithTimeout executes a command under ctx, applying
+// DefaultCommandTimeout when ctx has no deadline of its own.
 // Returns stdout, stderr, and any error.
 func runCommandWithTimeout(ctx context.Context, name string, args []string, streamOutput bool) (string, string, error) {
 	if ctx == nil {
+		ctx = context.Background()
+	}
+	timeout := commandTimeout(ctx)
+	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(context.Background(), DefaultCommandTimeout)
+		ctx, cancel = context.WithTimeout(ctx, DefaultCommandTimeout)
 		defer cancel()
 	}
 
@@ -79,7 +96,7 @@ func runCommandWithTimeout(ctx context.Context, name string, args []string, stre
 	err := cmd.Run()
 
 	if ctx.Err() == context.DeadlineExceeded {
-		return stdout.String(), stderr.String(), fmt.Errorf("command timed out after %v - the operation took too long", DefaultCommandTimeout)
+		return stdout.String(), stderr.String(), fmt.Errorf("command timed out after %v - the operation took too long", timeout)
 	}
 
 	if ctx.Err() == context.Canceled {

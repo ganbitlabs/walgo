@@ -1,11 +1,13 @@
 package version
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	neturl "net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -453,8 +455,8 @@ func ToolchainProblems(statuses []ToolStatus) error {
 	var outdated []string
 	for _, status := range statuses {
 		if status.Outdated {
-			outdated = append(outdated, fmt.Sprintf("%s v%s (need v%s or newer)",
-				status.Tool, status.Version, status.Minimum))
+			outdated = append(outdated, fmt.Sprintf("%s v%s at %s (need v%s or newer)",
+				status.Tool, status.Version, status.Path, status.Minimum))
 		}
 	}
 
@@ -471,9 +473,35 @@ func ToolchainProblems(statuses []ToolStatus) error {
 			"    suiup install walrus@mainnet\n"+
 			"    suiup install site-builder@mainnet\n\n"+
 			"  If a tool still reports an old version afterwards, an older copy earlier in\n"+
-			"  PATH is winning — check the paths printed above",
+			"  PATH is winning; check the paths listed above",
 		strings.Join(outdated, ", "),
 	)
+}
+
+// RequireDeployToolchain fails when sui, walrus or site-builder is missing or
+// older than the minimum that still works against Sui. Every on-chain deploy or
+// update calls it before spending anything. A tool whose version cannot be read
+// is let through, since there is no evidence it is too old.
+func RequireDeployToolchain() error {
+	statuses := InspectToolchain()
+
+	var missing []string
+	for _, status := range statuses {
+		if !status.Installed {
+			missing = append(missing, status.Tool)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("required tools not found: %s\n\n"+
+			"  On-chain deployments need sui, walrus and site-builder.\n\n"+
+			"  To fix:  walgo setup-deps",
+			strings.Join(missing, ", "))
+	}
+
+	if err := ToolchainProblems(statuses); err != nil {
+		return fmt.Errorf("%w\n\n  Or run:  walgo setup-deps", err)
+	}
+	return nil
 }
 
 // versionLess reports whether version a is older than version b.
@@ -604,53 +632,70 @@ func CheckAndUpdateVersions(quiet bool) error {
 		return nil
 	}
 
-	// Display update information
-	if !quiet {
-		fmt.Println()
-		fmt.Printf("%s Updates available for mainnet deployment:\n", icons.Warning)
-		fmt.Println()
+	return offerToolUpdates(result, network, quiet, stdinIsTerminal(), os.Stdin)
+}
 
-		if result.Sui != nil && result.Sui.UpdateRequired {
-			fmt.Printf("  • Sui: %s → %s\n", result.Sui.CurrentVersion, result.Sui.LatestVersion)
-		}
-		if result.Walrus != nil && result.Walrus.UpdateRequired {
-			fmt.Printf("  • Walrus: %s → %s\n", result.Walrus.CurrentVersion, result.Walrus.LatestVersion)
-		}
-		if result.SiteBuilder != nil && result.SiteBuilder.UpdateRequired {
-			fmt.Printf("  • Site-builder: %s → %s\n", result.SiteBuilder.CurrentVersion, result.SiteBuilder.LatestVersion)
-		}
+// Test hooks: installing tools runs suiup (and can fetch it with curl | sh), so
+// tests must be able to observe whether an install would have happened.
+var (
+	installTools    = UpdateAllTools
+	stdinIsTerminal = func() bool {
+		info, err := os.Stdin.Stat()
+		return err == nil && info.Mode()&os.ModeCharDevice != 0
+	}
+)
 
-		fmt.Println()
-		fmt.Printf("%s For mainnet deployments, it's recommended to use the latest versions.\n", icons.Lightbulb)
-		fmt.Print("\nWould you like to update now? [Y/n]: ")
+// offerToolUpdates asks before installing newer tools. It never installs
+// without a person at a terminal to say yes: in quiet mode or without a TTY it
+// only warns, and a closed or unreadable stdin counts as "no".
+func offerToolUpdates(result *CheckResult, network string, quiet, interactive bool, in io.Reader) error {
+	icons := ui.GetIcons()
 
-		// Read user response
-		var response string
-		if _, err := fmt.Scanln(&response); err != nil {
-			// Default to "yes" if there's an error reading input
-			response = ""
-		}
-		response = strings.TrimSpace(strings.ToLower(response))
-
-		if response == "" || response == "y" || response == "yes" {
-			fmt.Println()
-			fmt.Println("Updating tools...")
-			fmt.Println()
-
-			if err := UpdateAllTools(network); err != nil {
-				return fmt.Errorf("failed to update tools: %w", err)
-			}
-
-			fmt.Println()
-			fmt.Printf("%s All tools updated successfully!\n", icons.Check)
-			fmt.Println()
-		} else {
-			fmt.Println()
-			fmt.Printf("%s Continuing with current versions...\n", icons.Warning)
-			fmt.Println("   (Use --skip-version-check to skip this prompt)")
-			fmt.Println()
+	var updates []string
+	for _, tool := range []*ToolVersion{result.Sui, result.Walrus, result.SiteBuilder} {
+		if tool != nil && tool.UpdateRequired {
+			updates = append(updates, fmt.Sprintf("%s %s -> %s", tool.Tool, tool.CurrentVersion, tool.LatestVersion))
 		}
 	}
 
+	if quiet || !interactive {
+		fmt.Fprintf(os.Stderr, "%s Tool updates available for mainnet: %s\n", icons.Warning, strings.Join(updates, ", "))
+		fmt.Fprintf(os.Stderr, "   Not updating without an interactive terminal. To update:  walgo setup-deps\n")
+		return nil
+	}
+
+	fmt.Println()
+	fmt.Printf("%s Updates available for mainnet deployment:\n", icons.Warning)
+	fmt.Println()
+	for _, update := range updates {
+		fmt.Printf("  • %s\n", update)
+	}
+	fmt.Println()
+	fmt.Printf("%s For mainnet deployments, it's recommended to use the latest versions.\n", icons.Lightbulb)
+	fmt.Print("\nWould you like to update now? [Y/n]: ")
+
+	line, err := bufio.NewReader(in).ReadString('\n')
+	response := strings.TrimSpace(strings.ToLower(line))
+	accepted := response == "y" || response == "yes" || (response == "" && err == nil)
+
+	if !accepted {
+		fmt.Println()
+		fmt.Printf("%s Continuing with current versions...\n", icons.Warning)
+		fmt.Println("   (Use --skip-version-check to skip this prompt)")
+		fmt.Println()
+		return nil
+	}
+
+	fmt.Println()
+	fmt.Println("Updating tools...")
+	fmt.Println()
+
+	if err := installTools(network); err != nil {
+		return fmt.Errorf("failed to update tools: %w", err)
+	}
+
+	fmt.Println()
+	fmt.Printf("%s All tools updated successfully!\n", icons.Check)
+	fmt.Println()
 	return nil
 }

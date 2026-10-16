@@ -7,71 +7,21 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ganbitlabs/walgo/internal/config"
+	"github.com/ganbitlabs/walgo/internal/compress"
 	"github.com/ganbitlabs/walgo/internal/ui"
 )
 
-// DeploySite manages the site deployment to Walrus decentralized storage.
-// Executes the `site-builder deploy` command which auto-detects new vs update.
-// Context parameter enables cancellation and timeout control for the operation.
-func DeploySite(ctx context.Context, deployDir string, walrusCfg config.WalrusConfig, epochs int) (*SiteBuilderOutput, error) {
+// DeploySite publishes deployDir as a new Walrus Site with `site-builder publish`.
+// network prices the cost estimate; site-builder itself follows the active Sui
+// environment. An empty network falls back to that environment.
+func DeploySite(ctx context.Context, deployDir, network string, epochs int) (*SiteBuilderOutput, error) {
 	if epochs <= 0 {
 		return nil, fmt.Errorf("epochs must be greater than 0, got %d", epochs)
 	}
 
 	icons := ui.GetIcons()
 
-	fmt.Printf("%s Analyzing deployment directory...\n", icons.Chart)
-	fileCount := 0
-	totalSize := int64(0)
-
-	err := filepath.Walk(deployDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			fileCount++
-			totalSize += info.Size()
-		}
-		return nil
-	})
-
-	if err != nil {
-		fmt.Printf("   %s Warning: Could not analyze directory: %v\n", icons.Warning, err)
-	} else {
-		icons := ui.GetIcons()
-		fmt.Printf("%s Calculating deployment costs...\n", icons.Chart)
-
-		network := "testnet"
-		if walrusCfg.Network != "" {
-			network = walrusCfg.Network
-		}
-
-		options := CostOptions{
-			SiteSize:   totalSize,
-			Epochs:     epochs,
-			Network:    network,
-			FileCount:  fileCount,
-			GraphQLURL: "",
-		}
-
-		breakdown, err := CalculateCost(options)
-		if err != nil {
-			fmt.Printf("   %s Warning: Cost estimation failed: %v\n", icons.Warning, err)
-			sizeMB := float64(totalSize) / (1024 * 1024)
-			fallbackCost := sizeMB * 0.01 * float64(epochs)
-			fmt.Printf("   %s Using fallback estimate: ~%.4f SUI\n", icons.Info, fallbackCost)
-		} else {
-			fmt.Printf("%s\n", FormatCostBreakdown(*breakdown))
-			fmt.Printf("\n%s Summary: %s\n\n", icons.Info,
-				FormatCostSummary(breakdown.TotalWAL, breakdown.GasCostSUI, breakdown.FileCount, epochs))
-
-			if breakdown.GasCostSUI+breakdown.TotalWAL > 0.5 {
-				fmt.Printf("%s %s Tip: Consider using `update-resources` for small changes\n", icons.Lightbulb, icons.Info)
-				fmt.Printf("%s %s Tip: Use longer epochs for storage duration efficiency\n", icons.Lightbulb, icons.Info)
-			}
-		}
-	}
+	printCostEstimate(deployDir, network, epochs, false)
 
 	builderPath, err := execLookPath(siteBuilderCmd)
 	if err != nil {
@@ -99,10 +49,13 @@ func DeploySite(ctx context.Context, deployDir string, walrusCfg config.WalrusCo
 		fmt.Printf("%s Arguments: %v\n", icons.Wrench, args)
 	}
 
+	wsResourcesPath := filepath.Join(deployDir, "ws-resources.json")
+	priorObjectID := readWSObjectID(wsResourcesPath)
+
 	fmt.Printf("%s Executing: %s %s\n", icons.Info, builderPath, strings.Join(args, " "))
 	fmt.Printf("%s Uploading site files to Walrus...\n", icons.Upload)
 	fmt.Printf("%s This may take several minutes depending on file count and network conditions...\n", icons.Hourglass)
-	fmt.Printf("   (timeout: %v)\n", DefaultCommandTimeout)
+	fmt.Printf("   (timeout: %v)\n", commandTimeout(ctx))
 	fmt.Println()
 
 	stdoutStr, stderrStr, err := runCommandWithTimeout(ctx, builderPath, args, true)
@@ -125,6 +78,16 @@ func DeploySite(ctx context.Context, deployDir string, walrusCfg config.WalrusCo
 	output := parseSiteBuilderOutput(combinedOutput)
 	output.Success = true
 
+	// site-builder records the new site's object_id in ws-resources.json, so a
+	// change in its output format must not turn a paid, successful publish into
+	// a reported failure. An ID that was already there before publishing is
+	// stale and says nothing about this run.
+	if output.ObjectID == "" {
+		if id := readWSObjectID(wsResourcesPath); id != "" && id != priorObjectID {
+			output.ObjectID = id
+		}
+	}
+
 	if output.ObjectID != "" {
 		fmt.Printf("\n%s Deployment successful!\n", icons.Celebrate)
 		fmt.Printf("%s Site Object ID: %s\n", icons.Clipboard, output.ObjectID)
@@ -145,4 +108,59 @@ func DeploySite(ctx context.Context, deployDir string, walrusCfg config.WalrusCo
 	}
 
 	return output, nil
+}
+
+func readWSObjectID(path string) string {
+	cfg, err := compress.ReadWSResourcesConfig(path)
+	if err != nil {
+		return ""
+	}
+	return cfg.ObjectID
+}
+
+// printCostEstimate prints walgo's own estimate of what storing deployDir costs.
+// For an update it is an upper bound, since site-builder reuses unchanged files.
+func printCostEstimate(deployDir, network string, epochs int, isUpdate bool) {
+	icons := ui.GetIcons()
+
+	var fileCount int
+	var totalSize int64
+	err := filepath.Walk(deployDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			fileCount++
+			totalSize += info.Size()
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Printf("   %s Cost estimate unavailable: could not analyze %s: %v\n", icons.Warning, deployDir, err)
+		return
+	}
+
+	if network == "" {
+		network = GetWalrusContext()
+	}
+	fmt.Printf("%s Estimating %s costs...\n", icons.Chart, network)
+
+	breakdown, err := CalculateCost(CostOptions{
+		SiteSize:  totalSize,
+		Epochs:    epochs,
+		Network:   network,
+		FileCount: fileCount,
+	})
+	if err != nil {
+		fmt.Printf("   %s Cost estimate unavailable: %v\n", icons.Warning, err)
+		return
+	}
+
+	fmt.Printf("%s\n", FormatCostBreakdown(*breakdown))
+	fmt.Printf("\n%s Summary: %s\n", icons.Info,
+		FormatCostSummary(breakdown.TotalWAL, breakdown.GasCostSUI, breakdown.FileCount, epochs))
+	if isUpdate {
+		fmt.Printf("   Upper bound: assumes every file is uploaded again; unchanged files are reused.\n")
+	}
+	fmt.Println()
 }
