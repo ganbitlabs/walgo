@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-16
+
+### Fixed
+- **Deploy safety:** `--dry-run` never publishes, even when the cache is unavailable. Tool updates are never prompted for or installed without a terminal, in `--quiet` mode or during a dry run. A deploy that succeeded on-chain is no longer reported as failed: the object ID falls back to `ws-resources.json`, and bookkeeping errors are warnings that print it.
+- **Toolchain gate:** deploy, update and `projects update` refuse to run with sui < 1.75.0, walrus < 1.52.0 or site-builder < 2.12.0 (`--skip-version-check` downgrades this to a warning).
+- **Networks:** cost estimates use the network the deploy resolves to. `projects update` and `domain` check the active network. `launch` defaults to the active network, refuses to update a site recorded on another network, saves the network to `walgo.yaml`, and makes an imported wallet the active address.
+- **Unattended runs:** end of input at any confirmation now means "no".
+- **Optimizer:** HTML, CSS and JS minification now uses tdewolff/minify (the library Hugo uses). The previous minifiers could break JavaScript strings and template literals, inline whitespace and CSS selectors. Each optimizer runs only when its `minifyHTML`/`minifyCSS`/`minifyJS` flag is on.
+- **Builds:** `publishDir` is honored from `walgo.yaml` or the Hugo config (absolute paths included) and is refused when it contains the site or a Hugo source folder. All Hugo config formats are detected (`hugo.*`, `config.*`, `config/_default/`). Plain static sites deploy without a Hugo config. User `.gz`/`.br`/`.map` files are no longer deleted. A missing `ws-resources.json` is created.
+- **Security:** AI-generated plans can't write outside `content/`. Theme installs accept only `https://github.com/<owner>/<repo>` and can't extract outside `themes/`. Secrets are not echoed while typed and are scrubbed from errors.
+- **`walgo.yaml`:** updating the project ID keeps comments and key order.
+- **Desktop:** deploys and updates go through the same pipeline as the CLI and refuse on a network or wallet mismatch. Deploys can be cancelled, and quitting during one asks first. Failures stay on screen with Hugo's output. The preview server only stops its own Hugo process, picks a free port, and reports success only once Hugo is serving. File access is limited to registered site folders. Deleting a project keeps its folder unless you opt in, refuses to touch home or another project, and stops if the on-chain destroy fails. The markdown preview is sanitized, and links open in the system browser. The editor never saves an empty buffer over a file it failed to read.
+
+### Added
+- `site.kind: hugo|static` in `walgo.yaml` to override site detection.
+
+### Changed
+- `walgo projects update` runs through the shared deploy pipeline.
+- The projects database stores absolute site paths.
+- CI builds and tests the desktop app on every pull request. Release builds pin the Wails CLI and stamp the product version.
+
 ## [0.2.1] - 2025-01-21
 
 ### Fixed
