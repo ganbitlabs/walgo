@@ -364,7 +364,11 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
     setLogs(prev => [...prev, "", "⏹  Cancelling deployment..."]);
     try {
       const { CancelDeploy } = await import('../../../wailsjs/go/main/App');
-      await CancelDeploy(sitePath);
+      if (!(await CancelDeploy(sitePath))) {
+        // The deploy has not registered yet, or it already finished.
+        setCancelling(false);
+        setLogs(prev => [...prev, "⚠️  No running deployment to cancel yet. Try again in a moment."]);
+      }
     } catch (err) {
       setCancelling(false);
       setLogs(prev => [...prev, `❌ Could not cancel: ${err instanceof Error ? err.message : String(err)}`]);
