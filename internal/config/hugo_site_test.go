@@ -16,7 +16,9 @@ func TestLoadConfigFromPublishDir(t *testing.T) {
 		{"no Hugo config", map[string]string{}, "public", false},
 		{"walgo.yaml wins", map[string]string{"walgo.yaml": "hugo:\n  publishDir: dist\n", "hugo.toml": "publishDir = \"x\""}, "dist", true},
 		{"hugo.toml", map[string]string{"hugo.toml": "publishDir = \"out\""}, "out", true},
-		{"config.yaml", map[string]string{"config.yaml": "baseURL: https://e.com/\npublishDir: out"}, "out", true},
+		{"config.yaml beside archetypes", map[string]string{"config.yaml": "publishDir: out", "archetypes/default.md": ""}, "out", true},
+		{"config.json beside content markdown", map[string]string{"config.json": `{"publishDir": "out"}`, "content/posts/a.md": "# a"}, "out", true},
+		{"config.json with Hugo-looking keys alone is not Hugo", map[string]string{"config.json": `{"theme": "dark", "baseUrl": "https://api.example.com", "module": "app", "publishDir": "x"}`, "layouts/main.html": ""}, "public", false},
 		{"hugo.json lowercase key", map[string]string{"hugo.json": `{"publishdir": "out"}`}, "out", true},
 		{"config/_default", map[string]string{"config/_default/config.toml": "baseURL = \"https://e.com/\"\npublishDir = \"out\""}, "out", true},
 		{"production overrides _default", map[string]string{
@@ -25,11 +27,10 @@ func TestLoadConfigFromPublishDir(t *testing.T) {
 		}, "prod", true},
 		{"Hugo config without publishDir", map[string]string{"hugo.yml": "title: x"}, "public", true},
 		{"generic config.json is not Hugo", map[string]string{"config.json": `{"publishDir": "x", "apiUrl": "y"}`}, "public", false},
-		{"config.toml with a Hugo key", map[string]string{"config.toml": "baseURL = \"https://e.com/\""}, "public", true},
+		{"config.toml is Hugo", map[string]string{"config.toml": "title = \"x\""}, "public", true},
 		{"malformed hugo.toml is still Hugo", map[string]string{"hugo.toml": "title = "}, "public", true},
-		{"malformed config.toml beside layouts is Hugo", map[string]string{"config.toml": "title = ", "layouts/index.html": ""}, "public", true},
+		{"malformed config.toml is still Hugo", map[string]string{"config.toml": "title = "}, "public", true},
 		{"malformed config.json alone is not Hugo", map[string]string{"config.json": "{"}, "public", false},
-		{"config.yaml beside a layouts dir", map[string]string{"config.yaml": "title: x", "layouts/index.html": ""}, "public", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

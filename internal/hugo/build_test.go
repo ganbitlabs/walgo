@@ -91,10 +91,11 @@ func TestBuildSiteHonorsPublishDir(t *testing.T) {
 			out: "site",
 		},
 		{
-			name: "default public with config.yml",
+			name: "default public with config.yml beside archetypes",
 			files: map[string]string{
-				"walgo.yaml": "compress:\n  generateWSResources: true\n",
-				"config.yml": "title: Sample\n",
+				"walgo.yaml":            "compress:\n  generateWSResources: true\n",
+				"config.yml":            "title: Sample\n",
+				"archetypes/default.md": "",
 			},
 			out: "public",
 		},
@@ -206,10 +207,12 @@ func TestBuildSiteStaticSiteWithGenericConfigFile(t *testing.T) {
 	isolateHome(t)
 	site := t.TempDir()
 	writeFiles(t, site, map[string]string{
-		"walgo.yaml":      "hugo:\n  publishDir: dist\n",
-		"config.json":     `{"apiUrl": "https://api.example.com", "featureFlags": {"beta": true}}`,
-		"config.yaml":     "port: 8080\n",
-		"dist/index.html": "<p>app</p>",
+		"walgo.yaml":        "hugo:\n  publishDir: dist\n",
+		"config.json":       `{"theme": "dark", "baseUrl": "https://api.example.com", "module": "app"}`,
+		"config.yaml":       "theme: dark\nport: 8080\n",
+		"layouts/main.html": "<main></main>",
+		"themes/dark.css":   "body{}",
+		"dist/index.html":   "<p>app</p>",
 	})
 
 	if err := BuildSite(site); err != nil {

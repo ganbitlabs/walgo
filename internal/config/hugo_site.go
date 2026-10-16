@@ -15,15 +15,32 @@ var (
 	// Directories searched for a Hugo config, highest precedence first.
 	// walgo builds with --environment production, so that environment's directory wins.
 	hugoConfigDirs = []string{".", filepath.Join("config", "production"), filepath.Join("config", "_default")}
-
-	// config.* is a common name outside Hugo, so it only counts with one of these signals.
-	// A misclassified static site would be built by hugo with --cleanDestinationDir.
-	hugoOnlyKeys = map[string]bool{
-		"baseurl": true, "theme": true, "languagecode": true, "defaultcontentlanguage": true,
-		"module": true, "markup": true, "taxonomies": true, "permalinks": true,
-	}
-	hugoSiteDirs = []string{"layouts", "themes", "archetypes"}
 )
+
+// isAmbiguousConfigName reports whether a config file name is common outside Hugo.
+// A static site misread as Hugo would be built by hugo with --cleanDestinationDir, so these
+// names also need a Hugo-only site structure. Their contents are not trusted as a signal.
+func isAmbiguousConfigName(dir, base, ext string) bool {
+	return dir == "." && base == "config" && ext != ".toml"
+}
+
+// hasHugoSiteStructure reports whether sitePath has archetypes/ or Markdown under content/.
+func hasHugoSiteStructure(sitePath string) bool {
+	if info, err := os.Stat(filepath.Join(sitePath, "archetypes")); err == nil && info.IsDir() {
+		return true
+	}
+	matches, _ := filepath.Glob(filepath.Join(sitePath, "content", "*.md"))
+	if len(matches) > 0 {
+		return true
+	}
+	matches, _ = filepath.Glob(filepath.Join(sitePath, "content", "*", "*.md"))
+	return len(matches) > 0
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
 
 // hugoConfigs returns the site's Hugo configs with lowercased top-level keys, highest precedence first.
 // A config that exists but does not parse is returned empty, so hugo still runs and reports the syntax error.
@@ -32,12 +49,9 @@ func hugoConfigs(sitePath string) []map[string]any {
 	for _, dir := range hugoConfigDirs {
 		for _, base := range []string{"hugo", "config"} {
 			for _, ext := range hugoConfigExtensions {
-				values, exists, parsed := parseConfigFile(filepath.Join(sitePath, dir, base+ext))
-				if !exists {
-					continue
-				}
-				if base == "hugo" || (parsed && hasHugoKey(values)) || hasHugoSiteDir(sitePath) {
-					configs = append(configs, values)
+				path := filepath.Join(sitePath, dir, base+ext)
+				if fileExists(path) && (!isAmbiguousConfigName(dir, base, ext) || hasHugoSiteStructure(sitePath)) {
+					configs = append(configs, parseConfigFile(path))
 				}
 			}
 		}
@@ -50,6 +64,21 @@ func IsHugoSite(sitePath string) bool {
 	return len(hugoConfigs(sitePath)) > 0
 }
 
+// IgnoredConfigFiles returns root config.{yaml,yml,json} files that were not treated as Hugo config.
+func IgnoredConfigFiles(sitePath string) []string {
+	if hasHugoSiteStructure(sitePath) {
+		return nil
+	}
+	var files []string
+	for _, ext := range hugoConfigExtensions {
+		path := filepath.Join(sitePath, "config"+ext)
+		if isAmbiguousConfigName(".", "config", ext) && fileExists(path) {
+			files = append(files, path)
+		}
+	}
+	return files
+}
+
 // defaultPublishDir returns the publishDir set in the site's Hugo config, else Hugo's default "public".
 func defaultPublishDir(sitePath string) string {
 	for _, values := range hugoConfigs(sitePath) {
@@ -60,14 +89,13 @@ func defaultPublishDir(sitePath string) string {
 	return "public"
 }
 
-func parseConfigFile(file string) (values map[string]any, exists, parsed bool) {
-	info, err := os.Stat(file)
-	if err != nil || info.IsDir() {
-		return nil, false, false
-	}
+// parseConfigFile returns the file's top-level keys lowercased, as Hugo matches them case-insensitively.
+// An unreadable or malformed file yields an empty map.
+func parseConfigFile(file string) map[string]any {
+	values := map[string]any{}
 	data, err := os.ReadFile(file) // #nosec G304 - path is built from the site directory and fixed names
 	if err != nil {
-		return nil, true, false
+		return values
 	}
 	raw := map[string]any{}
 	switch filepath.Ext(file) {
@@ -79,30 +107,10 @@ func parseConfigFile(file string) (values map[string]any, exists, parsed bool) {
 		err = yaml.Unmarshal(data, &raw)
 	}
 	if err != nil {
-		return nil, true, false
+		return values
 	}
-	// Hugo config keys are case-insensitive.
-	values = make(map[string]any, len(raw))
 	for key, value := range raw {
 		values[strings.ToLower(key)] = value
 	}
-	return values, true, true
-}
-
-func hasHugoKey(values map[string]any) bool {
-	for key := range values {
-		if hugoOnlyKeys[key] {
-			return true
-		}
-	}
-	return false
-}
-
-func hasHugoSiteDir(sitePath string) bool {
-	for _, dir := range hugoSiteDirs {
-		if info, err := os.Stat(filepath.Join(sitePath, dir)); err == nil && info.IsDir() {
-			return true
-		}
-	}
-	return false
+	return values
 }
