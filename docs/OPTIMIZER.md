@@ -24,7 +24,7 @@ The other keys refine that pass. On their own, with the minify flag off, they do
 
 ## Configuration
 
-These are the defaults that `walgo init` writes:
+These are the defaults. `walgo init` writes them, and any key `walgo.yaml` leaves out, or a missing `optimizer` section, takes its default:
 
 ```yaml
 optimizer:

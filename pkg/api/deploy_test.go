@@ -60,7 +60,7 @@ func fakeDeployEnv(t *testing.T, activeEnv, activeAddr string) fakeEnv {
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+"/bin:/usr/bin")
 
 	sitePath := t.TempDir()
-	writeFile(t, filepath.Join(sitePath, "walgo.yaml"), "hugo:\n  publishDir: public\n")
+	writeFile(t, filepath.Join(sitePath, "walgo.yaml"), "hugo:\n  publishDir: public\noptimizer:\n  enabled: false\n")
 	writeFile(t, filepath.Join(sitePath, "hugo.toml"), "title = 'test'\n")
 	t.Cleanup(func() { _ = os.Chmod(filepath.Join(sitePath, "public", "locked"), 0o755) })
 	return fakeEnv{sitePath: sitePath, builderLog: builderLog, bin: bin}

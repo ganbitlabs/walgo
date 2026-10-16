@@ -57,7 +57,7 @@ func LoadConfig() (*WalgoConfig, error) {
 		return nil, fmt.Errorf("walgo.yaml configuration file not found or failed to load. Ensure you are in a Walgo project directory (where walgo.yaml or .walgo.yaml exists in CWD/home), or use the --config flag to specify the path. You can create a default config with 'walgo init'")
 	}
 
-	var cfg WalgoConfig
+	cfg := sectionDefaults()
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling configuration from %s: %w. Please check the file format and structure", viper.ConfigFileUsed(), err)
 	}
@@ -67,6 +67,17 @@ func LoadConfig() (*WalgoConfig, error) {
 	}
 	applyDefaults(&cfg, filepath.Dir(viper.ConfigFileUsed()))
 	return &cfg, nil
+}
+
+// sectionDefaults returns the config walgo.yaml is decoded over. The optimizer and cache sections
+// start from their defaults, so a walgo.yaml that omits them, or sets only some of their keys,
+// keeps the documented behavior instead of the zero value, which turns both off.
+func sectionDefaults() WalgoConfig {
+	defaults := NewDefaultWalgoConfig()
+	return WalgoConfig{
+		OptimizerConfig: defaults.OptimizerConfig,
+		CacheConfig:     defaults.CacheConfig,
+	}
 }
 
 func validateSiteKind(kind SiteKind) error {
@@ -112,7 +123,7 @@ func LoadConfigFrom(sitePath string) (*WalgoConfig, error) {
 		return nil, fmt.Errorf("failed to read config file %s: %w", configPath, err)
 	}
 
-	var cfg WalgoConfig
+	cfg := sectionDefaults()
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config file %s: %w", configPath, err)
 	}

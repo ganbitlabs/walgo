@@ -45,7 +45,7 @@ func fakeProjectsUpdateEnv(t *testing.T, siteBuilder string) (sitePath, builderL
 
 	sitePath = t.TempDir()
 	stale := "0x" + strings.Repeat("9", 64)
-	writeTestFile(t, filepath.Join(sitePath, "walgo.yaml"), "walrus:\n  projectID: \""+stale+"\"\nhugo:\n  publishDir: public\n")
+	writeTestFile(t, filepath.Join(sitePath, "walgo.yaml"), "walrus:\n  projectID: \""+stale+"\"\nhugo:\n  publishDir: public\noptimizer:\n  enabled: false\n")
 	writeTestFile(t, filepath.Join(sitePath, "hugo.toml"), "title = 'test'\n")
 	t.Cleanup(func() { _ = os.Chmod(filepath.Join(sitePath, "public", "locked"), 0o755) })
 	return sitePath, builderLog
