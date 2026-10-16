@@ -31,7 +31,7 @@ jobs:
       - name: Run tests
         run: |
           # Run core tests only (exclude packages needing external deps)
-          go test -v $(go list ./... | grep -v -E 'internal/(ai|deps|hugo|launch)')
+          go test -v $(go list ./... | grep -v -E 'internal/(deps|hugo)')
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
