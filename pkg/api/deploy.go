@@ -83,7 +83,9 @@ type siteDeployResult struct {
 
 // deploySite builds the site and runs the shared deployment workflow, the same
 // one `walgo deploy` uses, saving the result to the projects database. A
-// failure is recorded against the project when one exists.
+// failure once the deployment workflow has started is recorded against the
+// project when one exists. Failures before that are not, because
+// RecordDeployment also bumps the deploy count and last-deploy time.
 func deploySite(ctx context.Context, d siteDeploy) (*siteDeployResult, error) {
 	walgoCfg, err := config.LoadConfigFrom(d.SitePath)
 	if err != nil {
