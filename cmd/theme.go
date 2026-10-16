@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
+	"github.com/ganbitlabs/walgo/internal/config"
 	"github.com/ganbitlabs/walgo/internal/hugo"
 	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/spf13/cobra"
@@ -24,7 +24,7 @@ var themeInstallCmd = &cobra.Command{
 This command will:
 1. Remove any existing themes in the themes/ directory
 2. Download the new theme from GitHub
-3. Update hugo.toml with the new theme name
+3. Set the new theme in the site's TOML Hugo config (hugo.toml, config.toml, ...)
 
 Examples:
   walgo theme install https://github.com/theNewDynamic/gohugo-theme-ananke
@@ -41,7 +41,7 @@ Examples:
 		}
 
 		// Verify this is a Hugo site
-		if !isHugoSite(sitePath) {
+		if !config.IsHugoSite(sitePath) {
 			fmt.Fprintf(os.Stderr, "%s Error: Not a Hugo site directory\n", icons.Error)
 			fmt.Fprintf(os.Stderr, "   Please run this command from within a Hugo site directory.\n")
 			return fmt.Errorf("not a Hugo site directory")
@@ -110,7 +110,7 @@ var themeNewCmd = &cobra.Command{
 
 This command will:
 1. Run 'hugo new theme <name>' in the current site directory
-2. Update hugo.toml to use the new theme
+2. Set the new theme in the site's TOML Hugo config
 
 Examples:
   walgo theme new my-theme
@@ -126,7 +126,7 @@ Examples:
 		}
 
 		// Verify this is a Hugo site
-		if !isHugoSite(sitePath) {
+		if !config.IsHugoSite(sitePath) {
 			fmt.Fprintf(os.Stderr, "%s Error: Not a Hugo site directory\n", icons.Error)
 			fmt.Fprintf(os.Stderr, "   Please run this command from within a Hugo site directory.\n")
 			return fmt.Errorf("not a Hugo site directory")
@@ -148,18 +148,6 @@ Examples:
 
 		return nil
 	},
-}
-
-// isHugoSite checks if the given path contains a Hugo site
-func isHugoSite(sitePath string) bool {
-	// Check for hugo.toml or config.toml
-	configFiles := []string{"hugo.toml", "config.toml", "hugo.yaml", "config.yaml"}
-	for _, cf := range configFiles {
-		if _, err := os.Stat(filepath.Join(sitePath, cf)); err == nil {
-			return true
-		}
-	}
-	return false
 }
 
 func init() {

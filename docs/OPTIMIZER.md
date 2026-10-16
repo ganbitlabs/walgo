@@ -1,68 +1,35 @@
-# Walgo Optimizer Engine
+# Optimizer
 
-The Walgo Optimizer Engine is a built-in asset optimization system that automatically minifies and optimizes your HTML, CSS, and JavaScript files for better performance and smaller file sizes.
+The optimizer minifies the HTML, CSS, and JavaScript in a built site before walgo deploys it. It uses [tdewolff/minify](https://github.com/tdewolff/minify), the minifier behind `hugo --minify`, and rewrites each file in place in the publish directory. Source files are never touched.
 
-## Features
+## When it runs
 
-### HTML Optimization
-- **Minification**: Removes unnecessary whitespace and line breaks
-- **Comment Removal**: Removes HTML comments while preserving conditional comments
-- **Inline Asset Compression**: Minifies CSS and JavaScript within `<style>` and `<script>` tags
-- **Whitespace Optimization**: Intelligent whitespace removal that preserves formatting where needed
+- `walgo build`, and every command that builds first (`deploy`, `launch`, `update`, `serve`, and the desktop app), runs the optimizer after Hugo when `optimizer.enabled` is true.
+- Static sites skip it. A site is static when it has no Hugo config or when `walgo.yaml` sets `site.kind: static`; walgo deploys its files exactly as they are.
+- `walgo optimize [directory]` runs it on demand. With no argument it targets the site's publish directory and reads `walgo.yaml` from the current directory. With an argument it targets that directory and reads `walgo.yaml` from it, falling back to the defaults below.
 
-### CSS Optimization
-- **Minification**: Removes whitespace, comments, and unnecessary formatting
-- **Color Compression**: Converts `#ffffff` to `#fff`, named colors to shorter hex values
-- **Rule Optimization**: Removes trailing semicolons, unnecessary quotes
-- **Unused Rule Removal**: Optionally removes CSS rules not used in HTML (aggressive optimization)
-- **Unit Compression**: Converts `0px` to `0`, `0.5` to `.5`
+The optimizer skips files whose name contains `.min.` and files that match `skipPatterns`.
 
-### JavaScript Optimization
-- **Minification**: Removes whitespace and comments while preserving functionality
-- **String/Regex Preservation**: Safely handles strings and regular expressions
-- **Comment Removal**: Removes single-line and multi-line comments
-- **Basic Obfuscation**: Optional variable name shortening (use with caution)
+## Each optimizer needs its minify flag
 
-## Usage
+An optimizer changes a file only when both its `enabled` key and its minify flag are true:
 
-### Automatic Optimization
-Optimization runs automatically after `walgo build` if enabled in your configuration:
+| File types | Runs when |
+|---|---|
+| `.html`, `.htm` | `html.enabled` and `html.minifyHTML` |
+| `.css` | `css.enabled` and `css.minifyCSS` |
+| `.js`, `.mjs` | `js.enabled` and `js.minifyJS` |
 
-```bash
-walgo build                 # Builds Hugo site and optimizes assets
-walgo build --no-optimize   # Builds Hugo site without optimization
-```
-
-### Manual Optimization
-You can run optimization manually on any directory:
-
-```bash
-walgo optimize              # Optimizes files in Hugo's public directory
-walgo optimize ./dist       # Optimizes files in specific directory
-walgo optimize --verbose    # Shows detailed optimization progress
-```
-
-### Command Line Options
-```bash
-walgo optimize [directory] [flags]
-
-Flags:
-  --html                    Enable HTML optimization (default true)
-  --css                     Enable CSS optimization (default true)
-  --js                      Enable JavaScript optimization (default true)
-  --remove-unused-css       Remove unused CSS rules (aggressive)
-  -v, --verbose             Enable verbose output
-```
+The other keys refine that pass. On their own, with the minify flag off, they do nothing.
 
 ## Configuration
 
-Configure the optimizer in your `walgo.yaml` file:
+These are the defaults. `walgo init` writes them, and any key `walgo.yaml` leaves out, or a missing `optimizer` section, takes its default:
 
 ```yaml
 optimizer:
   enabled: true
   verbose: false
-  
   html:
     enabled: true
     minifyHTML: true
@@ -70,21 +37,19 @@ optimizer:
     removeWhitespace: true
     compressInlineCSS: true
     compressInlineJS: true
-  
   css:
     enabled: true
     minifyCSS: true
     removeComments: true
     removeUnused: false
+    autoprefixer: false
     compressColors: true
-  
   js:
     enabled: true
     minifyJS: true
     removeComments: true
     obfuscate: false
     sourceMaps: false
-  
   skipPatterns:
     - "*.min.js"
     - "*.min.css"
@@ -93,177 +58,60 @@ optimizer:
     - "*/node_modules/*"
 ```
 
-### Configuration Options
+### Global keys
 
-#### Global Settings
-- `enabled`: Enable/disable the optimizer entirely
-- `verbose`: Show detailed optimization progress
-- `skipPatterns`: File patterns to skip during optimization
+| Key | Effect |
+|---|---|
+| `enabled` | Turns the whole optimizer on or off, for builds and for `walgo optimize`. |
+| `verbose` | Prints an error line for each file that fails to optimize. |
+| `skipPatterns` | Glob patterns to skip. A pattern without `/` matches the file name; a pattern with `/` also matches the full path. |
+| `outputDir` | Not implemented. walgo accepts the key and ignores it. |
 
-#### HTML Settings
-- `enabled`: Enable HTML optimization
-- `minifyHTML`: Remove unnecessary whitespace
-- `removeComments`: Remove HTML comments (preserves conditional comments)
-- `removeWhitespace`: Aggressive whitespace removal
-- `compressInlineCSS`: Minify CSS within `<style>` tags
-- `compressInlineJS`: Minify JavaScript within `<script>` tags
+### HTML keys
 
-#### CSS Settings
-- `enabled`: Enable CSS optimization
-- `minifyCSS`: Remove whitespace and formatting
-- `removeComments`: Remove CSS comments
-- `removeUnused`: Remove unused CSS rules (requires HTML analysis)
-- `compressColors`: Optimize color values
-- `autoprefixer`: Add vendor prefixes (requires additional setup)
+HTML minification keeps the document tags, end tags, default attribute values, and special comments such as IE conditional comments, which matches Hugo's own minify settings.
 
-#### JavaScript Settings
-- `enabled`: Enable JavaScript optimization
-- `minifyJS`: Remove whitespace and formatting
-- `removeComments`: Remove JavaScript comments
-- `obfuscate`: Basic variable name obfuscation (can break code)
-- `sourceMaps`: Generate source maps (not implemented yet)
+| Key | Effect |
+|---|---|
+| `minifyHTML` | Minifies HTML. Required for every key below. |
+| `removeComments` | Drops ordinary comments. When false, comments stay. |
+| `removeWhitespace` | Collapses whitespace between elements. When false, whitespace stays. Content of `<pre>` and `<textarea>` is always kept. |
+| `compressInlineCSS` | Also minifies `<style>` blocks. |
+| `compressInlineJS` | Also minifies inline `<script>` blocks. Variable names are kept. |
 
-## Performance Impact
+### CSS keys
 
-Typical optimization results:
-- **HTML**: 15-25% size reduction
-- **CSS**: 20-40% size reduction
-- **JavaScript**: 25-50% size reduction
+| Key | Effect |
+|---|---|
+| `minifyCSS` | Minifies CSS. Minification always strips comments and shortens colors and numbers. |
+| `removeComments` | No separate effect; minification already strips comments. |
+| `compressColors` | No separate effect; minification already shortens colors. |
+| `removeUnused` | Not implemented. walgo accepts the key and ignores it. The `walgo optimize --remove-unused-css` flag is ignored too. |
+| `autoprefixer` | Not implemented. walgo accepts the key and ignores it. |
 
-Example output:
-```
-🎯 Optimization Results
-======================
-Files processed: 42
-Files optimized: 18
-Files skipped: 24
-Duration: 234ms
+### JavaScript keys
 
-📊 Size Reduction
-Original size: 2.4 MB
-Optimized size: 1.8 MB
-Bytes saved: 645.2 KB (26.9%)
+| Key | Effect |
+|---|---|
+| `minifyJS` | Minifies JavaScript. Minification always strips comments. |
+| `removeComments` | No separate effect; minification already strips comments. |
+| `obfuscate` | Lets the minifier shorten local variable names. When false, names are kept. |
+| `sourceMaps` | Not implemented. walgo writes no source maps. |
 
-📄 HTML Files
-Files: 8, Saved: 45.3 KB (18.2%)
+The unimplemented keys stay in the schema so existing `walgo.yaml` files keep loading.
 
-🎨 CSS Files
-Files: 5, Saved: 234.7 KB (31.4%)
+## `walgo optimize` flags
 
-📜 JavaScript Files
-Files: 5, Saved: 365.2 KB (42.1%)
-```
-
-## Safety and Best Practices
-
-### Safe Optimizations (Default)
-- HTML minification
-- CSS minification
-- JavaScript minification
-- Comment removal
-- Color compression
-
-### Aggressive Optimizations (Use with Caution)
-- **Unused CSS removal**: Can remove CSS needed by JavaScript
-- **JavaScript obfuscation**: May break code with dynamic property access
-- **Autoprefixer**: Requires additional configuration
-
-### Skip Patterns
-Always skip:
-- Already minified files (`*.min.*`)
-- Source maps (`*.map`)
-- Version control directories (`*/.git/*`)
-- Package manager directories (`*/node_modules/*`)
-- Service workers and manifest files
-
-### Testing
-Always test your optimized site before deploying:
-1. Run `walgo build` with optimization
-2. Test with `walgo serve`
-3. Verify all functionality works
-4. Check for any broken layouts or scripts
-
-## Integration with Hugo
-
-The optimizer integrates seamlessly with Hugo:
-1. Hugo builds your site to the `public` directory
-2. Optimizer processes all files in the output
-3. Original Hugo files remain unchanged
-4. Only the built output is optimized
-
-This ensures your source files are never modified, and you can always rebuild without optimization if needed.
+| Flag | Effect |
+|---|---|
+| `--html=false` | Sets `html.enabled` to false for this run. |
+| `--css=false` | Sets `css.enabled` to false for this run. |
+| `--js=false` | Sets `js.enabled` to false for this run. |
+| `-v`, `--verbose` | Sets `verbose` for this run. |
+| `--remove-unused-css` | Not implemented; has no effect. |
 
 ## Troubleshooting
 
-### Common Issues
-
-**Broken JavaScript after optimization:**
-- Disable obfuscation: `js.obfuscate: false`
-- Check for dynamic property access
-- Review console errors in browser
-
-**Missing styles after CSS optimization:**
-- Disable unused rule removal: `css.removeUnused: false`
-- Check for dynamically added classes
-- Verify CSS selector patterns
-
-**Layout issues after HTML minification:**
-- Check `<pre>` and `<code>` tag preservation
-- Verify inline styles and scripts
-- Test with `html.removeWhitespace: false`
-
-### Debug Mode
-Run with verbose output to see detailed processing:
-```bash
-walgo optimize --verbose
-```
-
-This shows:
-- Files being processed
-- Optimization steps applied
-- Size changes for each file
-- Error messages and warnings
-
-### Selective Optimization
-Disable specific optimizations if issues occur:
-```bash
-walgo optimize --html=false    # Skip HTML optimization
-walgo optimize --css=false     # Skip CSS optimization
-walgo optimize --js=false      # Skip JavaScript optimization
-```
-
-## Advanced Usage
-
-### Custom Skip Patterns
-Add custom patterns to skip specific files:
-```yaml
-optimizer:
-  skipPatterns:
-    - "*/analytics/*"
-    - "third-party.js"
-    - "*.debug.css"
-```
-
-### Per-Environment Configuration
-Use different optimization levels for development vs production:
-```yaml
-# Development (lighter optimization)
-optimizer:
-  enabled: true
-  html:
-    removeComments: false
-  css:
-    removeUnused: false
-  js:
-    obfuscate: false
-```
-
-### Integration with CI/CD
-Add optimization to your deployment pipeline:
-```bash
-# Build and optimize
-walgo build
-
-# Deploy optimized files
-walgo deploy
-``` 
+- A page breaks after minification: set `html.removeWhitespace: false`, rebuild, and compare.
+- A script breaks: set `js.obfuscate: false`. If it still breaks, add the file to `skipPatterns`.
+- Third-party bundles that ship minified are skipped when their name contains `.min.`. Add other prebuilt files to `skipPatterns`.

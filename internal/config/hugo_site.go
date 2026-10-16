@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,31 +43,122 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// hugoConfigs returns the site's Hugo configs with lowercased top-level keys, highest precedence first.
-// A config that exists but does not parse is returned empty, so hugo still runs and reports the syntax error.
-func hugoConfigs(sitePath string) []map[string]any {
-	var configs []map[string]any
+// hugoConfigFiles returns the site's Hugo config files, highest precedence first.
+// An ambiguous root config.{yaml,yml,json} counts only beside a Hugo site structure or with site.kind: hugo.
+func hugoConfigFiles(sitePath string) []string {
+	trustAmbiguous := hasHugoSiteStructure(sitePath) || siteKindOverride(sitePath) == SiteKindHugo
+	var files []string
 	for _, dir := range hugoConfigDirs {
 		for _, base := range []string{"hugo", "config"} {
 			for _, ext := range hugoConfigExtensions {
 				path := filepath.Join(sitePath, dir, base+ext)
-				if fileExists(path) && (!isAmbiguousConfigName(dir, base, ext) || hasHugoSiteStructure(sitePath)) {
-					configs = append(configs, parseConfigFile(path))
+				if fileExists(path) && (!isAmbiguousConfigName(dir, base, ext) || trustAmbiguous) {
+					files = append(files, path)
 				}
 			}
 		}
 	}
+	return files
+}
+
+// hugoConfigs returns the site's Hugo configs with lowercased top-level keys, highest precedence first.
+// A config that exists but does not parse is returned empty, so hugo still runs and reports the syntax error.
+func hugoConfigs(sitePath string) []map[string]any {
+	var configs []map[string]any
+	for _, file := range hugoConfigFiles(sitePath) {
+		configs = append(configs, parseConfigFile(file))
+	}
 	return configs
 }
 
-// IsHugoSite reports whether sitePath has a Hugo config file.
+// HugoConfigFile returns the Hugo config file to read or edit site-wide settings in: a root config
+// (hugo.* before config.*), else config/_default, else config/production. It returns "" for a site
+// with no Hugo config.
+func HugoConfigFile(sitePath string) string {
+	files := hugoConfigFiles(sitePath)
+	for _, dir := range []string{sitePath, filepath.Join(sitePath, "config", "_default")} {
+		for _, file := range files {
+			if filepath.Dir(file) == filepath.Clean(dir) {
+				return file
+			}
+		}
+	}
+	if len(files) > 0 {
+		return files[0]
+	}
+	return ""
+}
+
+// HugoTOMLConfigFile returns HugoConfigFile when it is TOML, the only format walgo edits in place.
+func HugoTOMLConfigFile(sitePath string) (string, error) {
+	file := HugoConfigFile(sitePath)
+	switch {
+	case file == "":
+		return "", fmt.Errorf("no Hugo config (hugo.toml, hugo.yaml, config.toml, config/_default/...) found in %s", sitePath)
+	case filepath.Ext(file) != ".toml":
+		return "", fmt.Errorf("walgo edits only TOML Hugo configs; update %s by hand", file)
+	}
+	return file, nil
+}
+
+// HugoConfigValue returns the top-level key from the site's Hugo config, matched case-insensitively,
+// taking the highest-precedence file that sets it. It returns nil when no config sets the key.
+func HugoConfigValue(sitePath, key string) any {
+	key = strings.ToLower(key)
+	for _, values := range hugoConfigs(sitePath) {
+		if v, ok := values[key]; ok {
+			return v
+		}
+	}
+	return nil
+}
+
+// IsHugoConfigFileName reports whether name is a Hugo config file name (hugo.* or config.*).
+func IsHugoConfigFileName(name string) bool {
+	ext := filepath.Ext(name)
+	base := strings.TrimSuffix(name, ext)
+	if base != "hugo" && base != "config" {
+		return false
+	}
+	for _, e := range hugoConfigExtensions {
+		if ext == e {
+			return true
+		}
+	}
+	return false
+}
+
+// siteKindOverride returns site.kind from sitePath's walgo.yaml, or "" when it is unset or unreadable.
+func siteKindOverride(sitePath string) SiteKind {
+	data, err := os.ReadFile(filepath.Join(sitePath, DefaultConfigFileName)) // #nosec G304 - fixed name in the site directory
+	if err != nil {
+		return ""
+	}
+	var cfg struct {
+		Site SiteConfig `yaml:"site"`
+	}
+	if yaml.Unmarshal(data, &cfg) != nil {
+		return ""
+	}
+	return cfg.Site.Kind
+}
+
+// IsHugoSite reports whether walgo builds sitePath with hugo: walgo.yaml's site.kind when set,
+// else whether the site has a Hugo config file.
 func IsHugoSite(sitePath string) bool {
-	return len(hugoConfigs(sitePath)) > 0
+	switch siteKindOverride(sitePath) {
+	case SiteKindHugo:
+		return true
+	case SiteKindStatic:
+		return false
+	}
+	return len(hugoConfigFiles(sitePath)) > 0
 }
 
 // IgnoredConfigFiles returns root config.{yaml,yml,json} files that were not treated as Hugo config.
+// It returns nil when walgo.yaml sets site.kind, since detection did not decide.
 func IgnoredConfigFiles(sitePath string) []string {
-	if hasHugoSiteStructure(sitePath) {
+	if hasHugoSiteStructure(sitePath) || siteKindOverride(sitePath) != "" {
 		return nil
 	}
 	var files []string
@@ -80,11 +172,9 @@ func IgnoredConfigFiles(sitePath string) []string {
 }
 
 // defaultPublishDir returns the publishDir set in the site's Hugo config, else Hugo's default "public".
-// An absolute Hugo publishDir is ignored: callers join PublishDir onto the site path, and BuildSite
-// passes --destination, so the build and every caller agree on the same directory.
 func defaultPublishDir(sitePath string) string {
 	for _, values := range hugoConfigs(sitePath) {
-		if dir, ok := values["publishdir"].(string); ok && dir != "" && !filepath.IsAbs(dir) {
+		if dir, ok := values["publishdir"].(string); ok && dir != "" {
 			return dir
 		}
 	}

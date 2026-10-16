@@ -96,7 +96,10 @@ Example: walgo deploy --epochs 5`,
 			}
 		}
 
-		publishDir := filepath.Join(sitePath, walgoCfg.HugoConfig.PublishDir)
+		publishDir, err := config.ResolvePublishDir(sitePath, walgoCfg)
+		if err != nil {
+			return err
+		}
 		if _, err := os.Stat(publishDir); os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "%s Error: Build directory '%s' not found\n\n", icons.Error, publishDir)
 			fmt.Fprintf(os.Stderr, "%s Run this first:\n", icons.Lightbulb)

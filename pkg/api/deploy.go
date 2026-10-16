@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/ganbitlabs/walgo/internal/config"
@@ -96,7 +95,10 @@ func deploySite(ctx context.Context, d siteDeploy) (*siteDeployResult, error) {
 		return nil, buildFailure(err)
 	}
 
-	publishDir := filepath.Join(d.SitePath, walgoCfg.HugoConfig.PublishDir)
+	publishDir, err := config.ResolvePublishDir(d.SitePath, walgoCfg)
+	if err != nil {
+		return nil, err
+	}
 	if _, err := os.Stat(publishDir); err != nil {
 		return nil, fmt.Errorf("publish directory not found: %s", publishDir)
 	}
@@ -130,7 +132,7 @@ func deploySite(ctx context.Context, d siteDeploy) (*siteDeployResult, error) {
 	return &siteDeployResult{
 		ObjectID: res.ObjectID,
 		IsUpdate: res.IsUpdate,
-		GasFee:   gasFeeText(res, d.Network, d.Epochs),
+		GasFee:   res.GasFee(d.Network, d.Epochs),
 	}, nil
 }
 
@@ -167,21 +169,6 @@ func recordFailedDeployment(d siteDeploy, deployErr error) {
 		Success:   false,
 		Error:     deployErr.Error(),
 	})
-}
-
-// gasFeeText reports the cost read from the chain, or an estimate when the
-// chain query found nothing.
-func gasFeeText(res *deployment.DeploymentResult, network string, epochs int) string {
-	switch {
-	case res.ActualWAL > 0 && res.ActualGasSUI > 0:
-		return fmt.Sprintf("%.6f WAL + %.6f SUI", res.ActualWAL, res.ActualGasSUI)
-	case res.ActualWAL > 0:
-		return fmt.Sprintf("%.6f WAL", res.ActualWAL)
-	case res.ActualGasSUI > 0:
-		return fmt.Sprintf("%.6f SUI", res.ActualGasSUI)
-	default:
-		return projects.EstimateGasFeeWithEpochs(network, res.SiteSize, epochs)
-	}
 }
 
 // buildFailure explains a failed site build. The desktop app has no terminal,

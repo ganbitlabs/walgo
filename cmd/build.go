@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ganbitlabs/walgo/internal/config"
 	"github.com/ganbitlabs/walgo/internal/hugo"
 	"github.com/ganbitlabs/walgo/internal/ui"
 
@@ -28,10 +29,20 @@ This command runs the 'hugo' command to generate static files typically into the
 
 		if err := hugo.BuildSite(sitePath); err != nil {
 			fmt.Fprintf(os.Stderr, "\n%s Troubleshooting:\n", icons.Lightbulb)
-			fmt.Fprintf(os.Stderr, "  - Check that Hugo is installed: hugo version\n")
-			fmt.Fprintf(os.Stderr, "  - Check hugo.toml for syntax errors\n")
-			fmt.Fprintf(os.Stderr, "  - Run: hugo --verbose (for detailed output)\n")
-			return fmt.Errorf("hugo build failed: %w", err)
+			if config.IsHugoSite(sitePath) {
+				configFile := config.HugoConfigFile(sitePath)
+				if configFile == "" {
+					configFile = "your Hugo config"
+				}
+				fmt.Fprintf(os.Stderr, "  - Check that Hugo is installed: hugo version\n")
+				fmt.Fprintf(os.Stderr, "  - Check %s for syntax errors\n", configFile)
+				fmt.Fprintf(os.Stderr, "  - Run: hugo --verbose (for detailed output)\n")
+			} else {
+				fmt.Fprintf(os.Stderr, "  - This is a static site: walgo deploys its publish directory as-is\n")
+				fmt.Fprintf(os.Stderr, "  - Set hugo.publishDir in walgo.yaml to the folder holding your built files\n")
+				fmt.Fprintf(os.Stderr, "  - If it is a Hugo site, add a Hugo config or set site.kind: hugo in walgo.yaml\n")
+			}
+			return fmt.Errorf("build failed: %w", err)
 		}
 
 		fmt.Printf("\n%s Build complete!\n", icons.Success)

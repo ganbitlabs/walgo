@@ -6,6 +6,7 @@ Complete reference for configuring Walgo.
 
 - [Configuration File](#configuration-file)
 - [Configuration Sources](#configuration-sources)
+- [Site Configuration](#site-configuration)
 - [Hugo Configuration](#hugo-configuration)
 - [Walrus Configuration](#walrus-configuration)
 - [Optimizer Configuration](#optimizer-configuration)
@@ -30,6 +31,10 @@ The first file found is used. If no file is found, default values are used.
 ### Basic Structure
 
 ```yaml
+# Site kind: hugo or static. Leave unset to detect it.
+site:
+  kind: ""
+
 # Hugo site configuration
 hugo:
   version: ""
@@ -100,6 +105,30 @@ walgo deploy --epochs 3
 # Final value: 3
 ```
 
+## Site Configuration
+
+### `site.kind`
+
+- **Type:** String, `hugo` or `static`
+- **Default:** unset (detect)
+- **Description:** Says whether walgo builds the site with Hugo or deploys its publish directory as-is
+
+When `site.kind` is unset, walgo treats a site as Hugo when it finds a Hugo config: `hugo.toml`, `hugo.yaml`, `hugo.yml`, `hugo.json`, `config.toml`, or any `hugo.*` or `config.*` under `config/_default/` or `config/production/`. A root `config.yaml`, `config.yml`, or `config.json` counts only next to `archetypes/` or Markdown under `content/`, because those names are common in non-Hugo projects. Anything else is a static site.
+
+Set `site.kind` when detection gets it wrong:
+
+```yaml
+site:
+  kind: static  # Never run hugo; deploy hugo.publishDir as-is
+```
+
+```yaml
+site:
+  kind: hugo    # Always run hugo, and read a root config.yaml as Hugo config
+```
+
+A static site skips Hugo and the optimizer. Any other value is an error when walgo loads `walgo.yaml`.
+
 ## Hugo Configuration
 
 Controls how Hugo builds your site.
@@ -131,8 +160,10 @@ hugo:
 ### `hugo.publishDir`
 
 - **Type:** String
-- **Default:** `"public"`
-- **Description:** Output directory for built site
+- **Default:** the `publishDir` in the site's Hugo config, else `"public"`. A static site defaults to `"public"`.
+- **Description:** Output directory for the built site, and the directory walgo deploys
+
+A relative path is relative to the site directory. An absolute path is used as-is. walgo refuses a publish directory that contains the site itself, such as `.`.
 
 ```yaml
 hugo:

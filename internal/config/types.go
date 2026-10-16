@@ -1,10 +1,14 @@
 package config
 
-import "github.com/ganbitlabs/walgo/internal/optimizer"
+import (
+	"github.com/ganbitlabs/walgo/internal/compress"
+	"github.com/ganbitlabs/walgo/internal/optimizer"
+)
 
 // WalgoConfig is the top-level configuration for Walgo.
 // It will be stored in walgo.yaml in the site root.
 type WalgoConfig struct {
+	SiteConfig      SiteConfig                `mapstructure:"site" yaml:"site,omitempty"`
 	HugoConfig      HugoConfig                `mapstructure:"hugo" yaml:"hugo"`
 	WalrusConfig    WalrusConfig              `mapstructure:"walrus" yaml:"walrus"`
 	ObsidianConfig  ObsidianConfig            `mapstructure:"obsidian" yaml:"obsidian,omitempty"`
@@ -12,6 +16,22 @@ type WalgoConfig struct {
 	CompressConfig  CompressConfig            `mapstructure:"compress" yaml:"compress,omitempty"`
 	CacheConfig     CacheConfig               `mapstructure:"cache" yaml:"cache,omitempty"`
 	// Note: AI credentials are stored in ~/.walgo/ai-credentials.yaml, not in walgo.yaml
+}
+
+// SiteKind says how walgo builds a site.
+type SiteKind string
+
+const (
+	// SiteKindHugo builds the site with hugo before deploying its publish directory.
+	SiteKindHugo SiteKind = "hugo"
+	// SiteKindStatic deploys the publish directory as-is.
+	SiteKindStatic SiteKind = "static"
+)
+
+// SiteConfig holds settings about the site as a whole.
+type SiteConfig struct {
+	// Kind overrides detection, which treats a site with a Hugo config file as Hugo and anything else as static.
+	Kind SiteKind `mapstructure:"kind" yaml:"kind,omitempty"`
 }
 
 // HugoConfig holds Hugo-specific settings relevant to Walgo.
@@ -63,8 +83,23 @@ type CacheConfig struct {
 	MutableMaxAge   int  `mapstructure:"mutableMaxAge" yaml:"mutableMaxAge,omitempty"`     // Max-age for HTML (default: 300)
 }
 
+// CacheControl returns the ws-resources.json cache settings: compress's defaults overlaid with
+// these values. A zero max-age keeps the default.
+func (c CacheConfig) CacheControl() compress.CacheControlConfig {
+	cc := compress.DefaultCacheControlConfig()
+	cc.Enabled = c.Enabled
+	if c.ImmutableMaxAge != 0 {
+		cc.ImmutableMaxAge = c.ImmutableMaxAge
+	}
+	if c.MutableMaxAge != 0 {
+		cc.MutableMaxAge = c.MutableMaxAge
+	}
+	return cc
+}
+
 // NewDefaultWalgoConfig creates a WalgoConfig with sensible defaults.
 func NewDefaultWalgoConfig() WalgoConfig {
+	defaultCache := compress.DefaultCacheControlConfig()
 	return WalgoConfig{
 		HugoConfig: HugoConfig{
 			PublishDir: "public",
@@ -87,9 +122,9 @@ func NewDefaultWalgoConfig() WalgoConfig {
 			GenerateWSResources: true,
 		},
 		CacheConfig: CacheConfig{
-			Enabled:         true,
-			ImmutableMaxAge: 31536000, // 1 year
-			MutableMaxAge:   300,      // 5 minutes
+			Enabled:         defaultCache.Enabled,
+			ImmutableMaxAge: defaultCache.ImmutableMaxAge,
+			MutableMaxAge:   defaultCache.MutableMaxAge,
 		},
 	}
 }

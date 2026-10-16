@@ -71,11 +71,10 @@ Features:
 		if err != nil {
 			return fmt.Errorf("error reading parent-dir flag: %w", err)
 		}
-		if parentDir == "" {
-			parentDir, err = os.Getwd()
-			if err != nil {
-				return fmt.Errorf("cannot determine current directory: %w", err)
-			}
+		// The projects database and the cleanup below need an absolute path.
+		parentDir, err = filepath.Abs(parentDir)
+		if err != nil {
+			return fmt.Errorf("cannot resolve parent directory: %w", err)
 		}
 
 		sitePath := filepath.Join(parentDir, siteName)
@@ -105,7 +104,8 @@ Features:
 					return // Can't resolve path, skip cleanup to be safe
 				}
 				// Verify resolved path is still under the parent directory
-				if !strings.HasPrefix(realPath, filepath.Clean(parentDir)+string(os.PathSeparator)) {
+				realParent, err := filepath.EvalSymlinks(parentDir)
+				if err != nil || !strings.HasPrefix(realPath, realParent+string(os.PathSeparator)) {
 					return // Path escaped parent directory, skip cleanup
 				}
 				os.RemoveAll(realPath)
@@ -241,7 +241,7 @@ Features:
 		fmt.Printf("%s Site created and imported successfully!\n", icons.Success)
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		fmt.Printf("\n%s Next steps:\n", icons.Lightbulb)
-		fmt.Printf("   - cd %s\n", siteName)
+		fmt.Printf("   - cd %s\n", sitePath)
 		fmt.Println("   - Build site: walgo build")
 		fmt.Println("   - Preview: walgo serve")
 		fmt.Println("   - Deploy: walgo launch")

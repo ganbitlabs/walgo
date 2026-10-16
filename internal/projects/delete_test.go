@@ -21,6 +21,12 @@ func TestDeleteProjectRefusesToRemoveHomeOrRoot(t *testing.T) {
 		if err := manager.CreateProject(project); err != nil {
 			t.Fatal(err)
 		}
+		if !filepath.IsAbs(sitePath) {
+			// CreateProject stores absolute paths; a relative one can only come from a database written by an older walgo.
+			if _, err := manager.db.Exec(`UPDATE projects SET site_path = ? WHERE id = ?`, sitePath, project.ID); err != nil {
+				t.Fatal(err)
+			}
+		}
 		if err := manager.DeleteProjectWithOptions(project.ID, true); err == nil {
 			t.Errorf("deleting site folder %q should be refused", sitePath)
 		}

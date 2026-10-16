@@ -272,8 +272,22 @@ func (m *Manager) applyMigration2() error {
 	return nil
 }
 
-// CreateProject creates a new project record in the database.
+// absSitePath returns a site path just supplied by the caller as an absolute path, so the project
+// opens from any working directory.
+// It returns "" for "" and sitePath itself if the working directory is unavailable.
+func absSitePath(sitePath string) string {
+	if sitePath == "" {
+		return ""
+	}
+	if abs, err := filepath.Abs(sitePath); err == nil {
+		return abs
+	}
+	return sitePath
+}
+
+// CreateProject creates a new project record in the database. It stores SitePath as an absolute path.
 func (m *Manager) CreateProject(project *Project) error {
+	project.SitePath = absSitePath(project.SitePath)
 	now := time.Now()
 	project.CreatedAt = now
 	project.UpdatedAt = now
@@ -305,7 +319,7 @@ func (m *Manager) CreateDraftProject(name, sitePath string) error {
 	now := time.Now()
 	project := &Project{
 		Name:         name,
-		SitePath:     sitePath,
+		SitePath:     absSitePath(sitePath),
 		Status:       "draft",
 		Category:     "website",
 		CreatedAt:    now,
@@ -380,9 +394,10 @@ func (m *Manager) ProjectNameExists(name string) (bool, error) {
 	return count > 0, nil
 }
 
-// GetProjectBySitePath retrieves a project record by its site path.
+// GetProjectBySitePath retrieves a project record by its site path, resolved to an absolute path.
 func (m *Manager) GetProjectBySitePath(sitePath string) (*Project, error) {
 	project := &Project{}
+	sitePath = absSitePath(sitePath)
 
 	err := m.db.QueryRow(`
 		SELECT id, name, category, network, object_id, suins, wallet_addr, epochs, gas_fee, site_path, created_at, updated_at, last_deploy_at, deploy_count, status, description, image_url
@@ -436,6 +451,8 @@ func (m *Manager) ListProjects(network string, status string) ([]*Project, error
 }
 
 // UpdateProject modifies an existing project record in the database.
+// SitePath is stored as given: a relative path from an older walgo cannot be resolved without
+// knowing the directory it was recorded in.
 func (m *Manager) UpdateProject(project *Project) error {
 	project.UpdatedAt = time.Now()
 

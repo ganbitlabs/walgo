@@ -60,7 +60,7 @@ func fakeDeployEnv(t *testing.T, activeEnv, activeAddr string) fakeEnv {
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+"/bin:/usr/bin")
 
 	sitePath := t.TempDir()
-	writeFile(t, filepath.Join(sitePath, "walgo.yaml"), "hugo:\n  publishDir: public\n")
+	writeFile(t, filepath.Join(sitePath, "walgo.yaml"), "hugo:\n  publishDir: public\noptimizer:\n  enabled: false\n")
 	writeFile(t, filepath.Join(sitePath, "hugo.toml"), "title = 'test'\n")
 	t.Cleanup(func() { _ = os.Chmod(filepath.Join(sitePath, "public", "locked"), 0o755) })
 	return fakeEnv{sitePath: sitePath, builderLog: builderLog, bin: bin}
@@ -236,5 +236,30 @@ func TestUpdateSiteShowsHugoOutputOnBuildFailure(t *testing.T) {
 	}
 	if calls, err := os.ReadFile(env.builderLog); err == nil {
 		t.Errorf("site-builder ran after a failed build:\n%s", calls)
+	}
+}
+
+func TestUpdateSiteDeploysAbsolutePublishDir(t *testing.T) {
+	env := fakeDeployEnv(t, "testnet", "")
+	out := filepath.Join(t.TempDir(), "built")
+	writeFile(t, filepath.Join(out, "index.html"), "<h1>static</h1>")
+	if err := os.Remove(filepath.Join(env.sitePath, "hugo.toml")); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(env.sitePath, "walgo.yaml"), "hugo:\n  publishDir: "+out+"\n")
+	proj := createProject(t, &projects.Project{
+		Name: "static", Network: "testnet", ObjectID: testObjectID, SitePath: env.sitePath, Epochs: 1,
+	})
+
+	result := UpdateSite(context.Background(), UpdateSiteParams{ProjectID: proj.ID})
+	if !result.Success {
+		t.Fatalf("UpdateSite failed: %s", result.Error)
+	}
+	calls, err := os.ReadFile(env.builderLog)
+	if err != nil {
+		t.Fatalf("site-builder never ran: %v", err)
+	}
+	if !strings.Contains(string(calls), out) || strings.Contains(string(calls), filepath.Join(env.sitePath, out)) {
+		t.Errorf("site-builder was not pointed at the absolute publish dir %s:\n%s", out, calls)
 	}
 }

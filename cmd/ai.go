@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/ganbitlabs/walgo/internal/ai"
+	"github.com/ganbitlabs/walgo/internal/config"
 	"github.com/ganbitlabs/walgo/internal/hugo"
 	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/spf13/cobra"
@@ -33,18 +33,17 @@ Examples:
 
 // applyMenuToConfig applies Hugo menu configuration from the site plan.
 func applyMenuToConfig(plan *ai.SitePlan, sitePath string) error {
-	hugoTomlPath := filepath.Join(sitePath, "hugo.toml")
-	if _, err := os.Stat(hugoTomlPath); os.IsNotExist(err) {
-		hugoTomlPath = filepath.Join(sitePath, "config.toml")
+	configPath, err := config.HugoTOMLConfigFile(sitePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s Skipping menu configuration: %v\n", ui.GetIcons().Warning, err)
+		return nil
 	}
 
-	if _, err := os.Stat(hugoTomlPath); err == nil {
-		fmt.Printf("\n%s Updating Hugo menu configuration...\n", ui.GetIcons().Gear)
-		if err := hugo.ApplyMenuFromSitePlan(plan, hugoTomlPath); err != nil {
-			fmt.Fprintf(os.Stderr, "%s Warning: failed to apply menu: %v\n", ui.GetIcons().Warning, err)
-		} else {
-			fmt.Printf("%s Menu configuration updated\n", ui.GetIcons().Check)
-		}
+	fmt.Printf("\n%s Updating Hugo menu configuration...\n", ui.GetIcons().Gear)
+	if err := hugo.ApplyMenuFromSitePlan(plan, configPath); err != nil {
+		fmt.Fprintf(os.Stderr, "%s Warning: failed to apply menu: %v\n", ui.GetIcons().Warning, err)
+	} else {
+		fmt.Printf("%s Menu configuration updated\n", ui.GetIcons().Check)
 	}
 
 	return nil

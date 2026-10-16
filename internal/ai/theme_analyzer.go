@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/ganbitlabs/walgo/internal/config"
 	toml "github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
 )
@@ -905,7 +906,10 @@ func GetPageBundleType(path string) string {
 // (baseURL, title, [menu], [outputs], [markup], etc.) are preserved.
 // Only new params from the theme are added; existing params are NOT overwritten.
 func UpdateSiteConfigForTheme(sitePath, themeName string) error {
-	configPath := filepath.Join(sitePath, "hugo.toml")
+	configPath, err := config.HugoTOMLConfigFile(sitePath)
+	if err != nil {
+		return err
+	}
 
 	existingContent, err := os.ReadFile(configPath)
 	if err != nil {

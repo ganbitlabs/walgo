@@ -31,6 +31,7 @@ Example:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		icons := ui.GetIcons()
 		var targetDir string
+		var siteCfg *config.WalgoConfig
 		if len(args) > 0 {
 			targetDir = args[0]
 		} else {
@@ -47,7 +48,12 @@ Example:
 				return fmt.Errorf("error loading config: %w", err)
 			}
 
-			targetDir = filepath.Join(sitePath, cfg.HugoConfig.PublishDir)
+			siteCfg = cfg
+			targetDir, err = config.ResolvePublishDir(sitePath, cfg)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s Error: %v\n", icons.Error, err)
+				return err
+			}
 		}
 
 		if _, err := os.Stat(targetDir); os.IsNotExist(err) {
@@ -118,22 +124,16 @@ Example:
 		if generateWS {
 			fmt.Printf("\n%s Generating ws-resources.json...\n", icons.Pencil)
 
-			cfg, err := config.LoadConfigFrom(targetDir)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s Warning: Could not load config: %v (using defaults)\n", icons.Warning, err)
+			cfg := siteCfg
+			if cfg == nil {
+				var err error
+				if cfg, err = config.LoadConfigFrom(targetDir); err != nil {
+					fmt.Fprintf(os.Stderr, "%s Warning: Could not load config: %v (using defaults)\n", icons.Warning, err)
+				}
 			}
 			cacheConfig := compress.DefaultCacheControlConfig()
-			if err == nil && cfg != nil {
-				cacheConfig.Enabled = cfg.CacheConfig.Enabled
-				cacheConfig.ImmutableMaxAge = cfg.CacheConfig.ImmutableMaxAge
-				cacheConfig.MutableMaxAge = cfg.CacheConfig.MutableMaxAge
-
-				if cacheConfig.ImmutableMaxAge == 0 {
-					cacheConfig.ImmutableMaxAge = 31536000
-				}
-				if cacheConfig.MutableMaxAge == 0 {
-					cacheConfig.MutableMaxAge = 300
-				}
+			if cfg != nil {
+				cacheConfig = cfg.CacheConfig.CacheControl()
 			}
 
 			customRoutes := make(map[string]string)
