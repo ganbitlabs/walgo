@@ -213,6 +213,7 @@ Example:
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
+		walgoCfg.WalrusConfig.Network = network
 		forceNew := siteAction == launch.SiteOnOtherNetwork
 		if forceNew {
 			walgoCfg.WalrusConfig.ProjectID = ""
