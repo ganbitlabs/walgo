@@ -23,6 +23,12 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
+      - name: Set up Hugo
+        uses: peaceiris/actions-hugo@75d2e84710de30f6ff7268e08f310b60ef14033f # v3.0.0
+        with:
+          hugo-version: '0.158.0'
+          extended: true
+
       - name: Format check
         run: |
           if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
@@ -36,9 +42,9 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          # Run tests, excluding packages that require external dependencies
+          # internal/deps installs real tools, so it stays out of CI.
           go test -race -coverprofile=coverage.out -covermode=atomic \
-            $(go list ./... | grep -v -E 'internal/(ai|deps|hugo)')
+            $(go list ./... | grep -v -E 'internal/deps')
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
