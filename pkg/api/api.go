@@ -16,7 +16,6 @@ import (
 	"github.com/ganbitlabs/walgo/internal/buildinfo"
 	"github.com/ganbitlabs/walgo/internal/compress"
 	"github.com/ganbitlabs/walgo/internal/config"
-	sb "github.com/ganbitlabs/walgo/internal/deployer/sitebuilder"
 	"github.com/ganbitlabs/walgo/internal/deps"
 	"github.com/ganbitlabs/walgo/internal/hugo"
 	"github.com/ganbitlabs/walgo/internal/obsidian"
