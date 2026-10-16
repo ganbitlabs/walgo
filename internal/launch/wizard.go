@@ -43,6 +43,25 @@ func ReadlineInput(prompt string) string {
 	return strings.TrimSpace(line)
 }
 
+// Confirm asks a yes/no question. Empty input takes defaultYes. EOF or a read
+// error is always no, so a closed or exhausted stdin never approves a deploy.
+func Confirm(prompt string, defaultYes bool) bool {
+	fmt.Print(prompt)
+	line, err := getReader().ReadString('\n')
+	if err != nil {
+		fmt.Println()
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(line)) {
+	case "":
+		return defaultYes
+	case "y", "yes":
+		return true
+	default:
+		return false
+	}
+}
+
 // readSecret reads a line without echoing it when stdin is a terminal.
 func readSecret(prompt string) string {
 	fd := int(os.Stdin.Fd())

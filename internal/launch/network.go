@@ -158,8 +158,7 @@ func ReconcileExistingSite(sitePath string, cfg *config.WalgoConfig, network str
 	fmt.Printf("   Launch can publish a new site on %s. walgo.yaml will then point at the new site,\n", network)
 	fmt.Printf("   so note the %s object ID above if you still need it.\n", recorded)
 
-	answer := strings.ToLower(ReadlineInput(fmt.Sprintf("\nPublish a new site on %s? [y/N]: ", network)))
-	if answer != "y" && answer != "yes" {
+	if !Confirm(fmt.Sprintf("\nPublish a new site on %s? [y/N]: ", network), false) {
 		return action, fmt.Errorf("cancelled: choose %s to update the existing site", recorded)
 	}
 	return action, nil

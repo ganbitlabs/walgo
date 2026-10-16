@@ -196,9 +196,7 @@ Example:
 		}
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-		confirm := readlineConfirm(fmt.Sprintf("\n%s Ready to deploy? [Y/n]: ", icons.Rocket))
-
-		if confirm != "" && confirm != "y" && confirm != "yes" {
+		if !launch.Confirm(fmt.Sprintf("\n%s Ready to deploy? [Y/n]: ", icons.Rocket), true) {
 			fmt.Printf("\n%s Deployment cancelled\n", icons.Cross)
 			return nil
 		}
@@ -311,13 +309,6 @@ Example:
 
 		return nil
 	},
-}
-
-// readlineConfirm reads a confirmation prompt using the shared readline from launch package
-func readlineConfirm(prompt string) string {
-	// Use launch package's readline helper which manages shared state
-	result := launch.ReadlineInput(prompt)
-	return strings.ToLower(result)
 }
 
 func init() {
