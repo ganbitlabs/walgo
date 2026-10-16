@@ -269,6 +269,30 @@ func TestBuildSiteRefusesPublishDirContainingSite(t *testing.T) {
 	}
 }
 
+func TestBuildSiteRefusesPublishDirInsideHugoSources(t *testing.T) {
+	for _, dir := range []string{"content", "static/out", "layouts"} {
+		t.Run(dir, func(t *testing.T) {
+			isolateHome(t)
+			site := t.TempDir()
+			writeFiles(t, site, map[string]string{
+				"walgo.yaml":         "hugo:\n  publishDir: " + dir + "\n",
+				"hugo.toml":          "title = \"Sample\"\n",
+				"content/_index.md":  "keep me",
+				"static/logo.svg":    "<svg/>",
+				"layouts/index.html": sampleLayout,
+			})
+
+			err := BuildSite(site)
+			if err == nil || !strings.Contains(err.Error(), "Hugo source directory") {
+				t.Fatalf("expected refusal, got %v", err)
+			}
+			assertFile(t, filepath.Join(site, "content/_index.md"), "keep me")
+			assertFile(t, filepath.Join(site, "static/logo.svg"), "<svg/>")
+			assertFile(t, filepath.Join(site, "layouts/index.html"), "<title>")
+		})
+	}
+}
+
 func TestBuildSiteMalformedHugoConfigFails(t *testing.T) {
 	requireHugo(t)
 	isolateHome(t)

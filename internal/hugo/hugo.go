@@ -233,7 +233,21 @@ func BuildSite(sitePath string) error {
 	return nil
 }
 
+// hugoSourceDirs are the site directories hugo reads from or caches into.
+var hugoSourceDirs = []string{"archetypes", "assets", "config", "content", "data", "i18n", "layouts", "resources", "static", "themes"}
+
 func runHugoBuild(sitePath, publishDir string) error {
+	absSite, err := filepath.Abs(sitePath)
+	if err != nil {
+		return fmt.Errorf("resolving site path: %w", err)
+	}
+	// --cleanDestinationDir deletes every file in the destination that the build did not produce.
+	for _, dir := range hugoSourceDirs {
+		if rel, err := filepath.Rel(filepath.Join(absSite, dir), publishDir); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("publish directory %s is inside the Hugo source directory %s; set hugo.publishDir in walgo.yaml to a separate directory such as public", publishDir, dir)
+		}
+	}
+
 	hugoPath, err := deps.LookPath("hugo")
 	if err != nil {
 		return fmt.Errorf("hugo is not installed or not found in PATH")
