@@ -75,6 +75,8 @@ export const Projects: React.FC<ProjectsProps> = ({
     };
     const [deleteConfirm, setDeleteConfirm] = useState<Project | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteSiteFolder, setDeleteSiteFolder] = useState(false);
+    const [destroyFailure, setDestroyFailure] = useState<string | null>(null);
     const [editProject, setEditProject] = useState<Project | null>(null);
     const [editForm, setEditForm] = useState({
         name: '',
@@ -241,10 +243,20 @@ export const Projects: React.FC<ProjectsProps> = ({
     };
 
     const handleDelete = (project: Project) => {
+        setDeleteSiteFolder(false);
+        setDestroyFailure(null);
         setDeleteConfirm(project);
     };
 
-    const confirmDelete = async () => {
+    const deleteFolderPath = deleteConfirm?.sitePath || deleteConfirm?.path;
+
+    const closeDeleteDialog = () => {
+        setDeleteConfirm(null);
+        setDestroyFailure(null);
+        setDeleteSiteFolder(false);
+    };
+
+    const confirmDelete = async (skipOnChain: boolean) => {
         if (!deleteConfirm) return;
 
         setIsDeleting(true);
@@ -253,10 +265,11 @@ export const Projects: React.FC<ProjectsProps> = ({
 
             const result = await DeleteProject({
                 projectId: deleteConfirm.id || 0,
+                deleteSiteFolder,
+                skipOnChain,
             });
 
             if (result.success) {
-                // Clear from localStorage if this was the selected project
                 const selectedProjectStr = localStorage.getItem('selectedProject');
                 if (selectedProjectStr) {
                     try {
@@ -271,12 +284,12 @@ export const Projects: React.FC<ProjectsProps> = ({
 
                 onStatusChange?.({
                     type: 'success',
-                    message: result.onChainDestroyed
-                        ? `Deleted: ${deleteConfirm.name} (including on-chain destruction)`
-                        : `Deleted: ${deleteConfirm.name}`,
+                    message: `Deleted ${deleteConfirm.name}. ${result.message}`,
                 });
                 await onRefresh?.();
-                setDeleteConfirm(null);
+                closeDeleteDialog();
+            } else if (result.onChainFailed) {
+                setDestroyFailure(result.error);
             } else {
                 onStatusChange?.({
                     type: 'error',
@@ -924,7 +937,7 @@ export const Projects: React.FC<ProjectsProps> = ({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-                        onClick={() => !isDeleting && setDeleteConfirm(null)}
+                        onClick={() => !isDeleting && closeDeleteDialog()}
                     >
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0 }}
@@ -940,22 +953,64 @@ export const Projects: React.FC<ProjectsProps> = ({
                                 <div className="p-2 bg-red-500/10 rounded-sm">
                                     <AlertCircle size={24} className="text-red-400" />
                                 </div>
-                                <div className="flex-1">
+                                <div className="flex-1 min-w-0">
                                     <h3 className="text-lg font-semibold text-white mb-2">
-                                        Delete Project?
+                                        Delete <span className="font-mono">{deleteConfirm.name}</span>?
                                     </h3>
-                                    <p className="text-sm text-zinc-400 mb-2">
-                                        Are you sure you want to delete <span className="font-mono text-white">{deleteConfirm.name}</span>?
-                                    </p>
-                                    <p className="text-xs text-red-400 font-mono">
-                                        This action cannot be undone.
-                                    </p>
+                                    {destroyFailure ? (
+                                        <div className="space-y-2 text-sm">
+                                            <p className="text-red-400 break-words">{destroyFailure}</p>
+                                            <p className="text-zinc-400">
+                                                You can remove it from walgo anyway. The site object{' '}
+                                                <span className="font-mono text-white break-all">{deleteConfirm.objectId}</span>{' '}
+                                                will stay on {deleteConfirm.network || 'its network'} and keep its storage until it expires.
+                                                {deleteSiteFolder
+                                                    ? ' The site folder will also be deleted.'
+                                                    : ' The site folder will be kept.'}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <p className="text-sm text-zinc-400 mb-2">This will:</p>
+                                            <ul className="text-sm text-zinc-300 list-disc pl-5 space-y-1 mb-3">
+                                                {deleteConfirm.objectId ? (
+                                                    <li>
+                                                        Destroy the site on-chain ({deleteConfirm.network || 'unknown network'}, object{' '}
+                                                        <span className="font-mono break-all">{deleteConfirm.objectId}</span>) using your active wallet. This costs gas.
+                                                    </li>
+                                                ) : (
+                                                    <li>Skip the on-chain step. This project has no deployed site.</li>
+                                                )}
+                                                <li>Remove the project record and its deployment history from walgo.</li>
+                                                {deleteFolderPath && (
+                                                    <li>
+                                                        {deleteSiteFolder ? 'Permanently delete' : 'Keep'} the site folder{' '}
+                                                        <span className="font-mono break-all">{deleteFolderPath}</span>.
+                                                    </li>
+                                                )}
+                                            </ul>
+                                            {deleteFolderPath && (
+                                                <label className="flex items-center gap-2 text-sm text-zinc-300 mb-2 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={deleteSiteFolder}
+                                                        onChange={(e) => setDeleteSiteFolder(e.target.checked)}
+                                                        disabled={isDeleting}
+                                                    />
+                                                    Also delete the site folder from disk
+                                                </label>
+                                            )}
+                                            <p className="text-xs text-red-400 font-mono">
+                                                This action cannot be undone.
+                                            </p>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="flex gap-3">
                                 <motion.button
-                                    onClick={() => setDeleteConfirm(null)}
+                                    onClick={closeDeleteDialog}
                                     disabled={isDeleting}
                                     className="flex-1 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-sm text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     variants={buttonVariants}
@@ -965,14 +1020,14 @@ export const Projects: React.FC<ProjectsProps> = ({
                                     Cancel
                                 </motion.button>
                                 <motion.button
-                                    onClick={confirmDelete}
+                                    onClick={() => confirmDelete(destroyFailure !== null)}
                                     disabled={isDeleting}
                                     className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-sm text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     variants={buttonVariants}
                                     whileHover="hover"
                                     whileTap="tap"
                                 >
-                                    Delete
+                                    {destroyFailure ? 'Remove locally anyway' : 'Delete'}
                                 </motion.button>
                             </div>
                         </motion.div>

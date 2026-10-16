@@ -620,6 +620,12 @@ func (m *Manager) DeleteProjectWithOptions(id int64, deleteSiteFolder bool) erro
 		return fmt.Errorf("failed to get project details: %w", err)
 	}
 
+	if deleteSiteFolder && project.SitePath != "" {
+		if err := m.CheckDeletableSiteFolder(project); err != nil {
+			return err
+		}
+	}
+
 	// Start a transaction for atomicity
 	tx, err := m.db.Begin()
 	if err != nil {
@@ -662,6 +668,98 @@ func (m *Manager) DeleteProjectWithOptions(id int64, deleteSiteFolder bool) erro
 		// If folder doesn't exist, that's fine - it may have been manually deleted
 	}
 
+	return nil
+}
+
+// CheckDeletableSiteFolder refuses to delete project's site folder when
+// CheckRemovableSiteFolder does, or when the folder holds another registered
+// project's site folder, which RemoveAll would destroy along with it.
+func (m *Manager) CheckDeletableSiteFolder(project *Project) error {
+	if err := CheckRemovableSiteFolder(project.SitePath); err != nil {
+		return err
+	}
+	others, err := m.ListProjects("", "")
+	if err != nil {
+		return fmt.Errorf("refusing to delete site folder %q: cannot list other projects: %w", project.SitePath, err)
+	}
+	for _, other := range others {
+		if other.ID == project.ID || other.SitePath == "" {
+			continue
+		}
+		if pathContains(project.SitePath, other.SitePath) {
+			return fmt.Errorf("refusing to delete site folder %q: it holds the site folder of project %q (%s)", project.SitePath, other.Name, other.SitePath)
+		}
+	}
+	return nil
+}
+
+// pathContains reports whether p is dir or lies inside it, comparing both the
+// cleaned strings and file identity of p and its ancestors.
+func pathContains(dir, p string) bool {
+	dir, p = filepath.Clean(dir), filepath.Clean(p)
+	if p == dir || strings.HasPrefix(p, dir+string(filepath.Separator)) {
+		return true
+	}
+	dirInfo, err := os.Stat(dir)
+	if err != nil {
+		return false
+	}
+	if real, err := filepath.EvalSymlinks(p); err == nil {
+		p = real
+	}
+	for cur := p; ; cur = filepath.Dir(cur) {
+		if info, err := os.Stat(cur); err == nil && os.SameFile(dirInfo, info) {
+			return true
+		}
+		if filepath.Dir(cur) == cur {
+			return false
+		}
+	}
+}
+
+// CheckRemovableSiteFolder refuses to recursively delete a path that cannot be
+// a site folder: a relative path, a filesystem root, or the home directory or
+// one of its ancestors. A ".." element is refused outright: the kernel applies
+// it after following symlinks, so it can name a different folder than the
+// cleaned path that the string checks see.
+func CheckRemovableSiteFolder(sitePath string) error {
+	for _, elem := range strings.Split(filepath.ToSlash(sitePath), "/") {
+		if elem == ".." {
+			return fmt.Errorf("refusing to delete site folder %q: path contains \"..\"", sitePath)
+		}
+	}
+	clean := filepath.Clean(sitePath)
+	if !filepath.IsAbs(clean) || filepath.Dir(clean) == clean {
+		return fmt.Errorf("refusing to delete site folder %q: not a removable folder", sitePath)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("refusing to delete site folder %q: cannot determine the home directory: %w", sitePath, err)
+	}
+	home = filepath.Clean(home)
+	if clean == home || strings.HasPrefix(home, clean+string(filepath.Separator)) {
+		return fmt.Errorf("refusing to delete site folder %q: it contains the home directory", sitePath)
+	}
+	// File identity catches what string comparison misses: case variants on
+	// case-insensitive filesystems and symlinked home directories.
+	site, err := os.Stat(sitePath)
+	if err != nil {
+		return nil
+	}
+	homes := []string{home}
+	if real, err := filepath.EvalSymlinks(home); err == nil {
+		homes = append(homes, real)
+	}
+	for _, h := range homes {
+		for p := h; ; p = filepath.Dir(p) {
+			if info, err := os.Stat(p); err == nil && os.SameFile(site, info) {
+				return fmt.Errorf("refusing to delete site folder %q: it contains the home directory", sitePath)
+			}
+			if filepath.Dir(p) == p {
+				break
+			}
+		}
+	}
 	return nil
 }
 

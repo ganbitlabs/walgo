@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -42,11 +43,14 @@ type App struct {
 	aiProgressMu  sync.Mutex
 	aiCancel      context.CancelFunc // cancels the running AI pipeline
 	aiDone        chan struct{}      // closed when the AI goroutine exits
+	siteRoots     func() ([]string, error)
+	uploadMu      sync.Mutex
+	uploadSource  string // last file the user picked in SelectFileToUpload
 }
 
 // NewApp initializes and returns a new App instance.
 func NewApp() *App {
-	return &App{}
+	return &App{siteRoots: api.ProjectSitePaths}
 }
 
 // lookPath finds an executable in PATH or common installation directories
@@ -761,14 +765,24 @@ func (a *App) RemoveAICredentials(_ string) error {
 // Open External
 // ====================
 
-// OpenInBrowser opens a URL in the default browser
-func (a *App) OpenInBrowser(url string) {
-	browserOpenURL(a.ctx, url)
+// OpenInBrowser opens an http(s) URL in the default browser. Other schemes
+// could launch local applications, so they are refused.
+func (a *App) OpenInBrowser(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return fmt.Errorf("refusing to open non-http(s) URL")
+	}
+	browserOpenURL(a.ctx, u.String())
+	return nil
 }
 
-// OpenInFinder opens a path in Finder (macOS), Explorer (Windows), or file manager (Linux)
+// OpenInFinder opens a site path in Finder (macOS), Explorer (Windows), or file manager (Linux)
 func (a *App) OpenInFinder(path string) error {
-	return openFileExplorer(path)
+	safePath, err := a.sitePath(path)
+	if err != nil {
+		return err
+	}
+	return openFileExplorer(safePath)
 }
 
 // EditorInfo holds detected editor information
@@ -778,33 +792,41 @@ type EditorInfo struct {
 	Found   bool   `json:"found"`
 }
 
+var knownEditors = []EditorInfo{
+	{Name: "VS Code", Command: "code"},
+	{Name: "Cursor", Command: "cursor"},
+	{Name: "Sublime Text", Command: "subl"},
+	{Name: "Vim", Command: "vim"},
+	{Name: "Neovim", Command: "nvim"},
+	{Name: "Emacs", Command: "emacs"},
+	{Name: "Zed", Command: "zed"},
+}
+
 // DetectEditors returns a list of detected code editors on the system
 func (a *App) DetectEditors() []EditorInfo {
-	editors := []struct {
-		name    string
-		command string
-	}{
-		{"VS Code", "code"},
-		{"Cursor", "cursor"},
-		{"Sublime Text", "subl"},
-		{"Vim", "vim"},
-		{"Neovim", "nvim"},
-		{"Emacs", "emacs"},
-		{"Zed", "zed"},
-	}
-
 	var found []EditorInfo
-	for _, e := range editors {
-		if _, err := lookPath(e.command); err == nil {
-			found = append(found, EditorInfo{Name: e.name, Command: e.command, Found: true})
+	for _, e := range knownEditors {
+		if _, err := lookPath(e.Command); err == nil {
+			found = append(found, EditorInfo{Name: e.Name, Command: e.Command, Found: true})
 		}
 	}
 	return found
 }
 
-// OpenInEditor opens a path in the specified code editor
+// OpenInEditor opens a site path in one of the editors DetectEditors reports.
 func (a *App) OpenInEditor(editorCmd string, path string) error {
-	safePath, err := validateFilePath(path)
+	detected := false
+	for _, e := range a.DetectEditors() {
+		if e.Command == editorCmd {
+			detected = true
+			break
+		}
+	}
+	if !detected {
+		return fmt.Errorf("editor '%s' is not a detected code editor", editorCmd)
+	}
+
+	safePath, err := a.sitePath(path)
 	if err != nil {
 		return err
 	}
@@ -819,9 +841,14 @@ func (a *App) OpenInEditor(editorCmd string, path string) error {
 	return cmd.Start()
 }
 
-// SelectFileToUpload opens a file selection dialog and returns the chosen file path
+// SelectFileToUpload opens a file selection dialog and returns the chosen file
+// path. UploadFile accepts only this path, so the webview cannot name a source.
 func (a *App) SelectFileToUpload(title string) (string, error) {
-	return openFileDialog(a.ctx, title)
+	path, err := openFileDialog(a.ctx, title)
+	a.uploadMu.Lock()
+	a.uploadSource = path
+	a.uploadMu.Unlock()
+	return path, err
 }
 
 // UploadFileResult holds the result of uploading a file
@@ -835,14 +862,23 @@ type UploadFileResult struct {
 func (a *App) UploadFile(sourcePath string, targetDir string) UploadFileResult {
 	result := UploadFileResult{Success: false}
 
-	safeTarget, err := validateFilePath(targetDir)
+	a.uploadMu.Lock()
+	picked := a.uploadSource
+	a.uploadSource = ""
+	a.uploadMu.Unlock()
+	if sourcePath == "" || sourcePath != picked {
+		result.Error = "access denied: upload source must be chosen in the file dialog"
+		return result
+	}
+
+	safeTarget, err := a.sitePath(targetDir)
 	if err != nil {
 		result.Error = err.Error()
 		return result
 	}
 
 	// Read source file
-	data, err := os.ReadFile(sourcePath) // #nosec G304 - user-selected file via system dialog
+	data, err := os.ReadFile(sourcePath) // #nosec G304 - must equal the path SelectFileToUpload returned
 	if err != nil {
 		result.Error = fmt.Sprintf("Failed to read source file: %v", err)
 		return result
@@ -892,7 +928,7 @@ func (a *App) ListFiles(dirPath string) ListFilesResult {
 		Files:   []FileInfo{},
 	}
 
-	safePath, err := validateFilePath(dirPath)
+	safePath, err := a.sitePath(dirPath)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -959,7 +995,7 @@ func (a *App) GetFolderStats(dirPath string) FolderStatsResult {
 		Success: false,
 	}
 
-	safePath, err := validateFilePath(dirPath)
+	safePath, err := a.sitePath(dirPath)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -1021,27 +1057,6 @@ func countFilesRecursive(dirPath string) (fileCount int, folderCount int, totalS
 	return fileCount, folderCount, totalSize
 }
 
-// validateFilePath ensures the path resolves inside the user's home directory,
-// preventing path traversal attacks from the frontend.
-func validateFilePath(filePath string) (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("cannot determine home directory: %w", err)
-	}
-	absPath, err := filepath.Abs(filepath.Clean(filePath))
-	if err != nil {
-		return "", fmt.Errorf("invalid path: %w", err)
-	}
-	absHome, err := filepath.Abs(homeDir)
-	if err != nil {
-		return "", fmt.Errorf("invalid home path: %w", err)
-	}
-	if !strings.HasPrefix(absPath, absHome+string(filepath.Separator)) && absPath != absHome {
-		return "", fmt.Errorf("access denied: path is outside home directory")
-	}
-	return absPath, nil
-}
-
 // ReadFileResult holds the result of reading a file
 type ReadFileResult struct {
 	Success bool   `json:"success"`
@@ -1056,7 +1071,7 @@ func (a *App) ReadFile(filePath string) ReadFileResult {
 		Content: "",
 	}
 
-	safePath, err := validateFilePath(filePath)
+	safePath, err := a.sitePath(filePath)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -1073,7 +1088,7 @@ func (a *App) ReadFile(filePath string) ReadFileResult {
 		return result
 	}
 
-	content, err := os.ReadFile(safePath) // #nosec G304 - path validated by validateFilePath
+	content, err := os.ReadFile(safePath) // #nosec G304 - path validated by sitePath
 	if err != nil {
 		result.Error = fmt.Sprintf("Failed to read file: %v", err)
 		return result
@@ -1096,7 +1111,7 @@ func (a *App) WriteFile(filePath string, content string) WriteFileResult {
 		Success: false,
 	}
 
-	safePath, err := validateFilePath(filePath)
+	safePath, err := a.sitePath(filePath)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -1129,13 +1144,13 @@ func (a *App) DeleteFile(filePath string) DeleteFileResult {
 		Success: false,
 	}
 
-	safePath, err := validateFilePath(filePath)
+	safePath, err := a.siteEntry(filePath)
 	if err != nil {
 		result.Error = err.Error()
 		return result
 	}
 
-	info, err := os.Stat(safePath)
+	info, err := os.Lstat(safePath)
 	if err != nil {
 		result.Error = fmt.Sprintf("File not accessible: %v", err)
 		return result
@@ -1171,7 +1186,7 @@ func (a *App) CreateFile(filePath string, content string) CreateFileResult {
 		Path:    filePath,
 	}
 
-	safePath, err := validateFilePath(filePath)
+	safePath, err := a.siteEntry(filePath)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -1212,7 +1227,7 @@ func (a *App) CreateDirectory(dirPath string) CreateDirectoryResult {
 		Path:    dirPath,
 	}
 
-	safePath, err := validateFilePath(dirPath)
+	safePath, err := a.siteEntry(dirPath)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -1248,12 +1263,12 @@ func (a *App) MoveFile(oldPath string, newPath string) MoveFileResult {
 		NewPath: newPath,
 	}
 
-	safeOldPath, err := validateFilePath(oldPath)
+	safeOldPath, err := a.siteEntry(oldPath)
 	if err != nil {
 		result.Error = err.Error()
 		return result
 	}
-	safeNewPath, err := validateFilePath(newPath)
+	safeNewPath, err := a.siteEntry(newPath)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -1310,7 +1325,7 @@ func (a *App) RenameFile(oldPath string, newName string) RenameFileResult {
 		OldPath: oldPath,
 	}
 
-	safeOldPath, err := validateFilePath(oldPath)
+	safeOldPath, err := a.siteEntry(oldPath)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -1322,7 +1337,7 @@ func (a *App) RenameFile(oldPath string, newName string) RenameFileResult {
 	newPath := filepath.Join(dir, newName)
 	result.NewPath = newPath
 
-	safeNewPath, err := validateFilePath(newPath)
+	safeNewPath, err := a.siteEntry(newPath)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -1368,12 +1383,12 @@ func (a *App) CopyFile(srcPath string, dstPath string) CopyFileResult {
 		DstPath: dstPath,
 	}
 
-	safeSrcPath, err := validateFilePath(srcPath)
+	safeSrcPath, err := a.sitePath(srcPath)
 	if err != nil {
 		result.Error = err.Error()
 		return result
 	}
-	safeDstPath, err := validateFilePath(dstPath)
+	safeDstPath, err := a.siteEntry(dstPath)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -1485,7 +1500,7 @@ func (a *App) CheckDirectoryDepth(path string) CheckDirectoryDepthResult {
 		Success: false,
 	}
 
-	validPath, err := validateFilePath(path)
+	validPath, err := a.sitePath(path)
 	if err != nil {
 		result.Error = fmt.Sprintf("Invalid path: %v", err)
 		return result

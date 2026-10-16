@@ -35,7 +35,7 @@ import { DeploymentModal, LaunchModal, AIGenerateModal, AIUpdateModal, InstallIn
 import type { DeploymentParams, DeploymentResult } from "../components/modals/DeploymentModal";
 import type { LaunchConfig } from "../components/modals/LaunchModal";
 import { buttonVariants } from "../utils/constants";
-import { cn, renderMarkdown, formatFileSize } from "../utils";
+import { cn, renderMarkdown, externalLinkTarget, formatFileSize } from "../utils";
 import { useEditProject, useDependencyCheck } from "../hooks";
 import { ListFiles } from "../../wailsjs/go/main/App";
 import { SystemHealth, FileTreeNode } from "../types";
@@ -167,6 +167,8 @@ export const Edit: React.FC<EditProps> = ({
     files,
     selectedFile,
     fileContent,
+    fileLoadError,
+    fileReady,
     loading,
     saving,
     error,
@@ -287,6 +289,7 @@ export const Edit: React.FC<EditProps> = ({
     } else {
       setSavingStatus("Failed");
       setTimeout(() => setSavingStatus(""), SAVE_STATUS_DURATION);
+      onStatusChange?.({ type: 'error', message: `Save failed: ${result?.error || 'unknown error'}` });
     }
   };
 
@@ -298,7 +301,10 @@ export const Edit: React.FC<EditProps> = ({
   const confirmDelete = async () => {
     if (!fileToDelete) return;
 
-    await deleteFile(fileToDelete.path);
+    const result = await deleteFile(fileToDelete.path);
+    if (!result.success) {
+      onStatusChange?.({ type: 'error', message: `Delete failed: ${result.error}` });
+    }
     setShowDeleteModal(false);
     setFileToDelete(null);
   };
@@ -337,8 +343,7 @@ export const Edit: React.FC<EditProps> = ({
 
       // Close the editor if the moved file was open
       if (isMovingOpenedFile) {
-        selectFile(null as any);
-        setFileContent('');
+        selectFile(null);
       }
 
       if (onStatusChange) {
@@ -1052,6 +1057,17 @@ export const Edit: React.FC<EditProps> = ({
 
   const getWordCount = (text: string): number => {
     return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+  };
+
+  const handlePreviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const link = (e.target as HTMLElement).closest('a');
+    if (!link) return;
+    e.preventDefault();
+    const url = externalLinkTarget(link.getAttribute('href'));
+    if (!url) return;
+    import('../../wailsjs/go/main/App')
+      .then(({ OpenInBrowser }) => OpenInBrowser(url))
+      .catch((err) => onStatusChange?.({ type: 'error', message: `Could not open link: ${err}` }));
   };
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -1784,6 +1800,11 @@ Start writing your content here...
                       )}
                     >
                       {loading && <LoadingOverlay message="Loading file..." />}
+                      {fileLoadError && (
+                        <div role="alert" className="px-6 py-2 text-xs font-mono text-red-400 bg-red-500/10 border-b border-red-500/30">
+                          Could not load this file, so editing is disabled: {fileLoadError}
+                        </div>
+                      )}
 
                       {/* Editor with enhanced styling */}
                       <div className="flex-1 relative overflow-hidden">
@@ -1803,7 +1824,7 @@ Start writing your content here...
                           autoCapitalize="off"
                           autoCorrect="off"
                           spellCheck={false}
-                          disabled={loading}
+                          disabled={loading || !fileReady}
                           style={{
                             minHeight: 0,
                             letterSpacing: '0.01em',
@@ -1835,6 +1856,7 @@ Start writing your content here...
                       {selectedFile.name.endsWith(".md") ? (
                         <div
                           className="prose-headings:text-white prose-p:text-zinc-300 prose-a:text-accent prose-a:no-underline hover:prose-a:underline prose-strong:text-white prose-code:text-accent prose-code:bg-accent/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-black/60 prose-pre:border prose-pre:border-white/10"
+                          onClick={handlePreviewClick}
                           dangerouslySetInnerHTML={{
                             __html: renderMarkdown(fileContent),
                           }}

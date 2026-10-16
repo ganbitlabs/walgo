@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sanitizeHtml, escapeHtml, renderMarkdown } from './markdown'
+import { sanitizeHtml, escapeHtml, renderMarkdown, externalLinkTarget } from './markdown'
 
 // =============================================================================
 // escapeHtml — HTML entity escaping
@@ -240,8 +240,9 @@ describe('renderMarkdown', () => {
   })
 
   it('handles markdown with HTML injection attempt', () => {
-    const result = renderMarkdown('# Title <img onerror="alert(1)" src=x>')
-    expect(result).not.toContain('onerror')
+    const doc = new DOMParser().parseFromString(renderMarkdown('# Title <img onerror="alert(1)" src=x>'), 'text/html')
+    expect(doc.querySelector('img')).toBeNull()
+    expect(doc.querySelector('[onerror]')).toBeNull()
   })
 
   it('prevents javascript: in markdown links after rendering', () => {
@@ -291,4 +292,55 @@ More text here.`
     expect(strongCount).toBe(2)
     expect(emCount).toBe(2)
   })
+})
+
+describe('renderMarkdown URL allowlist', () => {
+  const hrefOf = (html: string) => {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    return doc.querySelector('a')?.getAttribute('href') ?? null
+  }
+
+  it.each([
+    '[a]( javascript:alert(1))',
+    '[a](\tjavascript:alert(1))',
+    '[a](JaVaScRiPt:alert(1))',
+    '[a](vbscript:msgbox(1))',
+    '[a](data:text/html,x)',
+    '[a](file:///etc/passwd)',
+    '[a](wails://localhost/x)',
+  ])('drops the href in %s', (md) => {
+    expect(hrefOf(renderMarkdown(md))).toBeNull()
+  })
+
+  it.each([
+    ['[a](https://example.com/x)', 'https://example.com/x'],
+    ['[a](http://example.com)', 'http://example.com'],
+    ['[a](mailto:me@example.com)', 'mailto:me@example.com'],
+    ['[a](/posts/hello/)', '/posts/hello/'],
+    ['[a](../about.md)', '../about.md'],
+  ])('keeps an allowed href in %s', (md, want) => {
+    expect(hrefOf(renderMarkdown(md))).toBe(want)
+  })
+
+  it('drops a javascript: image src', () => {
+    const doc = new DOMParser().parseFromString(renderMarkdown('![x]( javascript:alert(1))'), 'text/html')
+    expect(doc.querySelector('img')?.getAttribute('src') ?? '').not.toMatch(/javascript/i)
+  })
+})
+
+describe('externalLinkTarget', () => {
+  it.each([
+    ['https://example.com/a', 'https://example.com/a'],
+    ['http://example.com', 'http://example.com/'],
+    [' https://example.com', 'https://example.com/'],
+  ])('opens %s', (href, want) => {
+    expect(externalLinkTarget(href)).toBe(want)
+  })
+
+  it.each([null, '', '/posts/x', '#top', 'mailto:me@example.com', 'javascript:alert(1)', 'file:///etc/passwd', 'wails://x'])(
+    'keeps %s inside the app',
+    (href) => {
+      expect(externalLinkTarget(href)).toBeNull()
+    },
+  )
 })

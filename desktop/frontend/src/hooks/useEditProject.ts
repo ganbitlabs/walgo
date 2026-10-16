@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     GetProject,
     ListFiles,
@@ -19,17 +19,51 @@ const sortFilesComparator = (a: FileTreeNode, b: FileTreeNode) => {
     return a.isDir ? -1 : 1;
 };
 
+// The editor buffer is tagged with the path it was read from, so a slow read
+// for a previously selected file can never land in, or be saved over, another.
+type FileBuffer =
+    | { path: string; status: 'loading' }
+    | { path: string; status: 'ready'; content: string }
+    | { path: string; status: 'error'; error: string };
+
+type OpResult = { success: boolean; error?: string };
+
+const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err ?? 'Unknown error'));
+
 export const useEditProject = () => {
     const [project, setProject] = useState<Project | null>(null);
     const [files, setFiles] = useState<FileTreeNode[]>([]);
     const [currentPath, setCurrentPath] = useState('');
     const [selectedFile, setSelectedFile] = useState<FileTreeNode | null>(null);
-    const [fileContent, setFileContent] = useState('');
+    const [buffer, setBufferState] = useState<FileBuffer | null>(null);
+    const bufferRef = useRef<FileBuffer | null>(null);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
     const [clipboard, setClipboard] = useState<{ node: FileTreeNode; operation: 'copy' | 'cut' } | null>(null);
+
+    const setBuffer = (next: FileBuffer | null) => {
+        bufferRef.current = next;
+        setBufferState(next);
+    };
+
+    const fileContent = buffer?.status === 'ready' ? buffer.content : '';
+    const fileLoadError = buffer?.status === 'error' ? buffer.error : null;
+    const fileReady = buffer?.status === 'ready';
+
+    const setFileContent = (content: string) => {
+        const current = bufferRef.current;
+        if (current?.status === 'ready') {
+            setBuffer({ ...current, content });
+        }
+    };
+
+    const clearSelection = () => {
+        setSelectedFile(null);
+        setBuffer(null);
+        setLoading(false);
+    };
 
     const loadProject = async (projectInput: string | number | Project) => {
         setLoading(true);
@@ -98,31 +132,45 @@ export const useEditProject = () => {
         }
     };
 
-    const selectFile = async (file: FileTreeNode) => {
+    const selectFile = async (file: FileTreeNode | null) => {
         setSelectedFile(file);
-        if (!file.isDir) {
-            setLoading(true);
-            try {
-                const content = await ReadFile(file.path);
-                setFileContent(content.content || '');
-            } catch (err) {
-                console.error('Failed to read file:', err);
-            } finally {
-                setLoading(false);
-            }
+        if (!file || file.isDir) {
+            setBuffer(null);
+            setLoading(false);
+            return;
         }
+        setBuffer({ path: file.path, status: 'loading' });
+        setLoading(true);
+        let next: FileBuffer;
+        try {
+            const result = await ReadFile(file.path);
+            next = result?.success
+                ? { path: file.path, status: 'ready', content: result.content ?? '' }
+                : { path: file.path, status: 'error', error: result?.error || 'Failed to read file' };
+        } catch (err) {
+            next = { path: file.path, status: 'error', error: errorMessage(err) };
+        }
+        if (bufferRef.current?.path !== file.path) return;
+        setBuffer(next);
+        setLoading(false);
     };
 
-    const saveFile = async () => {
-        if (!selectedFile) return;
-        
+    const saveFile = async (): Promise<OpResult> => {
+        const current = bufferRef.current;
+        if (current?.status !== 'ready') {
+            return { success: false, error: 'File is not loaded; refusing to save' };
+        }
+
         setSaving(true);
         setError(null);
         try {
-            await WriteFile(selectedFile.path, fileContent);
+            const result = await WriteFile(current.path, current.content);
+            if (!result?.success) {
+                throw new Error(result?.error || 'Save failed');
+            }
             return { success: true };
         } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+            const errorMsg = errorMessage(err);
             setError(errorMsg);
             return { success: false, error: errorMsg };
         } finally {
@@ -138,7 +186,10 @@ export const useEditProject = () => {
         const previousExpandedFolders = new Set(expandedFolders);
 
         try {
-            await CreateFile(path, content);
+            const result = await CreateFile(path, content);
+            if (!result?.success) {
+                throw new Error(result?.error || 'Create failed');
+            }
             const projectPath = project?.path || project?.sitePath;
             if (project && projectPath) {
                 // Reload root files first
@@ -153,7 +204,7 @@ export const useEditProject = () => {
             }
             return { success: true };
         } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+            const errorMsg = errorMessage(err);
             setError(errorMsg);
             return { success: false, error: errorMsg };
         } finally {
@@ -169,7 +220,10 @@ export const useEditProject = () => {
         const previousExpandedFolders = new Set(expandedFolders);
 
         try {
-            await CreateDirectory(path);
+            const result = await CreateDirectory(path);
+            if (!result?.success) {
+                throw new Error(result?.error || 'Create folder failed');
+            }
             const projectPath = project?.path || project?.sitePath;
             if (project && projectPath) {
                 // Reload root files first
@@ -184,7 +238,7 @@ export const useEditProject = () => {
             }
             return { success: true };
         } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+            const errorMsg = errorMessage(err);
             setError(errorMsg);
             return { success: false, error: errorMsg };
         } finally {
@@ -200,7 +254,10 @@ export const useEditProject = () => {
         const previousExpandedFolders = new Set(expandedFolders);
 
         try {
-            await DeleteFile(path);
+            const result = await DeleteFile(path);
+            if (!result?.success) {
+                throw new Error(result?.error || 'Delete failed');
+            }
             const projectPath = project?.path || project?.sitePath;
             if (project && projectPath) {
                 // Restore expanded folders, removing the deleted path and its children
@@ -221,13 +278,12 @@ export const useEditProject = () => {
                     await reloadExpandedFolders(newExpandedFolders, sortedFiles);
                 }
             }
-            if (selectedFile && selectedFile.path === path) {
-                setSelectedFile(null);
-                setFileContent('');
+            if (selectedFile && (selectedFile.path === path || selectedFile.path.startsWith(path + '/'))) {
+                clearSelection();
             }
             return { success: true };
         } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+            const errorMsg = errorMessage(err);
             setError(errorMsg);
             return { success: false, error: errorMsg };
         } finally {
@@ -368,12 +424,11 @@ export const useEditProject = () => {
 
             // Update selected file if it was renamed
             if (selectedFile && selectedFile.path === node.path) {
-                setSelectedFile(null);
-                setFileContent('');
+                clearSelection();
             }
             return { success: true };
         } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+            const errorMsg = errorMessage(err);
             setError(errorMsg);
             return { success: false, error: errorMsg };
         } finally {
@@ -407,12 +462,11 @@ export const useEditProject = () => {
             }
             // Clear selected file if it was moved
             if (selectedFile && selectedFile.path === sourcePath) {
-                setSelectedFile(null);
-                setFileContent('');
+                clearSelection();
             }
             return { success: true };
         } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+            const errorMsg = errorMessage(err);
             setError(errorMsg);
             return { success: false, error: errorMsg };
         } finally {
@@ -446,7 +500,7 @@ export const useEditProject = () => {
             }
             return { success: true };
         } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+            const errorMsg = errorMessage(err);
             setError(errorMsg);
             return { success: false, error: errorMsg };
         } finally {
@@ -492,8 +546,7 @@ export const useEditProject = () => {
         setProject(null);
         setFiles([]);
         setCurrentPath('');
-        setSelectedFile(null);
-        setFileContent('');
+        clearSelection();
         setExpandedFolders(new Set());
         setClipboard(null);
         setError(null);
@@ -505,6 +558,8 @@ export const useEditProject = () => {
         currentPath,
         selectedFile,
         fileContent,
+        fileLoadError,
+        fileReady,
         loading,
         saving,
         error,

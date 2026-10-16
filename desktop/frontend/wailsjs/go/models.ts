@@ -356,6 +356,8 @@ export namespace api {
 	}
 	export class DeleteProjectParams {
 	    projectId: number;
+	    deleteSiteFolder: boolean;
+	    skipOnChain: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new DeleteProjectParams(source);
@@ -364,6 +366,8 @@ export namespace api {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.projectId = source["projectId"];
+	        this.deleteSiteFolder = source["deleteSiteFolder"];
+	        this.skipOnChain = source["skipOnChain"];
 	    }
 	}
 	export class DeleteProjectResult {
@@ -371,6 +375,8 @@ export namespace api {
 	    message: string;
 	    error: string;
 	    onChainDestroyed: boolean;
+	    onChainFailed: boolean;
+	    siteFolderDeleted: boolean;
 	    estimatedGasCost?: string;
 	
 	    static createFrom(source: any = {}) {
@@ -383,6 +389,8 @@ export namespace api {
 	        this.message = source["message"];
 	        this.error = source["error"];
 	        this.onChainDestroyed = source["onChainDestroyed"];
+	        this.onChainFailed = source["onChainFailed"];
+	        this.siteFolderDeleted = source["siteFolderDeleted"];
 	        this.estimatedGasCost = source["estimatedGasCost"];
 	    }
 	}
