@@ -392,45 +392,6 @@ func TestProjectDetailsEmptyFields(t *testing.T) {
 }
 
 // ====================
-// Tests for network selection logic
-// ====================
-
-func TestNetworkSelectionLogic(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{"select testnet with 1", "1\n", "testnet"},
-		{"select mainnet with 2", "2\n", "mainnet"},
-		{"empty defaults to testnet", "\n", "testnet"},
-		{"invalid defaults to testnet", "invalid\n", "testnet"},
-		{"number 3 defaults to testnet", "3\n", "testnet"},
-		{"number 0 defaults to testnet", "0\n", "testnet"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			setTestReader(tt.input)
-			input := readlineInputWithDefault("\nSelect network", "1")
-
-			var result string
-			if input == "" || input == "1" {
-				result = "testnet"
-			} else if input == "2" {
-				result = "mainnet"
-			} else {
-				result = "testnet"
-			}
-
-			if result != tt.expected {
-				t.Errorf("network selection = %q, want %q", result, tt.expected)
-			}
-		})
-	}
-}
-
-// ====================
 // Tests for balance formatting
 // ====================
 

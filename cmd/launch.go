@@ -16,7 +16,6 @@ import (
 	"github.com/ganbitlabs/walgo/internal/projects"
 	"github.com/ganbitlabs/walgo/internal/sui"
 	"github.com/ganbitlabs/walgo/internal/ui"
-	"github.com/ganbitlabs/walgo/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -85,7 +84,22 @@ Example:
 		fmt.Printf("%s All required tools found\n", icons.Check)
 		fmt.Println()
 
-		if err := version.CheckAndUpdateVersions(false); err != nil {
+		restoreNetwork, err := launch.UseNetwork(network)
+		if err != nil {
+			return err
+		}
+		defer restoreNetwork()
+
+		walgoCfg, err := config.LoadConfigFrom(sitePath)
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w", err)
+		}
+		siteAction, err := launch.ReconcileExistingSite(sitePath, walgoCfg, network)
+		if err != nil {
+			return err
+		}
+
+		if err := launch.CheckToolVersions(network); err != nil {
 			fmt.Fprintf(os.Stderr, "%s Warning: Version check failed: %v\n", icons.Warning, err)
 			fmt.Fprintf(os.Stderr, "  Continuing with deployment...\n")
 		}
@@ -93,7 +107,7 @@ Example:
 		// Step 2: Check wallet
 		fmt.Println("Step 2: Wallet & Balance")
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━")
-		walletAddr, suiBalance, walBalance, err := launch.CheckWallet(network)
+		walletAddr, suiBalance, walBalance, err := launch.CheckWallet()
 		if err != nil {
 			return err
 		}
@@ -181,9 +195,7 @@ Example:
 		}
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-		confirm := readlineConfirm(fmt.Sprintf("\n%s Ready to deploy? [Y/n]: ", icons.Rocket))
-
-		if confirm != "" && confirm != "y" && confirm != "yes" {
+		if !launch.Confirm(fmt.Sprintf("\n%s Ready to deploy? [Y/n]: ", icons.Rocket), true) {
 			fmt.Printf("\n%s Deployment cancelled\n", icons.Cross)
 			return nil
 		}
@@ -197,9 +209,14 @@ Example:
 			return fmt.Errorf("failed to get current directory: %w", err)
 		}
 
-		walgoCfg, err := config.LoadConfigFrom(sitePath)
+		walgoCfg, err = config.LoadConfigFrom(sitePath)
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
+		}
+		walgoCfg.WalrusConfig.Network = network
+		forceNew := siteAction == launch.SiteOnOtherNetwork
+		if forceNew {
+			walgoCfg.WalrusConfig.ProjectID = ""
 		}
 
 		err = hugo.BuildSite(sitePath)
@@ -215,7 +232,7 @@ Example:
 			WalgoCfg:    walgoCfg,
 			Quiet:       false,
 			Verbose:     true,
-			ForceNew:    false,
+			ForceNew:    forceNew,
 			DryRun:      false,
 			SaveProject: true,
 			ProjectName: projectDetails.Name,
@@ -238,6 +255,10 @@ Example:
 
 		if !result.Success {
 			return fmt.Errorf("deployment failed: no object ID returned")
+		}
+
+		if err := launch.PersistNetwork(sitePath, network); err != nil {
+			fmt.Fprintf(os.Stderr, "%s Warning: failed to record walrus.network in walgo.yaml: %v\n", icons.Warning, err)
 		}
 
 		// Success!
@@ -288,13 +309,6 @@ Example:
 
 		return nil
 	},
-}
-
-// readlineConfirm reads a confirmation prompt using the shared readline from launch package
-func readlineConfirm(prompt string) string {
-	// Use launch package's readline helper which manages shared state
-	result := launch.ReadlineInput(prompt)
-	return strings.ToLower(result)
 }
 
 func init() {

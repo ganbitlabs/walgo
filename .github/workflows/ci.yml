@@ -38,7 +38,7 @@ jobs:
         run: |
           # Run tests, excluding packages that require external dependencies
           go test -race -coverprofile=coverage.out -covermode=atomic \
-            $(go list ./... | grep -v -E 'internal/(ai|deps|hugo|launch)')
+            $(go list ./... | grep -v -E 'internal/(ai|deps|hugo)')
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
