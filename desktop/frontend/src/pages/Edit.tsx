@@ -842,26 +842,29 @@ export const Edit: React.FC<EditProps> = ({
         // Then serve
         onStatusChange?.({ type: 'info', message: 'Starting server...' });
         const { Serve } = await import('../../wailsjs/go/main/App');
-        await Serve({
+        // Serve returns once hugo is listening, on another port if 1313 is taken.
+        const result = await Serve({
           sitePath: projectPath,
           port: 1313,
           drafts: true,
           expired: false,
           future: false,
         });
+        if (!result.success) {
+          onStatusChange?.({
+            type: 'error',
+            message: `Server error: ${result.error || 'Unknown error'}`,
+          });
+          return;
+        }
         setServerRunning(true);
-
-        const url = 'http://localhost:1313';
         onStatusChange?.({
           type: 'success',
-          message: `Server running: ${url}`,
+          message: `Server running: ${result.url}`,
         });
 
-        // Open browser after Hugo has time to start listening
         const { BrowserOpenURL } = await import('../../wailsjs/runtime/runtime');
-        setTimeout(() => {
-          BrowserOpenURL(url);
-        }, 2000);
+        BrowserOpenURL(result.url);
       }
     } catch (err) {
       onStatusChange?.({

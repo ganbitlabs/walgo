@@ -7,8 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -34,85 +32,28 @@ type AIProgressState struct {
 
 // App represents the main desktop application structure.
 type App struct {
-	ctx           context.Context
-	mu            sync.Mutex // protects serveCmd, serverPort, serveSitePath
-	serveCmd      *exec.Cmd
-	serverPort    int
-	serveSitePath string
-	aiProgress    *AIProgressState
-	aiProgressMu  sync.Mutex
-	aiCancel      context.CancelFunc // cancels the running AI pipeline
-	aiDone        chan struct{}      // closed when the AI goroutine exits
-	siteRoots     func() ([]string, error)
-	uploadMu      sync.Mutex
-	uploadSource  string // last file the user picked in SelectFileToUpload
+	ctx          context.Context
+	mu           sync.Mutex // protects serve
+	serve        *hugoServer
+	aiProgress   *AIProgressState
+	aiProgressMu sync.Mutex
+	aiCancel     context.CancelFunc // cancels the running AI pipeline
+	aiDone       chan struct{}      // closed when the AI goroutine exits
+	siteRoots    func() ([]string, error)
+	uploadMu     sync.Mutex
+	uploadSource string // last file the user picked in SelectFileToUpload
+	deploys      deployRuns
+	// confirm asks the user a yes/no question.
+	confirm func(title, message string) bool
 }
 
 // NewApp initializes and returns a new App instance.
 func NewApp() *App {
-	return &App{siteRoots: api.ProjectSitePaths}
-}
-
-// lookPath finds an executable in PATH or common installation directories
-func lookPath(name string) (string, error) {
-	// Try standard PATH lookup first
-	if path, err := exec.LookPath(name); err == nil {
-		return path, nil
+	a := &App{siteRoots: api.ProjectSitePaths}
+	a.confirm = func(title, message string) bool {
+		return questionDialog(a.ctx, title, message)
 	}
-
-	// On Windows, binaries have .exe extension
-	binaryName := name
-	if runtime.GOOS == "windows" && filepath.Ext(name) == "" {
-		binaryName = name + ".exe"
-	}
-
-	// Check common binary directories
-	var extraDirs []string
-	switch runtime.GOOS {
-	case "darwin":
-		extraDirs = []string{"/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"}
-	case "linux":
-		extraDirs = []string{"/usr/local/bin", "/usr/bin", "/bin"}
-	case "windows":
-		home, _ := os.UserHomeDir()
-		if home != "" {
-			extraDirs = []string{
-				filepath.Join(home, ".walgo", "bin"),
-				filepath.Join(home, ".sui", "bin"),
-				filepath.Join(home, ".local", "bin"),
-			}
-		}
-		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
-			extraDirs = append(extraDirs, filepath.Join(localAppData, "Walgo"))
-		}
-		if programFiles := os.Getenv("ProgramFiles"); programFiles != "" {
-			extraDirs = append(extraDirs, filepath.Join(programFiles, "Walgo"))
-		}
-	}
-
-	// Check extra directories
-	for _, dir := range extraDirs {
-		candidatePath := filepath.Join(dir, binaryName)
-		if info, err := os.Stat(candidatePath); err == nil && !info.IsDir() {
-			if runtime.GOOS == "windows" || info.Mode()&0111 != 0 {
-				return candidatePath, nil
-			}
-		}
-	}
-
-	// Check ~/.local/bin (non-Windows, since Windows already checks it above)
-	if runtime.GOOS != "windows" {
-		if home, err := os.UserHomeDir(); err == nil {
-			localBin := filepath.Join(home, ".local", "bin", binaryName)
-			if info, err := os.Stat(localBin); err == nil && !info.IsDir() {
-				if info.Mode()&0111 != 0 {
-					return localBin, nil
-				}
-			}
-		}
-	}
-
-	return "", fmt.Errorf("%s not found in PATH", name)
+	return a
 }
 
 // startup is invoked when the application starts. The context is saved
@@ -133,23 +74,29 @@ func (a *App) Maximize() {
 	windowToggleMaximise(a.ctx)
 }
 
-// Close stops any running server and terminates the application.
+// Close quits the application. Wails runs beforeClose first, so a running
+// deployment can keep the app open.
 func (a *App) Close() {
-	a.cancelAI()
-	a.StopServe()
 	appQuit(a.ctx)
 }
 
-// beforeClose is called by Wails before the window closes.
-// It cancels any running AI pipeline so the defer cleanup runs,
-// then allows the close to proceed.
+// beforeClose is called by Wails before the window closes. While a deployment
+// runs it asks first, and returning true keeps the app open. Otherwise it
+// cancels any running work so the deferred cleanup runs.
 func (a *App) beforeClose(_ context.Context) bool {
+	if a.deploys.active() > 0 && !a.confirm("Deployment in progress",
+		"Quitting now cancels the running deployment. If site-builder already submitted its transaction, "+
+			"the site may still change on-chain without walgo recording it.\n\nQuit anyway?") {
+		return true
+	}
+	a.deploys.cancelAll()
 	a.cancelAI()
-	return false // allow close
+	return false
 }
 
 // shutdown is called by Wails when the application is shutting down.
 func (a *App) shutdown(_ context.Context) {
+	a.deploys.cancelAll()
 	a.cancelAI()
 	a.StopServe()
 }
@@ -450,118 +397,6 @@ func (a *App) QuickStart(params QuickStartParams) QuickStartResult {
 }
 
 // ====================
-// Serve
-// ====================
-
-// ServeParams holds serve parameters
-type ServeParams = api.ServeParams
-type ServeResult = api.ServeResult
-
-// Serve starts local Hugo development server
-func (a *App) Serve(params ServeParams) ServeResult {
-	// Stop any existing server first
-	a.StopServe()
-
-	// Kill any existing Hugo serve processes system-wide
-	if err := killExistingHugoProcesses(); err != nil {
-		fmt.Printf("⚠️  Warning: Error cleaning up existing Hugo processes: %v\n", err)
-	}
-
-	// Check if hugo is installed
-	hugoPath, err := lookPath("hugo")
-	if err != nil {
-		return ServeResult{Error: "hugo is not installed or not found in PATH"}
-	}
-
-	// Get the site path
-	sitePath := params.SitePath
-	if sitePath == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return ServeResult{Error: fmt.Sprintf("cannot determine current directory: %v", err)}
-		}
-		sitePath = cwd
-	}
-
-	// Build the site before serving
-	buildCmd := exec.Command(hugoPath, "--source", sitePath)
-	hideWindow(buildCmd)
-	if output, err := buildCmd.CombinedOutput(); err != nil {
-		return ServeResult{Error: fmt.Sprintf("build failed: %s", string(output))}
-	}
-
-	// Build hugo arguments
-	hugoArgs := []string{"server"}
-	if params.Drafts {
-		hugoArgs = append(hugoArgs, "-D")
-	}
-	if params.Expired {
-		hugoArgs = append(hugoArgs, "-E")
-	}
-	if params.Future {
-		hugoArgs = append(hugoArgs, "-F")
-	}
-
-	// Set port
-	port := params.Port
-	if port == 0 {
-		port = 1313
-	}
-	hugoArgs = append(hugoArgs, "--port", strconv.Itoa(port))
-
-	// Create and start the command
-	cmd := exec.Command(hugoPath, hugoArgs...)
-	cmd.Dir = sitePath
-
-	// Hide console window on Windows
-	hideWindow(cmd)
-
-	if err := cmd.Start(); err != nil {
-		return ServeResult{Error: fmt.Sprintf("failed to start hugo server: %v", err)}
-	}
-
-	// Track the running command, port, and site path
-	a.mu.Lock()
-	a.serveCmd = cmd
-	a.serverPort = port
-	a.serveSitePath = sitePath
-	a.mu.Unlock()
-
-	return ServeResult{
-		Success: true,
-		URL:     fmt.Sprintf("http://localhost:%d", port),
-	}
-}
-
-// StopServe stops the running Hugo development server and cleans up localhost files
-func (a *App) StopServe() bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	if a.serveCmd == nil || a.serveCmd.Process == nil {
-		return false
-	}
-
-	_ = a.serveCmd.Process.Kill()
-	_ = a.serveCmd.Wait() // reap the process to avoid zombies
-	a.serveCmd = nil
-	a.serveSitePath = ""
-	a.serverPort = 0
-	return true
-}
-
-// GetServerURL returns the current server URL
-func (a *App) GetServerURL() string {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	if a.serverPort > 0 {
-		return fmt.Sprintf("http://localhost:%d", a.serverPort)
-	}
-	return ""
-}
-
-// ====================
 // New Content
 // ====================
 
@@ -596,19 +431,8 @@ func (a *App) ArchiveProject(projectID int64) ArchiveProjectResult {
 }
 
 // ====================
-// Update Site (Re-deploy)
+// Project Status
 // ====================
-
-// UpdateSiteParams holds update site parameters
-type UpdateSiteParams = api.UpdateSiteParams
-
-// UpdateSiteResult holds update site result
-type UpdateSiteResult = api.UpdateSiteResult
-
-// UpdateSite updates an existing project's site on Walrus (re-deploy)
-func (a *App) UpdateSite(params UpdateSiteParams) UpdateSiteResult {
-	return api.UpdateSite(params)
-}
 
 type SetStatusParams = api.SetStatusParams
 type SetStatusResult = api.SetStatusResult
@@ -630,18 +454,6 @@ type GasEstimateResult = api.GasEstimateResult
 // EstimateGasFee estimates the gas fee for deploying a site
 func (a *App) EstimateGasFee(params GasEstimateParams) GasEstimateResult {
 	return api.EstimateGasFee(params)
-}
-
-// ====================
-// Launch Wizard
-// ====================
-
-type LaunchWizardParams = api.LaunchWizardParams
-type LaunchWizardResult = api.LaunchWizardResult
-
-// LaunchWizard executes full launch wizard flow
-func (a *App) LaunchWizard(params LaunchWizardParams) LaunchWizardResult {
-	return api.LaunchWizard(params)
 }
 
 // ====================
@@ -806,7 +618,7 @@ var knownEditors = []EditorInfo{
 func (a *App) DetectEditors() []EditorInfo {
 	var found []EditorInfo
 	for _, e := range knownEditors {
-		if _, err := lookPath(e.Command); err == nil {
+		if _, err := api.LookPath(e.Command); err == nil {
 			found = append(found, EditorInfo{Name: e.Name, Command: e.Command, Found: true})
 		}
 	}
@@ -831,7 +643,7 @@ func (a *App) OpenInEditor(editorCmd string, path string) error {
 		return err
 	}
 
-	editorPath, err := lookPath(editorCmd)
+	editorPath, err := api.LookPath(editorCmd)
 	if err != nil {
 		return fmt.Errorf("editor '%s' not found", editorCmd)
 	}

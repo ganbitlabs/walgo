@@ -628,79 +628,6 @@ func TestGetDirectoryDepth_NonExistentDir(t *testing.T) {
 }
 
 // =============================================================================
-// lookPath — Executable discovery
-// =============================================================================
-
-func TestLookPath_KnownBinary(t *testing.T) {
-	// "ls" exists on all Unix systems, "cmd.exe" on Windows
-	var target string
-	if runtime.GOOS == "windows" {
-		target = "cmd"
-	} else {
-		target = "ls"
-	}
-
-	path, err := lookPath(target)
-	if err != nil {
-		t.Errorf("expected to find %s: %v", target, err)
-	}
-	if path == "" {
-		t.Errorf("expected non-empty path for %s", target)
-	}
-
-	// Verify the path actually exists
-	if _, err := os.Stat(path); err != nil {
-		t.Errorf("returned path %s does not exist: %v", path, err)
-	}
-}
-
-func TestLookPath_NonExistentBinary(t *testing.T) {
-	_, err := lookPath("walgo_nonexistent_binary_12345")
-	if err == nil {
-		t.Error("expected error for non-existent binary")
-	}
-	if err != nil && !strings.Contains(err.Error(), "not found") {
-		t.Errorf("expected 'not found' error, got: %v", err)
-	}
-}
-
-func TestLookPath_ReturnsAbsolutePath(t *testing.T) {
-	var target string
-	if runtime.GOOS == "windows" {
-		target = "cmd"
-	} else {
-		target = "ls"
-	}
-
-	path, err := lookPath(target)
-	if err != nil {
-		t.Skipf("cannot find %s, skipping: %v", target, err)
-	}
-
-	if !filepath.IsAbs(path) {
-		t.Errorf("expected absolute path, got: %s", path)
-	}
-}
-
-func TestLookPath_Go(t *testing.T) {
-	// Go binary should be available since we're running tests with it
-	path, err := lookPath("go")
-	if err != nil {
-		t.Skipf("go not in path: %v", err)
-	}
-	if path == "" {
-		t.Error("expected non-empty path for go")
-	}
-}
-
-func TestLookPath_EmptyName(t *testing.T) {
-	_, err := lookPath("")
-	if err == nil {
-		t.Error("expected error for empty binary name")
-	}
-}
-
-// =============================================================================
 // NewApp — Constructor
 // =============================================================================
 
@@ -709,14 +636,8 @@ func TestNewApp(t *testing.T) {
 	if app == nil {
 		t.Fatal("NewApp returned nil")
 	}
-	if app.serveCmd != nil {
-		t.Error("serveCmd should be nil on new app")
-	}
-	if app.serverPort != 0 {
-		t.Error("serverPort should be 0 on new app")
-	}
-	if app.serveSitePath != "" {
-		t.Error("serveSitePath should be empty on new app")
+	if app.serve != nil {
+		t.Error("serve should be nil on new app")
 	}
 }
 

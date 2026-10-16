@@ -68,7 +68,7 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
   // Use wallet hook internally
   const { walletInfo, addressList, switchAddress, switchNetwork } = useWallet();
   const { checkVersions, getSuiToolsWithUpdates } = useVersionCheck();
-  const [step, setStep] = useState<"config" | "deploying" | "success">("config");
+  const [step, setStep] = useState<"config" | "deploying" | "failed" | "success">("config");
   const [network, setNetwork] = useState(initialNetwork);
   const [epochs, setEpochs] = useState("1");
   const [selectedAddress, setSelectedAddress] = useState(walletInfo?.address || "");
@@ -79,10 +79,41 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const [suiToolsNeedUpdate, setSuiToolsNeedUpdate] = useState<string[]>([]);
 
   // Determine if network/wallet are locked (site already deployed)
   const isLocked = !!currentObjectId;
+
+  // site-builder signs with the active network and wallet, so a deployed site
+  // can only be updated after both are switched back to the ones it was
+  // deployed with.
+  const switchToDeployed = async () => {
+    if (!initialNetwork || !deployedWallet) return;
+    setIsSwitching(true);
+    setSwitchError(null);
+    const failures: string[] = [];
+    try {
+      if (walletInfo?.network !== initialNetwork) {
+        const netResult = await switchNetwork(initialNetwork);
+        if (!netResult.success) {
+          failures.push(`Could not switch to ${initialNetwork}: ${netResult.error || "unknown error"}`);
+        }
+      }
+      if (walletInfo?.address !== deployedWallet) {
+        const addrResult = await switchAddress(deployedWallet);
+        if (!addrResult.success) {
+          failures.push(`Could not switch to the deployed wallet: ${addrResult.error || "unknown error"}`);
+        }
+      }
+    } catch (err) {
+      failures.push(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSwitchError(failures.length > 0 ? failures.join("\n") : null);
+      setIsSwitching(false);
+    }
+  };
 
   // Track changes
   useEffect(() => {
@@ -102,38 +133,13 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
       setDeploymentResult(null);
       setHasChanges(false);
       setSuiToolsNeedUpdate([]);
+      setSwitchError(null);
+      setCancelling(false);
 
       // If site is already deployed (locked mode), use deployed network and wallet
       if (isLocked && initialNetwork && deployedWallet) {
         setNetwork(initialNetwork);
         setSelectedAddress(deployedWallet);
-        setIsSwitching(true);
-
-        // Auto-switch network and wallet asynchronously
-        const switchToDeployed = async () => {
-          try {
-            // Switch network if different
-            if (walletInfo?.network !== initialNetwork) {
-              const netResult = await switchNetwork(initialNetwork);
-              if (!netResult.success) {
-                console.error("Failed to switch network:", netResult.error);
-              }
-            }
-
-            // Switch wallet if different
-            if (walletInfo?.address !== deployedWallet) {
-              const addrResult = await switchAddress(deployedWallet);
-              if (!addrResult.success) {
-                console.error("Failed to switch wallet:", addrResult.error);
-              }
-            }
-          } catch (err) {
-            console.error("Error during switching:", err);
-          } finally {
-            setIsSwitching(false);
-          }
-        };
-
         switchToDeployed();
       } else {
         // Normal mode: use current wallet info
@@ -234,14 +240,15 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
   const handleAddressSwitch = async (address: string) => {
     if (address !== selectedAddress) {
       setIsSwitching(true);
+      setSwitchError(null);
       try {
+        // On success the walletInfo effect updates the selected address and balance.
         const result = await switchAddress(address);
-        if (result.success) {
-          // Local state will be updated by useEffect watching walletInfo.address
-          // This ensures balance is also updated
+        if (!result.success) {
+          setSwitchError(`Could not switch wallet: ${result.error || "unknown error"}`);
         }
       } catch (err) {
-        console.error("Failed to switch address:", err);
+        setSwitchError(`Could not switch wallet: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
         setIsSwitching(false);
       }
@@ -304,6 +311,7 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
   const handleDeploy = async () => {
     setStep("deploying");
     setLogs([]);
+    setCancelling(false);
     
     try {
       // Add initial logs
@@ -339,16 +347,36 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
         // Split error on newlines so each line renders as a separate log entry
         const errorLines = (result.error || "Unknown error").split('\n');
         setLogs(prev => [...prev, "", `❌ Deployment failed`, ...errorLines, ""]);
-        setTimeout(() => setStep("config"), 5000);
+        setStep("failed");
       }
     } catch (err) {
       const error = err instanceof Error ? err.message : "Unknown error";
       const errorLines = error.split('\n');
       setLogs(prev => [...prev, "", `❌ Error:`, ...errorLines, ""]);
       setDeploymentResult({ success: false, error });
-      setTimeout(() => setStep("config"), 5000);
+      setStep("failed");
     }
   };
+
+  const handleCancelDeploy = async () => {
+    if (!sitePath || cancelling) return;
+    setCancelling(true);
+    setLogs(prev => [...prev, "", "⏹  Cancelling deployment..."]);
+    try {
+      const { CancelDeploy } = await import('../../../wailsjs/go/main/App');
+      if (!(await CancelDeploy(sitePath))) {
+        // The deploy has not registered yet, or it already finished.
+        setCancelling(false);
+        setLogs(prev => [...prev, "⚠️  No running deployment to cancel yet. Try again in a moment."]);
+      }
+    } catch (err) {
+      setCancelling(false);
+      setLogs(prev => [...prev, `❌ Could not cancel: ${err instanceof Error ? err.message : String(err)}`]);
+    }
+  };
+
+  const deployBlocked =
+    estimating || isSwitching || !!switchError || (network === "mainnet" && suiToolsNeedUpdate.length > 0);
 
   const handleCopy = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -420,10 +448,15 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
           </div>
           <motion.button
             onClick={onClose}
+            disabled={step === "deploying"}
             variants={iconButtonVariants}
-            whileHover="hover"
-            whileTap="tap"
-            className="p-2 hover:bg-white/10 rounded-sm transition-colors"
+            whileHover={step === "deploying" ? undefined : "hover"}
+            whileTap={step === "deploying" ? undefined : "tap"}
+            className={cn(
+              "p-2 hover:bg-white/10 rounded-sm transition-colors",
+              step === "deploying" && "opacity-30 cursor-not-allowed"
+            )}
+            title={step === "deploying" ? "Cancel the deployment before closing" : ""}
           >
             <X size={18} className="text-zinc-400" />
           </motion.button>
@@ -440,6 +473,26 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
                 exit={{ opacity: 0, x: 20 }}
                 className="space-y-6"
               >
+                {switchError && (
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-sm p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 text-xs text-red-400 font-mono">
+                        <p className="font-semibold mb-1">Network or wallet switch failed</p>
+                        <p className="text-red-400/70 whitespace-pre-line">{switchError}</p>
+                        {isLocked && deployedWallet && (
+                          <button
+                            onClick={switchToDeployed}
+                            className="mt-2 underline hover:text-red-300"
+                          >
+                            Try again
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Locked Mode Banner */}
                 {isLocked && (
                   <div className="bg-orange-500/10 border border-orange-500/30 rounded-sm p-4">
@@ -477,15 +530,17 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
                           if (isSwitching || isLocked) return; // Prevent changes when locked
 
                           setIsSwitching(true);
+                          setSwitchError(null);
                           try {
-                            // Switch network in SUI CLI
+                            // On success the walletInfo effect updates the selected network.
                             const result = await switchNetwork(net);
                             if (result.success) {
-                              // Local state will be updated by useEffect watching walletInfo
                               setHasChanges(true);
                             } else {
-                              console.error("Failed to switch network:", result.error);
+                              setSwitchError(`Could not switch to ${net}: ${result.error || "unknown error"}`);
                             }
+                          } catch (err) {
+                            setSwitchError(`Could not switch to ${net}: ${err instanceof Error ? err.message : String(err)}`);
                           } finally {
                             setIsSwitching(false);
                           }
@@ -696,7 +751,7 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
               </motion.div>
             )}
 
-            {step === "deploying" && (
+            {(step === "deploying" || step === "failed") && (
               <motion.div
                 key="deploying"
                 initial={{ opacity: 0 }}
@@ -705,10 +760,21 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
                 className="space-y-4"
               >
                 <div className="flex items-center justify-center gap-3 mb-6">
-                  <Loader2 size={24} className="text-accent animate-spin" />
-                  <span className="text-lg font-mono text-white">
-                    {isUpdate ? "Updating..." : "Deploying..."}
-                  </span>
+                  {step === "failed" ? (
+                    <>
+                      <AlertCircle size={24} className="text-red-400" />
+                      <span className="text-lg font-mono text-red-400">
+                        {isUpdate ? "Update failed" : "Deployment failed"}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 size={24} className="text-accent animate-spin" />
+                      <span className="text-lg font-mono text-white">
+                        {cancelling ? "Cancelling..." : isUpdate ? "Updating..." : "Deploying..."}
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 <div className="bg-black/50 rounded-sm p-4 border border-white/5 max-h-96 overflow-y-auto font-mono text-xs scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
@@ -913,18 +979,55 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({
                 variants={buttonVariants}
                 whileHover="hover"
                 whileTap="tap"
-                disabled={estimating || (network === "mainnet" && suiToolsNeedUpdate.length > 0)}
+                disabled={deployBlocked}
                 className={cn(
                   "flex-1 px-4 py-2 rounded-sm text-sm font-mono transition-all flex items-center justify-center gap-2 border",
                   isUpdate
                     ? "bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30"
                     : "bg-accent/10 hover:bg-accent/20 text-accent border-accent/30",
-                  (estimating || (network === "mainnet" && suiToolsNeedUpdate.length > 0)) && "opacity-50 cursor-not-allowed"
+                  deployBlocked && "opacity-50 cursor-not-allowed"
                 )}
                 title={network === "mainnet" && suiToolsNeedUpdate.length > 0 ? "Update tools in System Health before deploying to mainnet" : ""}
               >
                 {isUpdate ? <RefreshCw size={14} /> : <Rocket size={14} />}
                 {isUpdate ? "Update Site" : "Deploy Site"}
+              </motion.button>
+            </>
+          )}
+          {step === "deploying" && (
+            <motion.button
+              onClick={handleCancelDeploy}
+              disabled={cancelling || !sitePath}
+              variants={buttonVariants}
+              whileHover="hover"
+              whileTap="tap"
+              className={cn(
+                "w-full px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-sm text-sm font-mono transition-all",
+                (cancelling || !sitePath) && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {cancelling ? "Cancelling..." : "Cancel Deployment"}
+            </motion.button>
+          )}
+          {step === "failed" && (
+            <>
+              <motion.button
+                onClick={onClose}
+                variants={buttonVariants}
+                whileHover="hover"
+                whileTap="tap"
+                className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white rounded-sm text-sm font-mono transition-all"
+              >
+                Close
+              </motion.button>
+              <motion.button
+                onClick={() => setStep("config")}
+                variants={buttonVariants}
+                whileHover="hover"
+                whileTap="tap"
+                className="flex-1 px-4 py-2 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 rounded-sm text-sm font-mono transition-all"
+              >
+                Back to Settings
               </motion.button>
             </>
           )}

@@ -2,6 +2,7 @@ package hugo
 
 import (
 	"archive/zip"
+	"bytes"
 	"embed"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ganbitlabs/walgo/internal/ai"
@@ -267,8 +269,9 @@ func runHugoBuild(sitePath, publishDir string) error {
 
 	cmd := executil.Command(hugoPath, "build", "--environment", "production", "--minify", "--gc", "--cleanDestinationDir", "--destination", publishDir)
 	cmd.Dir = sitePath
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	output := &lockedBuffer{}
+	cmd.Stdout = io.MultiWriter(output, bestEffort{os.Stdout})
+	cmd.Stderr = io.MultiWriter(output, bestEffort{os.Stderr})
 
 	if err := cmd.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "\nHugo build failed. Common issues:\n")
@@ -276,12 +279,63 @@ func runHugoBuild(sitePath, publishDir string) error {
 		fmt.Fprintf(os.Stderr, "  2. Configuration error - verify your Hugo config (hugo.toml, config.toml, ...) is valid\n")
 		fmt.Fprintf(os.Stderr, "  3. Content error - check your markdown files for syntax issues\n")
 		fmt.Fprintf(os.Stderr, "\nFor more details, run: hugo build --verbose\n")
-		return fmt.Errorf("failed to build Hugo site: %v (check Hugo output above for details)", err)
+		return &BuildError{Err: err, Output: lastBytes(output.String(), buildOutputLimit)}
 	}
 
 	fmt.Println("Hugo site built successfully.")
 	fmt.Printf("Static files generated in: %s\n", publishDir)
 	return nil
+}
+
+// buildOutputLimit caps how much of hugo's output a BuildError keeps.
+const buildOutputLimit = 8192
+
+// BuildError is a failed hugo build. Output holds the end of hugo's combined
+// output, which the CLI has already streamed to the terminal and a GUI can
+// show instead.
+type BuildError struct {
+	Err    error
+	Output string
+}
+
+func (e *BuildError) Error() string {
+	return fmt.Sprintf("failed to build Hugo site: %v (check Hugo output above for details)", e.Err)
+}
+
+func (e *BuildError) Unwrap() error { return e.Err }
+
+// lockedBuffer lets hugo's stdout and stderr copiers write to one buffer.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+// bestEffort ignores write errors. A GUI app on Windows has no console, so
+// os.Stdout fails every write, and that must not fail the build.
+type bestEffort struct{ w io.Writer }
+
+func (b bestEffort) Write(p []byte) (int, error) {
+	_, _ = b.w.Write(p)
+	return len(p), nil
+}
+
+func lastBytes(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[len(s)-n:]
 }
 
 func writeWSResources(sitePath, publicDir string, cfg *config.WalgoConfig) error {

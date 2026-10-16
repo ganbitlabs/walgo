@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -1154,7 +1155,7 @@ func TestServe_Validation(t *testing.T) {
 
 func TestLaunchWizard_Validation(t *testing.T) {
 	t.Run("empty site path returns error", func(t *testing.T) {
-		result := LaunchWizard(LaunchWizardParams{SitePath: ""})
+		result := LaunchWizard(context.Background(), LaunchWizardParams{SitePath: ""})
 		if result.Success {
 			t.Error("expected failure for empty site path, got success")
 		}

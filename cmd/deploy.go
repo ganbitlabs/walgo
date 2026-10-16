@@ -108,7 +108,7 @@ Example: walgo deploy --epochs 5`,
 
 		// Deployments follow the active Sui environment; fail early if walgo.yaml
 		// disagrees rather than deploying to the wrong network.
-		network, err := resolveDeployNetwork(walgoCfg.WalrusConfig.Network)
+		network, err := sui.ResolveDeployNetwork(walgoCfg.WalrusConfig.Network)
 		if err != nil {
 			return err
 		}

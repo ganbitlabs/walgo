@@ -36,3 +36,15 @@ func openFileDialog(ctx context.Context, title string) (string, error) {
 		Title: title,
 	})
 }
+
+func questionDialog(ctx context.Context, title, message string) bool {
+	choice, err := wruntime.MessageDialog(ctx, wruntime.MessageDialogOptions{
+		Type:          wruntime.QuestionDialog,
+		Title:         title,
+		Message:       message,
+		Buttons:       []string{"Yes", "No"},
+		DefaultButton: "No",
+		CancelButton:  "No",
+	})
+	return err == nil && choice == "Yes"
+}

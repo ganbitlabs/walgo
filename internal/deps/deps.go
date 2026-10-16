@@ -85,7 +85,17 @@ func extraBinaryDirs() []string {
 	case "linux":
 		dirs = []string{"/usr/local/bin", "/usr/bin", "/bin"}
 	case "windows":
-		// Windows installers typically add to PATH already
+		// A GUI launched from Explorer can miss PATH entries the installer
+		// added for this session, so check where install.ps1 puts the tools.
+		if home, err := os.UserHomeDir(); err == nil {
+			dirs = append(dirs, filepath.Join(home, ".walgo", "bin"), filepath.Join(home, ".sui", "bin"))
+		}
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			dirs = append(dirs, filepath.Join(localAppData, "bin"), filepath.Join(localAppData, "Walgo"))
+		}
+		if programFiles := os.Getenv("ProgramFiles"); programFiles != "" {
+			dirs = append(dirs, filepath.Join(programFiles, "Walgo"))
+		}
 	}
 	return dirs
 }

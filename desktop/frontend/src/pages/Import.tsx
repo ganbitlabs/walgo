@@ -90,7 +90,7 @@ export const Import: React.FC<ImportProps> = ({
       const result = await ImportObsidian({
         vaultPath,
         siteName: siteName || "", // Defaults to vault name in backend
-        parentDir: parentDir || "", // Defaults to current dir in backend
+        parentDir: parentDir || "", // Empty string will use default walgo-sites directory
         outputDir: '',
         dryRun: false,
         convertLinks: true,

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ganbitlabs/walgo/internal/projects"
+	"github.com/ganbitlabs/walgo/internal/sui"
 	"github.com/ganbitlabs/walgo/internal/ui"
 	"github.com/ganbitlabs/walgo/internal/walrus"
 )
@@ -105,7 +106,7 @@ func showProjectDetails(proj *projects.Project) error {
 	// is actually paid for. Prefer the latter when the project is reachable from
 	// the active Sui environment.
 	if proj.ObjectID != "" {
-		if _, err := resolveDeployNetwork(proj.Network); err == nil {
+		if _, err := sui.ResolveDeployNetwork(proj.Network); err == nil {
 			if expiry, err := walrus.GetSiteExpiry(proj.ObjectID); err == nil {
 				fmt.Printf("  On-chain Storage:      %s\n", expiry.Describe(time.Now()))
 				if expiry.HasExpired() {
@@ -203,9 +204,9 @@ func calculateExpiryDate(lastDeploy time.Time, epochs int, network string) time.
 // depends on the network, so without a recorded network the estimate would be
 // off by 14x and is better left unsaid.
 func estimateExpiry(lastDeploy time.Time, epochs int, network string) (time.Time, bool) {
-	switch normalizeNetwork(network) {
+	switch sui.NormalizeNetwork(network) {
 	case "mainnet", "testnet":
-		return calculateExpiryDate(lastDeploy, epochs, normalizeNetwork(network)), true
+		return calculateExpiryDate(lastDeploy, epochs, sui.NormalizeNetwork(network)), true
 	default:
 		return time.Time{}, false
 	}
@@ -214,9 +215,9 @@ func estimateExpiry(lastDeploy time.Time, epochs int, network string) (time.Time
 // formatEpochs renders an epoch count, adding the wall-clock duration only when
 // the network is known — a mainnet epoch lasts two weeks and a testnet one a day.
 func formatEpochs(epochs int, network string) string {
-	switch normalizeNetwork(network) {
+	switch sui.NormalizeNetwork(network) {
 	case "mainnet", "testnet":
-		return fmt.Sprintf("%d (~%s)", epochs, projects.CalculateStorageDuration(epochs, normalizeNetwork(network)))
+		return fmt.Sprintf("%d (~%s)", epochs, projects.CalculateStorageDuration(epochs, sui.NormalizeNetwork(network)))
 	default:
 		return fmt.Sprintf("%d (network unknown)", epochs)
 	}

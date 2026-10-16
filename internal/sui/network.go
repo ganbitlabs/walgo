@@ -1,15 +1,13 @@
-package cmd
+package sui
 
 import (
 	"fmt"
 	"strings"
-
-	"github.com/ganbitlabs/walgo/internal/sui"
 )
 
-// normalizeNetwork reduces a Sui environment name to "mainnet" or "testnet".
-// Anything unrecognized is reported as-is so callers can surface it.
-func normalizeNetwork(env string) string {
+// NormalizeNetwork reduces a Sui environment name to "mainnet" or "testnet".
+// Anything unrecognized is returned as-is so callers can surface it.
+func NormalizeNetwork(env string) string {
 	env = strings.ToLower(strings.TrimSpace(env))
 	switch {
 	case strings.Contains(env, "mainnet"):
@@ -21,25 +19,25 @@ func normalizeNetwork(env string) string {
 	}
 }
 
-// resolveDeployNetwork returns the network a deployment will actually run against.
+// ResolveDeployNetwork returns the network a deployment will actually run against.
 //
 // site-builder and walrus follow the active Sui environment, not walgo.yaml, so a
 // mismatch between the two silently deploys to the wrong network (and spends real
 // funds when that network is mainnet). Rather than guess, refuse and explain.
-func resolveDeployNetwork(configuredNetwork string) (string, error) {
-	activeEnv, err := sui.GetActiveEnv()
+func ResolveDeployNetwork(configuredNetwork string) (string, error) {
+	activeEnv, err := GetActiveEnv()
 	if err != nil {
 		return "", fmt.Errorf("could not determine the active Sui network: %w\n\n"+
 			"  Check your Sui CLI setup:  sui client envs", err)
 	}
 
-	active := normalizeNetwork(activeEnv)
+	active := NormalizeNetwork(activeEnv)
 	if active != "mainnet" && active != "testnet" {
 		return "", fmt.Errorf("unsupported active Sui network %q\n\n"+
 			"  Switch to a supported network:  sui client switch --env mainnet", activeEnv)
 	}
 
-	configured := normalizeNetwork(configuredNetwork)
+	configured := NormalizeNetwork(configuredNetwork)
 	if configured == "" || configured == active {
 		return active, nil
 	}

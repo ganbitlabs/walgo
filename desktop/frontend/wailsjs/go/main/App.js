@@ -14,6 +14,10 @@ export function BuildSite(arg1) {
   return window['go']['main']['App']['BuildSite'](arg1);
 }
 
+export function CancelDeploy(arg1) {
+  return window['go']['main']['App']['CancelDeploy'](arg1);
+}
+
 export function CheckDirectoryDepth(arg1) {
   return window['go']['main']['App']['CheckDirectoryDepth'](arg1);
 }
