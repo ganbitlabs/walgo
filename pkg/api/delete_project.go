@@ -61,6 +61,13 @@ func DeleteProject(params DeleteProjectParams) DeleteProjectResult {
 		return result
 	}
 
+	if params.DeleteSiteFolder && proj.SitePath != "" {
+		if err := projects.CheckRemovableSiteFolder(proj.SitePath); err != nil {
+			result.Error = fmt.Sprintf("%v. Nothing was deleted.", err)
+			return result
+		}
+	}
+
 	if proj.ObjectID != "" && !params.SkipOnChain {
 		result.EstimatedGasCost = projects.EstimateDestroyCost(proj.Network)
 		if err := checkDestroyWallet(proj); err != nil {

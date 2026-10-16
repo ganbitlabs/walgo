@@ -20,6 +20,12 @@ func deleteProjectByRef(proj *projects.Project) error {
 	}
 	defer pm.Close()
 
+	if proj.SitePath != "" {
+		if err := projects.CheckRemovableSiteFolder(proj.SitePath); err != nil {
+			return err
+		}
+	}
+
 	fmt.Println()
 	fmt.Printf("%s Delete project: %s?\n", icons.Warning, proj.Name)
 	fmt.Println()

@@ -144,6 +144,31 @@ func TestDeleteProject_WrongNetworkOrAddressRefusesDestroy(t *testing.T) {
 	}
 }
 
+func TestDeleteProject_UnsafeFolderRefusedBeforeDestroy(t *testing.T) {
+	chain := &fakeChain{env: "testnet", addr: "0xabc"}
+	installFakeChain(t, chain)
+	t.Setenv("HOME", t.TempDir())
+	home, _ := os.UserHomeDir()
+	pm, err := projects.NewManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &projects.Project{Name: "home-site", Network: "testnet", ObjectID: "0x1234567890", WalletAddr: "0xabc", SitePath: home}
+	if err := pm.CreateProject(p); err != nil {
+		t.Fatal(err)
+	}
+	pm.Close()
+
+	res := DeleteProject(DeleteProjectParams{ProjectID: p.ID, DeleteSiteFolder: true})
+
+	if res.Success || len(chain.destroyed) != 0 {
+		t.Fatalf("an unremovable folder must stop the delete before the destroy: %+v", res)
+	}
+	if !projectExists(t, p.ID) || !dirExists(home) {
+		t.Error("record and home must remain")
+	}
+}
+
 // Rows from earlier releases, drafts and CLI deploys outside home alike, are
 // the sandbox roots, so existing projects stay editable after upgrading.
 func TestProjectSitePaths_IncludesEveryExistingRow(t *testing.T) {

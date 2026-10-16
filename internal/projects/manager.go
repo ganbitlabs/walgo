@@ -621,7 +621,7 @@ func (m *Manager) DeleteProjectWithOptions(id int64, deleteSiteFolder bool) erro
 	}
 
 	if deleteSiteFolder && project.SitePath != "" {
-		if err := checkRemovableSiteFolder(project.SitePath); err != nil {
+		if err := CheckRemovableSiteFolder(project.SitePath); err != nil {
 			return err
 		}
 	}
@@ -671,10 +671,10 @@ func (m *Manager) DeleteProjectWithOptions(id int64, deleteSiteFolder bool) erro
 	return nil
 }
 
-// checkRemovableSiteFolder refuses to recursively delete a path that cannot be
+// CheckRemovableSiteFolder refuses to recursively delete a path that cannot be
 // a site folder: a relative path, a filesystem root, or the home directory or
 // one of its ancestors.
-func checkRemovableSiteFolder(sitePath string) error {
+func CheckRemovableSiteFolder(sitePath string) error {
 	clean := filepath.Clean(sitePath)
 	if !filepath.IsAbs(clean) || filepath.Dir(clean) == clean {
 		return fmt.Errorf("refusing to delete site folder %q: not a removable folder", sitePath)
