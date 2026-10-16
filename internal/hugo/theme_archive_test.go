@@ -65,6 +65,7 @@ func TestValidateGitHubURL(t *testing.T) {
 	bad := []string{
 		"http://github.com/a/b", "https://evil.com/github.com/a", "https://github.com.evil.com/a/b",
 		"https://evil.com/?x=github.com", "https://user@github.com/a/b", "git@github.com:a/b", "",
+		"https://github.com/foo/..", "https://github.com/foo/.", "https://github.com/foo", "https://github.com/", "https://github.com/foo/../..", "https://github.com/a/b/tree/main",
 	}
 	for _, u := range ok {
 		if err := validateGitHubURL(u); err != nil {

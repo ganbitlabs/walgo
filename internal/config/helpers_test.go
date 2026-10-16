@@ -30,7 +30,7 @@ alpha: 2
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
 	}
-	if !(strings.Index(got, "zeta") < strings.Index(got, "walrus") && strings.Index(got, "walrus") < strings.Index(got, "alpha")) {
+	if strings.Index(got, "zeta") >= strings.Index(got, "walrus") || strings.Index(got, "walrus") >= strings.Index(got, "alpha") {
 		t.Errorf("key order changed:\n%s", got)
 	}
 }

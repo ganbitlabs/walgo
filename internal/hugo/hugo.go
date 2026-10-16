@@ -775,6 +775,15 @@ func validateGitHubURL(raw string) error {
 	if u.Scheme != "https" || (host != "github.com" && host != "www.github.com") || u.User != nil {
 		return fmt.Errorf("only https://github.com URLs are supported")
 	}
+	segs := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(segs) != 2 {
+		return fmt.Errorf("GitHub URL must be of the form https://github.com/owner/repo")
+	}
+	for _, seg := range segs {
+		if seg == "" || seg == "." || seg == ".." || strings.ContainsAny(seg, `\`) {
+			return fmt.Errorf("invalid GitHub URL path segment %q", seg)
+		}
+	}
 	return nil
 }
 
