@@ -93,7 +93,7 @@ sudo mv walgo /usr/local/bin/  # Linux/macOS
 # or add to PATH on Windows
 
 # Verify
-walgo --version
+walgo version
 ```
 
 ## Package Manager Installation
@@ -108,18 +108,18 @@ brew tap ganbitlabs/tap
 brew install walgo
 
 # Verify
-walgo --version
+walgo version
 ```
 
 ### Go Install
 
-If you have Go 1.22+ installed:
+If you have Go 1.24+ installed:
 
 ```bash
 go install github.com/ganbitlabs/walgo@latest
 
 # Verify
-walgo --version
+walgo version
 ```
 
 ### Docker
@@ -149,7 +149,7 @@ snap install walgo
 
 Requirements:
 
-- Go 1.22 or later
+- Go 1.24 or later
 - Git
 
 ```bash
@@ -164,7 +164,7 @@ go build -o walgo main.go
 sudo mv walgo /usr/local/bin/
 
 # Verify
-walgo --version
+walgo version
 ```
 
 ## Installing Dependencies
@@ -177,12 +177,13 @@ Walgo requires additional tools for full functionality:
 walgo setup-deps --with-site-builder --with-walrus --network testnet
 ```
 
-This installs:
+This installs, through [suiup](https://github.com/MystenLabs/suiup) (installed first if missing):
 
+- `sui` - Sui CLI
 - `site-builder` - For on-chain deployments
 - `walrus` - Walrus CLI tool
-- Places binaries in `~/.config/walgo/bin`
-- Updates configuration automatically
+
+With `--legacy`, walgo downloads `site-builder` and `walrus` directly into `~/.config/walgo/bin`. It also fills an empty `walrus_binary` in `~/.config/walrus/sites-config.yaml` with that `walrus` path.
 
 ### Manual Dependency Installation
 
@@ -486,6 +487,7 @@ rm ~/.local/bin/walgo
 
 ```bash
 rm -rf ~/.config/walgo
+rm -rf ~/.walgo        # Projects, AI credentials, metrics
 rm -f ~/.walgo.yaml
 ```
 
