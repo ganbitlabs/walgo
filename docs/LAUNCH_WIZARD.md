@@ -343,7 +343,7 @@ Projects are stored in a SQLite database:
 - Site path on local system
 - Timestamps (created, updated, last deployed)
 - Deployment count
-- Status (active/archived)
+- Status (draft, active, or archived)
 
 **Deployments table:**
 
