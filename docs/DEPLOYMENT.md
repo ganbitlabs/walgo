@@ -24,13 +24,12 @@ graph TD
     Choice -->|Free & Fast| HTTP[HTTP Deployment]
     Choice -->|Permanent| OnChain[On-Chain Deployment]
 
-    HTTP --> HTTPPub[Upload to Publisher]
-    HTTPPub --> HTTPAgg[Register with Aggregator]
-    HTTPAgg --> TempURL[Temporary URL<br/>~30 days]
+    HTTP --> HTTPPub[Upload Quilt to Publisher]
+    HTTPPub --> TempURL[Quilt ID + patch IDs<br/>stored for --epochs]
 
     OnChain --> WalrusUpload[Upload to Walrus]
     WalrusUpload --> SuiObject[Create Sui Object]
-    SuiObject --> PermURL[Permanent URL<br/>+ Object ID]
+    SuiObject --> PermURL[Site Object ID<br/>stored for --epochs]
 
     style HTTP fill:#e1f5ff
     style OnChain fill:#ffe1e1
@@ -42,13 +41,13 @@ graph TD
 
 | Feature | HTTP Mode | On-Chain Mode |
 |---------|-----------|---------------|
-| **Cost** | Free | Requires SUI tokens |
+| **Cost** | Free | Requires SUI and WAL tokens |
 | **Setup** | None | Wallet configuration |
 | **Speed** | Fast (5-15s) | Moderate (30-60s) |
-| **Permanence** | ~30 days | Epochs (configurable) |
+| **Permanence** | `--epochs` (default 1) | `--epochs` (default 1, max 53) |
 | **Updates** | Re-deploy only | Update in place |
-| **Custom Domain** | No | Yes (via SuiNS) |
-| **Object ID** | No | Yes |
+| **Custom Domain** | No | Yes (via SuiNS, mainnet only) |
+| **Object ID** | No (Quilt ID only) | Yes |
 | **Best For** | Testing, previews | Production sites |
 
 ## HTTP Deployment
@@ -60,6 +59,7 @@ Perfect for testing and temporary sites.
 - Hugo installed
 - Site built with `walgo build`
 - Internet connection
+- A publisher URL and an aggregator URL (see the [public services](https://docs.wal.app/docs/usage/web-api#public-services))
 
 **No wallet or cryptocurrency required!**
 
@@ -69,35 +69,30 @@ Perfect for testing and temporary sites.
 # Build your site
 walgo build
 
-# Deploy via HTTP
-walgo deploy-http
+# Deploy via HTTP (testnet)
+walgo deploy-http \
+  --publisher https://publisher.walrus-testnet.walrus.space \
+  --aggregator https://aggregator.walrus-testnet.walrus.space \
+  --epochs 1
 ```
+
+`--publisher` and `--aggregator` are required. `walgo deploy-http` builds the site again, then uploads the publish directory to the publisher as one Quilt.
 
 ### Output Example
 
 ```
-Deploying to Walrus via HTTP...
+...
+✅ HTTP deploy complete!
+📦 Quilt ID: <quilt-id>
 
-📤 Uploading files to publisher...
-✓ index.html (4.2 KB)
-✓ style.css (12.8 KB)
-✓ script.js (8.4 KB)
-... 234 files total ...
+📂 Files stored on Walrus:
+  ✓ index.html
+  ✓ css/style.css
+...
 
-✓ Files uploaded successfully
-
-📡 Registering with aggregator...
-✓ Site published
-
-🌐 Your site is live!
-URL: https://5tphzvq5shsxzugrz7kqd5bhnbajqfamvtxrn8jbfm3jbibzz1.walrus.site
-
-📊 Deployment Stats:
-Files: 234
-Total size: 2.4 MB
-Upload time: 8.3s
-
-⚠️  Note: HTTP deployments expire after ~30 days
+📥 To fetch individual files (for testing):
+  📥 curl https://aggregator.walrus-testnet.walrus.space/v1/blobs/by-quilt-patch-id/<patch-id> > index.html
+...
 ```
 
 ### Custom Publisher/Aggregator
@@ -117,26 +112,23 @@ sequenceDiagram
     participant Walgo
     participant Publisher
     participant Aggregator
-    participant Browser
 
     User->>Walgo: walgo deploy-http
-    Walgo->>Publisher: Upload files
-    Publisher-->>Walgo: Blob IDs
-    Walgo->>Aggregator: Register site
-    Aggregator-->>Walgo: Site URL
-    Walgo-->>User: Display URL
+    Walgo->>Publisher: Upload files as one Quilt
+    Publisher-->>Walgo: Quilt ID + patch IDs
+    Walgo-->>User: Display Quilt ID and curl commands
 
-    User->>Browser: Share URL
-    Browser->>Aggregator: Request site
-    Aggregator-->>Browser: Serve content
+    User->>Aggregator: Fetch a file by patch ID
+    Aggregator-->>User: File content
 ```
 
 ### Limitations
 
-1. **Temporary** - Expires after ~30 days
-2. **No updates** - Must re-deploy (gets new URL)
+1. **Temporary** - Stored for `--epochs` epochs (default 1). An epoch is 1 day on testnet
+2. **No updates** - Must re-deploy (gets new Quilt ID)
 3. **No custom domains** - Can't use SuiNS
 4. **No ownership** - Can't prove site ownership
+5. **Files, not a website** - The aggregator serves each file by its patch ID, for testing with `curl`
 
 ### When to Use HTTP Mode
 
@@ -151,10 +143,10 @@ Permanent, updateable deployments on Sui blockchain.
 
 ### Prerequisites
 
-1. **Sui Wallet** - Configured with `walgo setup`
-2. **SUI Tokens** - For gas and storage fees
-3. **site-builder** - Installed via `walgo setup-deps`
-4. **Built Site** - Ready in `public/` directory
+1. **Sui Wallet** - Configured with the `sui` CLI
+2. **SUI and WAL Tokens** - SUI for gas, WAL for storage
+3. **site-builder** - Installed via `walgo setup-deps` and configured with `walgo setup`
+4. **Built Site** - Ready in the publish directory (`public/` by default)
 
 ### First-Time Setup
 
@@ -166,9 +158,10 @@ walgo setup-deps
 
 This installs:
 - Walrus site-builder
+- Walrus CLI
 - Sui CLI
 
-#### Step 2: Configure Wallet
+#### Step 2: Configure site-builder and Wallet
 
 ```bash
 # For testnet
@@ -178,24 +171,24 @@ walgo setup --network testnet
 walgo setup --network mainnet
 ```
 
-Follow the interactive prompts to:
+`walgo setup` writes `~/.config/walrus/sites-config.yaml` for that network. It does not create a wallet. If you don't have a Sui wallet yet, run `sui client` and follow its prompts to:
 1. Generate new wallet
 2. Save recovery phrase (IMPORTANT!)
 3. Note wallet address
 
-#### Step 3: Get Testnet SUI
+Deployments go to the active Sui environment. Switch it with `sui client switch --env testnet` or `sui client switch --env mainnet`.
 
-Visit the Sui Discord faucet:
-```
-https://discord.com/channels/916379725201563759/971488439931392130
-```
+#### Step 3: Get Testnet SUI and WAL
 
-Request format:
+Visit the Sui faucet:
 ```
-!faucet <your-wallet-address>
+https://faucet.sui.io/?address=<your-wallet-address>
 ```
 
-Wait for confirmation (~30 seconds).
+Then exchange some SUI for WAL:
+```
+walrus get-wal --context testnet
+```
 
 #### Step 4: Verify Balance
 
@@ -203,7 +196,7 @@ Wait for confirmation (~30 seconds).
 walgo doctor
 ```
 
-Check the "Wallet" section shows sufficient balance.
+Check that the Sui configuration section shows SUI and WAL balances.
 
 ### Basic On-Chain Deployment
 
@@ -211,89 +204,74 @@ Check the "Wallet" section shows sufficient balance.
 # Build your site
 walgo build
 
-# Deploy with default settings (5 epochs)
+# Deploy with default settings (1 epoch)
 walgo deploy
 ```
+
+`walgo deploy` needs the publish directory to exist, builds the site again, and then uploads it.
 
 ### Advanced Deployment Options
 
 #### Custom Epoch Count
 
+An epoch is 1 day on testnet and 2 weeks on mainnet. The maximum is 53 epochs.
+
 ```bash
-# Deploy for 1 epoch (~30 days)
+# Deploy for 1 epoch (1 day on testnet, 2 weeks on mainnet)
 walgo deploy --epochs 1
 
-# Deploy for 10 epochs (~10 months)
+# Deploy for 10 epochs (10 days on testnet, 20 weeks on mainnet)
 walgo deploy --epochs 10
 
-# Deploy for 50 epochs (~4 years)
-walgo deploy --epochs 50
+# Deploy for 53 epochs (the maximum, about 2 years on mainnet)
+walgo deploy --epochs 53
 ```
 
 **Cost increases with epochs!**
 
 #### Custom Gas Budget
 
-```bash
-# Set maximum gas to spend
-walgo deploy --gas-budget 100000000
+`walgo deploy` has no gas flag. site-builder reads the gas budget from `~/.config/walrus/sites-config.yaml`. `walgo setup` downloads that file from the `MystenLabs/walrus-sites` GitHub repository, and writes its own copy with `gas_budget: 500000000` only when the download fails. Edit `gas_budget` to change it:
 
-# Let Walgo estimate (default)
-walgo deploy
+```yaml
+# ~/.config/walrus/sites-config.yaml
+contexts:
+  testnet:
+    general:
+      gas_budget: 500000000
 ```
 
 #### Deploy from Custom Directory
 
-```bash
-# Deploy from dist/ instead of public/
-walgo deploy --directory dist
+Set the publish directory in `walgo.yaml`. `walgo build` writes the site there, and `walgo deploy` uploads it:
+
+```yaml
+# walgo.yaml - deploy from dist/ instead of public/
+hugo:
+  publishDir: dist
 ```
 
 ### Deployment Output
 
 ```
-Deploying to Walrus (on-chain)...
-
-📤 Uploading assets to Walrus...
-✓ Processing 234 files...
-✓ Uploading to storage nodes...
-✓ Blob IDs received
-
-📝 Creating site object on Sui...
-✓ Transaction submitted
-✓ Transaction confirmed
-
-🌐 Your site is live!
-Object ID: 0x7b5a8d3f2c1e9b4a6f5d8c2e1a3b7f9d4c6e8a1b5d7f3c9e2a8b4f6d1c5e7a3b
-URL: https://5tphzvq5shsxzugrz7kqd5bhnbajqfamvtxrn8jbfm3jbibzz1.walrus.site
-
-📊 Deployment Stats:
-Files: 234
-Total size: 2.4 MB
-Epochs: 5
-Upload time: 34.2s
-
-💰 Cost Breakdown:
-Storage cost: 0.12 SUI (5 epochs)
-Gas fee: 0.03 SUI
-Total: 0.15 SUI
-
-📋 Transaction Details:
-Transaction ID: 0xdef456...
-Block: 12345678
-Timestamp: 2025-01-15 14:30:00 UTC
-
-⚠️  Important: Save your Object ID!
-You'll need it to update or manage this site.
+🚀 Deploying to Walrus Sites...
+  [1/5] Verifying site...
+  [2/5] Checking environment...
+...
+✓ Metadata prepared in ws-resources.json
+...
+  ✓ Deployment completed in 34s
+...
+✓ Saved object_id to ws-resources.json
+✓ Updated walgo.yaml with Object ID
+...
+📄 Site Object ID: 0x7b5a8d3f2c1e9b4a6f5d8c2e1a3b7f9d4c6e8a1b5d7f3c9e2a8b4f6d1c5e7a3b
+...
 ```
 
 ### Save Deployment Info
 
-```bash
-# Save object ID to config
-echo "walrus:
-  projectID: \"0x7b5a8d3f2c1e9b4a6f5d8c2e1a3b7f9d4c6e8a1b5d7f3c9e2a8b4f6d1c5e7a3b\"" >> walgo.yaml
-```
+`walgo deploy` saves the object ID for you, in `walrus.projectID` in `walgo.yaml` and in `ws-resources.json` in the publish directory. The next `walgo deploy` or `walgo update` finds it there and updates the same site. To deploy a new site instead, run `walgo deploy --force-new`.
 
 ### On-Chain Deployment Workflow
 
@@ -346,35 +324,21 @@ walgo build
 walgo update 0x7b5a...
 ```
 
+Without an argument, `walgo update` takes the object ID from `ws-resources.json`, then from `walrus.projectID` in `walgo.yaml`. It stores the new files for `--epochs` epochs (default 1).
+
 ### Update Output
 
 ```
-Updating site 0x7b5a8d3f2c1e9b4a6f5d8c2e1a3b7f9d4c6e8a1b5d7f3c9e2a8b4f6d1c5e7a3b...
-
-📊 Analyzing changes...
-Files changed: 12
-Files added: 3
-Files removed: 1
-Files unchanged: 218
-
-📤 Uploading changes to Walrus...
-✓ Uploading 15 files...
-✓ Blob IDs received
-
-📝 Updating site object on Sui...
-✓ Transaction submitted
-✓ Transaction confirmed
-
-🌐 Site updated successfully!
-URL: https://5tphzvq5shsxzugrz7kqd5bhnbajqfamvtxrn8jbfm3jbibzz1.walrus.site
-(URL unchanged)
-
-💰 Cost:
-Storage cost: 0.02 SUI (changed files only)
-Gas fee: 0.01 SUI
-Total: 0.03 SUI
-
-Transaction ID: 0xabc789...
+🚀 Executing update command...
+ℹ️  Using object ID from command argument: 0x7b5a8d3f2c1e9b4a6f5d8c2e1a3b7f9d4c6e8a1b5d7f3c9e2a8b4f6d1c5e7a3b
+...
+ℹ️  Analyzing changes...
+...
+💾 Storing for 1 epoch(s)
+...
+📦 Updating metadata...
+  ✓ ObjectID saved to ws-resources.json
+  ✓ Updated walgo.yaml
 ```
 
 ### Update Workflow
@@ -399,6 +363,10 @@ graph LR
 # Check current status
 walgo status 0x7b5a...
 
+# Rebuild, then preview the update without uploading
+walgo build
+walgo update 0x7b5a... --dry-run
+
 # See what changed (Hugo's diff)
 git diff
 ```
@@ -406,9 +374,9 @@ git diff
 ### Update Best Practices
 
 1. **Test locally first** - Use `walgo serve`
-2. **Build before update** - Always `walgo build` first
+2. **Preview the update** - Run `walgo build`, then `walgo update --dry-run` to list the changed files. The dry run does not build the site.
 3. **Check status** - Verify site is active
-4. **Save object ID** - Store in `walgo.yaml`
+4. **Keep the object ID** - `walgo deploy` and `walgo update` save it in `walgo.yaml`
 5. **Monitor costs** - Large updates cost more
 
 ## Custom Domains
@@ -418,52 +386,56 @@ Use SuiNS domains for human-readable URLs.
 ### Prerequisites
 
 1. **Own a SuiNS domain** - Register at [suins.io](https://suins.io)
-2. **On-chain deployment** - Have a site object ID
+2. **On-chain deployment on mainnet** - SuiNS is mainnet only
 3. **Sui wallet** - Configured and funded
 
 For detailed instructions, see the [SuiNS tutorial](https://docs.wal.app/docs/walrus-sites/tutorial-suins).
 
 ### Linking Domain to Site
 
-```bash
-# Link domain
-walgo domain link myblog.sui 0x7b5a...
+Walgo does not link domains itself. You link the domain on [suins.io](https://suins.io), and `walgo domain` prints the steps with your site's object ID from `walgo.yaml`:
 
-# Verify link
-walgo domain info myblog.sui
+```bash
+# Print the linking steps
+walgo domain myblog
 ```
 
 ### Output
 
 ```
-Linking domain myblog.sui to site 0x7b5a...
+🌐 SuiNS Domain Configuration (Mainnet)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📄 Object ID: 0x7b5a8d3f2c1e9b4a6f5d8c2e1a3b7f9d4c6e8a1b5d7f3c9e2a8b4f6d1c5e7a3b
+ℹ️  Domain: myblog
 
-✓ Domain ownership verified
-✓ Link transaction submitted
-✓ Link confirmed
+📝 Setup Steps:
 
-🌐 Domain linked successfully!
-Your site is now accessible at:
-- https://myblog.sui.walrus.site
-- https://5tphzvq5shsxzugrz7kqd5bhnbajqfamvtxrn8jbfm3jbibzz1.walrus.site
+  1  Visit SuiNS:
+      • https://suins.io
 
-Both URLs point to the same site.
+  2  Select domain: myblog
+
+  3  Click 'Link To Walrus Site'
+
+  4  Enter Object ID: 0x7b5a8d3f2c1e9b4a6f5d8c2e1a3b7f9d4c6e8a1b5d7f3c9e2a8b4f6d1c5e7a3b
+
+  5  Approve transaction in your wallet
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ℹ️  For detailed guide: https://docs.wal.app/docs/walrus-sites/tutorial-suins
+✅ Your site will be available at: https://myblog.wal.app
 ```
+
+If the site is on testnet, `walgo domain` says that SuiNS needs a mainnet deployment and suggests `walgo launch`.
 
 ### Managing Domains
 
-```bash
-# List your domains
-walgo domain list
-
-# Unlink domain
-walgo domain unlink myblog.sui
-
-# Check domain info
-walgo domain info myblog.sui
-```
+Manage, renew, and unlink domains on [suins.io](https://suins.io) under "Names You Own".
 
 ### Update Configuration
+
+You can record the domain in `walgo.yaml`. Walgo does not read this value.
 
 ```yaml
 # walgo.yaml
@@ -479,8 +451,8 @@ walrus:
 # Recommended flow
 walgo build                    # Build locally
 walgo serve                    # Test locally
-walgo build --no-optimize      # Build without optimization (debug)
-walgo deploy-http              # Test on Walrus HTTP
+# To skip the optimizer while debugging, set optimizer.enabled: false in walgo.yaml
+walgo deploy-http --publisher <url> --aggregator <url>   # Test on Walrus HTTP
 # ... verify everything works ...
 walgo build                    # Build with optimization
 walgo deploy --epochs 5        # Deploy on-chain
@@ -504,25 +476,34 @@ git commit -m "Add deployment info"
 ```yaml
 # walgo.yaml - Track deployment info
 walrus:
-  projectID: "0x7b5a..."    # Save object ID
-  epochs: 5                 # Document epoch choice
-  network: "testnet"        # Clearly mark network
+  projectID: "0x7b5a..."    # Object ID, saved by walgo deploy
+  network: "testnet"        # Must match the active Sui environment
   suinsDomain: "myblog.sui" # Track custom domain
 ```
 
+Epochs are not a `walgo.yaml` setting. Pass `--epochs` to `walgo deploy` or `walgo update` each time.
+
 ### 4. Multi-Environment Strategy
 
-```bash
-# Separate configs for each environment
-walgo.dev.yaml     # Development (HTTP only)
-walgo.staging.yaml # Staging (testnet, 1 epoch)
-walgo.prod.yaml    # Production (mainnet, 50 epochs)
+Walgo reads `walgo.yaml` from the current directory, and `walgo deploy` deploys to the active Sui environment. If `walrus.network` is set, it must match that environment, or the deploy stops.
 
-# Deploy to each
-walgo build --config walgo.dev.yaml && walgo deploy-http
-walgo build --config walgo.staging.yaml && walgo deploy --epochs 1
-walgo build --config walgo.prod.yaml && walgo deploy --epochs 50 --network mainnet
+```bash
+# Development (HTTP only)
+walgo deploy-http \
+  --publisher https://publisher.walrus-testnet.walrus.space \
+  --aggregator https://aggregator.walrus-testnet.walrus.space
+
+# Staging (testnet, 1 epoch)
+sui client switch --env testnet
+walgo deploy --epochs 1
+
+# Production (mainnet, 53 epochs)
+sui client switch --env mainnet
+# Set walrus.network: mainnet in walgo.yaml first
+walgo deploy --epochs 53 --force-new
 ```
+
+`--force-new` makes the first mainnet deploy create a new site instead of updating the testnet one. `walgo deploy` then replaces the object ID in `walgo.yaml` with the mainnet one, so record the testnet ID first (see Version Control above).
 
 ### 5. Pre-Deployment Checklist
 
@@ -551,8 +532,8 @@ walgo build --config walgo.prod.yaml && walgo deploy --epochs 50 --network mainn
 
 On-chain deployments have two costs:
 
-1. **Storage Cost** - Based on data size and epochs
-2. **Gas Fee** - Transaction fee (fixed per deployment)
+1. **Storage Cost** - Paid in WAL, based on data size and epochs
+2. **Gas Fee** - Paid in SUI, a transaction fee per deployment
 
 ```
 Total Cost = (File Size × Epochs × Storage Rate) + Gas Fee
@@ -563,15 +544,11 @@ Total Cost = (File Size × Epochs × Storage Rate) + Gas Fee
 #### 1. Optimize Assets
 
 ```bash
-# Enable aggressive optimization
+# Hugo minifies, then the walgo optimizer runs (optimizer.enabled: true by default)
 walgo build
 ```
 
-Typical savings:
-- HTML: 15-25%
-- CSS: 20-40%
-- JavaScript: 25-50%
-- **Total: 20-35% smaller**
+`walgo build` prints the bytes the optimizer saved for each file type.
 
 #### 2. Compress Images
 
@@ -587,24 +564,28 @@ Image optimization can save 50-80% on image files.
 
 #### 3. Remove Unused Files
 
-```bash
-# Remove source maps
-find public -name "*.map" -delete
+`walgo deploy` rebuilds the publish directory before it uploads, so files you delete there come back. List them in `compress.ignorePatterns` in `walgo.yaml` instead, and site-builder skips them:
 
-# Remove unused themes
-rm -rf public/themes/unused-theme/
+```yaml
+# walgo.yaml
+compress:
+  ignorePatterns:
+    - "/downloads/*"
 ```
+
+Source maps in `/`, `/js/`, `/css/`, and `/assets/` are skipped by default.
 
 #### 4. Choose Appropriate Epochs
 
+On mainnet, one epoch is 2 weeks:
+
 | Duration | Epochs | Use Case |
 |----------|--------|----------|
-| 1 month | 1 | Testing, short-term |
-| 3 months | 3 | Seasonal content |
-| 6 months | 6 | Medium-term projects |
-| 1 year | 12 | Annual content |
-| 2 years | 24 | Long-term blogs |
-| 5+ years | 50+ | Permanent archives |
+| 2 weeks | 1 | Testing, short-term |
+| ~3 months | 6 | Seasonal content |
+| ~6 months | 13 | Medium-term projects |
+| ~1 year | 26 | Annual content |
+| ~2 years | 53 (maximum) | Long-term blogs |
 
 **Don't over-provision!** You can always update/extend.
 
@@ -631,7 +612,9 @@ walgo update 0x7b5a...  # Single update
 ```bash
 # Test with HTTP first (free)
 walgo build
-walgo deploy-http
+walgo deploy-http \
+  --publisher https://publisher.walrus-testnet.walrus.space \
+  --aggregator https://aggregator.walrus-testnet.walrus.space
 # ... verify changes ...
 # Then update on-chain
 walgo update 0x7b5a...
@@ -639,14 +622,7 @@ walgo update 0x7b5a...
 
 ### Cost Estimates
 
-Example site (2.4 MB, optimized):
-
-| Epochs | Duration | Storage Cost | Gas Fee | Total |
-|--------|----------|--------------|---------|-------|
-| 1 | ~30 days | 0.024 SUI | 0.03 SUI | 0.054 SUI |
-| 5 | ~5 months | 0.120 SUI | 0.03 SUI | 0.150 SUI |
-| 10 | ~10 months | 0.240 SUI | 0.03 SUI | 0.270 SUI |
-| 50 | ~4 years | 1.200 SUI | 0.03 SUI | 1.230 SUI |
+`walgo deploy` and `walgo update` print an estimate for your site before they upload, and `walgo launch` shows one before you confirm. After a deploy, walgo looks up the wallet's latest transaction through the Sui GraphQL API and prints the WAL and SUI it spent.
 
 **Note:** Rates are approximate and may change.
 
@@ -659,7 +635,7 @@ Example site (2.4 MB, optimized):
 walgo doctor
 
 # Get testnet SUI
-# Visit Discord faucet (see setup section)
+# Visit https://faucet.sui.io (see setup section)
 
 # Or reduce epochs
 walgo deploy --epochs 1
@@ -667,32 +643,37 @@ walgo deploy --epochs 1
 
 ### Deployment Timeout
 
-```bash
-# Increase timeout (if supported)
-walgo deploy --timeout 300
+`walgo deploy` has no timeout flag. It stops a deployment after 30 minutes.
 
-# Or split into smaller deployments
-# (deploy subdirectories separately)
+```bash
+# Check your tools and balances
+walgo doctor
+
+# Retry with detailed output
+walgo deploy --verbose
 ```
 
 ### "site-builder not found"
 
 ```bash
 # Install dependencies
-walgo setup-deps --site-builder
+walgo setup-deps
 ```
 
 ### Update Fails with "Object not found"
+
+`walgo status` and `walgo update` use the active Sui environment, so an object ID from the other network is not found.
 
 ```bash
 # Verify object ID
 walgo status 0x7b5a...
 
 # Check network
-walgo status 0x7b5a... --network testnet
+sui client active-env
 
 # Ensure you're on correct network
-walgo update 0x7b5a... --network testnet
+sui client switch --env testnet
+walgo update 0x7b5a...
 ```
 
 ### Site Not Loading
@@ -714,4 +695,4 @@ walgo update 0x7b5a... --network testnet
 - **Walrus Documentation:** [https://docs.walrus.site](https://docs.walrus.site)
 - **Sui Documentation:** [https://docs.sui.io](https://docs.sui.io)
 - **SuiNS:** [https://suins.io](https://suins.io)
-- **Discord Faucet:** [Sui Discord](https://discord.com/channels/916379725201563759/971488439931392130)
+- **Sui Faucet:** [faucet.sui.io](https://faucet.sui.io)

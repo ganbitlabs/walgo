@@ -136,7 +136,7 @@ Windows SmartScreen blocks walgo.exe.
 
 ```bash
 $ walgo build
-Error: Hugo not found. Please install Hugo first.
+Error: build failed: hugo is not installed or not found in PATH
 ```
 
 **Solutions:**
@@ -175,7 +175,7 @@ Error: Hugo not found. Please install Hugo first.
 
 ```bash
 $ walgo build
-Error: Unable to locate theme directory: themes/PaperMod
+ERROR failed to load modules: module "PaperMod" not found in "/path/to/site/themes/PaperMod"; either add it as a Hugo Module or store it in "/path/to/site/themes".: module does not exist
 ```
 
 **Solutions:**
@@ -190,6 +190,9 @@ Error: Unable to locate theme directory: themes/PaperMod
 
    ```bash
    git submodule add --force https://github.com/adityatelange/hugo-PaperMod.git themes/PaperMod
+
+   # Or download it with walgo (replaces the themes in themes/)
+   walgo theme install https://github.com/adityatelange/hugo-PaperMod
    ```
 
 3. **Verify theme in config:**
@@ -206,7 +209,14 @@ Error: Unable to locate theme directory: themes/PaperMod
 
 ```bash
 $ walgo build
-Error: Unable to locate config file
+Error: build failed: walgo.yaml not found in /path/to/site
+```
+
+Or, when the site has no Hugo config:
+
+```bash
+$ walgo build
+Error: build failed: /path/to/site is a static site (no Hugo config such as hugo.toml, or site.kind: static in walgo.yaml) and its publish directory /path/to/site/public does not exist
 ```
 
 **Solutions:**
@@ -226,9 +236,11 @@ Error: Unable to locate config file
    title = "My Site"' > hugo.toml
    ```
 
-3. **Specify config explicitly:**
+3. **Run from the site root:**
+   `walgo build` reads `walgo.yaml` and the Hugo config from the current directory. The global `--config` flag does not change that.
    ```bash
-   walgo build --config hugo.toml
+   cd /path/to/site
+   walgo build
    ```
 
 ---
@@ -253,9 +265,10 @@ Build succeeds but `public/` is empty or has minimal files.
    # Edit content/posts/hello.md and set draft: false
    ```
 
-3. **Build with drafts (for testing):**
+3. **Preview with drafts (for testing):**
+   `walgo build` has no drafts flag. Preview drafts with `walgo serve`:
    ```bash
-   walgo build --draft
+   walgo serve --drafts
    ```
 
 ---
@@ -266,10 +279,7 @@ Build succeeds but `public/` is empty or has minimal files.
 
 **Symptoms:**
 
-```bash
-$ walgo deploy
-Error: Insufficient funds. Required: 0.15 SUI, Available: 0.05 SUI
-```
+`walgo deploy` stops with `Deployment failed:`, followed by the site-builder command and its output. The `Stderr:` part holds site-builder's error about the SUI or WAL balance.
 
 **Solutions:**
 
@@ -279,11 +289,10 @@ Error: Insufficient funds. Required: 0.15 SUI, Available: 0.05 SUI
    walgo doctor
    ```
 
-2. **Get testnet SUI:**
+2. **Get testnet SUI and WAL:**
 
-   - Visit [Sui Discord](https://discord.com/channels/916379725201563759/971488439931392130)
-   - Request: `!faucet <your-address>`
-   - Wait ~30 seconds
+   - Visit `https://faucet.sui.io/?address=<your-address>` (`walgo doctor` prints this link when your balance is empty)
+   - Exchange SUI for WAL: `walrus get-wal --context testnet`
 
 3. **Reduce epochs:**
 
@@ -303,7 +312,11 @@ Error: Insufficient funds. Required: 0.15 SUI, Available: 0.05 SUI
 
 ```bash
 $ walgo deploy
-Error: site-builder not found. Please install it first.
+Error: required tools not found: site-builder
+
+  On-chain deployments need sui, walrus and site-builder.
+
+  To fix:  walgo setup-deps
 ```
 
 **Solutions:**
@@ -311,7 +324,7 @@ Error: site-builder not found. Please install it first.
 1. **Install site-builder:**
 
    ```bash
-   walgo setup-deps --site-builder
+   walgo setup-deps
    ```
 
 2. **Verify installation:**
@@ -323,7 +336,7 @@ Error: site-builder not found. Please install it first.
 
 3. **Manual installation:**
    ```bash
-   curl -fsSL https://docs.walrus.site/install.sh | bash
+   suiup install site-builder@mainnet
    ```
 
 ---
@@ -333,8 +346,8 @@ Error: site-builder not found. Please install it first.
 **Symptoms:**
 
 ```bash
-$ walgo deploy-http
-Error: Failed to connect to publisher
+$ walgo deploy-http --publisher https://publisher.walrus-testnet.walrus.space --aggregator https://aggregator.walrus-testnet.walrus.space
+❌ Error: HTTP deploy failed: ...
 ```
 
 **Solutions:**
@@ -352,15 +365,20 @@ Error: Failed to connect to publisher
    walgo doctor
    ```
 
-3. **Try again with verbose output:**
+3. **Upload one file at a time:**
+
+   `--mode blobs` sends one request per file and retries each file on transient errors, instead of sending the whole site in one Quilt request.
 
    ```bash
-   walgo deploy-http --verbose
+   walgo deploy-http --mode blobs \
+     --publisher https://publisher.walrus-testnet.walrus.space \
+     --aggregator https://aggregator.walrus-testnet.walrus.space
    ```
 
-4. **Use custom endpoints:**
+4. **Use other endpoints:**
+   Pick another publisher and aggregator from the [public services list](https://docs.wal.app/docs/usage/web-api#public-services):
    ```bash
-   walgo deploy-http --publisher https://publisher.walrus.site
+   walgo deploy-http --publisher <publisher-url> --aggregator <aggregator-url>
    ```
 
 ---
@@ -419,18 +437,21 @@ Error: Site object not found
    ```
 
 2. **Check correct network:**
+   `walgo update` and `walgo status` use the active Sui environment.
 
    ```bash
    # If deployed on testnet
-   walgo update 0x7b5a... --network testnet
+   sui client switch --env testnet
+   walgo update 0x7b5a...
 
    # If deployed on mainnet
-   walgo update 0x7b5a... --network mainnet
+   sui client switch --env mainnet
+   walgo update 0x7b5a...
    ```
 
 3. **Verify object exists:**
    ```bash
-   walgo status 0x7b5a... --network testnet
+   walgo status 0x7b5a...
    ```
 
 ---
@@ -453,10 +474,13 @@ Site works before optimization but JavaScript errors after.
        obfuscate: false # Set to false
    ```
 
-2. **Build without optimization:**
+2. **Turn off JavaScript minification:**
 
-   ```bash
-   walgo build --no-optimize
+   ```yaml
+   # walgo.yaml
+   optimizer:
+     js:
+       minifyJS: false
    ```
 
 3. **Skip specific files:**
@@ -465,18 +489,20 @@ Site works before optimization but JavaScript errors after.
    optimizer:
      skipPatterns:
        - "problematic-script.js"
-       - "vendor/*.js"
+       - "*.bundle.js"
    ```
 
 4. **Test optimization separately:**
 
    ```bash
-   # Build without optimization
-   walgo build --no-optimize
+   # Build without optimization (set optimizer.enabled: false in walgo.yaml)
+   walgo build
 
    # Test optimization manually
    walgo optimize public/ --verbose
    ```
+
+   With a directory argument, `walgo optimize` uses the default optimizer settings, because the directory has no `walgo.yaml`.
 
 ---
 
@@ -487,33 +513,40 @@ Site looks different after optimization, styles missing.
 
 **Solutions:**
 
-1. **Disable unused CSS removal:**
+1. **Turn off CSS minification:**
 
    ```yaml
    # walgo.yaml
    optimizer:
      css:
-       removeUnused: false # Very important!
+       minifyCSS: false
    ```
 
-2. **Check for dynamic classes:**
+   `optimizer.css.removeUnused` is not implemented, so it does not remove any CSS.
 
-   - If site uses JavaScript to add classes
-   - If using frameworks (React, Vue)
-   - Don't use `removeUnused: true`
+2. **Check Hugo's CSS minifier:**
+
+   `walgo build` runs `hugo --minify`. Hugo's CSS minifier can break `var()` spacing in multi-value properties, so the `hugo.toml` files walgo creates turn it off:
+
+   ```toml
+   # hugo.toml
+   [minify]
+     disableCSS = true
+   ```
 
 3. **Compare before/after:**
 
    ```bash
-   # Build without optimization
-   walgo build --no-optimize
+   # Build without optimization (set optimizer.enabled: false in walgo.yaml)
+   walgo build
    cp -r public public-before
 
-   # Build with optimization
-   walgo build
+   # Optimize a copy with the default settings
+   cp -r public public-after
+   walgo optimize public-after
 
    # Diff the CSS files
-   diff public-before/style.css public/style.css
+   diff public-before/style.css public-after/style.css
    ```
 
 ---
@@ -549,14 +582,16 @@ Site broken after optimization, but unsure which setting caused it.
 
    ```bash
    # Test HTML optimization
-   walgo optimize --css=false --js=false
+   walgo optimize public --css=false --js=false
 
    # Test CSS optimization
-   walgo optimize --html=false --js=false
+   walgo optimize public --html=false --js=false
 
    # Test JS optimization
-   walgo optimize --html=false --css=false
+   walgo optimize public --html=false --css=false
    ```
+
+   Pass the directory. Without it, `walgo optimize` uses `walgo.yaml`, and does nothing while `optimizer.enabled` is `false`.
 
 ---
 
@@ -582,8 +617,8 @@ Error: Failed to connect to Walrus publisher/aggregator
 2. **Test Walrus endpoints:**
 
    ```bash
-   curl -I https://publisher.walrus.site
-   curl -I https://aggregator.walrus.site
+   curl -I https://publisher.walrus-testnet.walrus.space
+   curl -I https://aggregator.walrus-testnet.walrus.space
    ```
 
 3. **Run diagnostics:**
@@ -701,7 +736,7 @@ Error: Failed to connect to Sui RPC node
 
 ```bash
 $ walgo build
-Error: Failed to parse walgo.yaml: yaml: line 5: mapping values are not allowed
+Error: build failed: failed to parse config file /path/to/site/walgo.yaml: yaml: line 5: mapping values are not allowed in this context
 ```
 
 **Solutions:**
@@ -750,20 +785,18 @@ Changes to `walgo.yaml` don't seem to take effect.
 
 1. **Check file location:**
 
-   ```bash
-   # Walgo searches in this order:
-   # 1. --config flag path
-   # 2. ./walgo.yaml
-   # 3. ~/.walgo.yaml
+   `walgo build`, `walgo deploy`, and the other site commands read `walgo.yaml` from the current directory. The global `--config` flag and `~/.walgo.yaml` do not change the settings they use.
 
-   # Verify which is being used
-   walgo doctor -v
+   ```bash
+   # Reports whether walgo.yaml exists in the current directory
+   walgo doctor
    ```
 
-2. **Specify config explicitly:**
+2. **Run from the site root:**
 
    ```bash
-   walgo build --config ./walgo.yaml
+   cd /path/to/site
+   walgo build
    ```
 
 3. **Check for typos:**
@@ -787,29 +820,24 @@ Environment variables don't override config file.
 
 **Solutions:**
 
-1. **Check variable format:**
+1. **Use walgo.yaml and flags instead:**
+
+   Walgo does not read settings from environment variables. Put settings in `walgo.yaml`, and pass per-run values as flags:
 
    ```bash
-   # WRONG
-   export WALGO_EPOCHS=5
-
-   # CORRECT
-   export WALGO_WALRUS_EPOCHS=5
-   # Format: WALGO_<SECTION>_<KEY>
+   walgo deploy --epochs 5
    ```
 
-2. **Verify variable is set:**
+2. **Know the variables walgo does read:**
+
+   - `WALGO_ASCII=1` (or `true`) prints ASCII markers instead of emoji. It wins over `WALGO_EMOJI`
+   - `WALGO_EMOJI=1` (or `true`) prints emoji, even in CI or a terminal without emoji support
+   - `WALGO_THEME_DOWNLOAD_TIMEOUT` sets the theme download timeout as a Go duration, such as `5m` (default `2m`)
+
+3. **Verify variable is set:**
 
    ```bash
-   echo $WALGO_WALRUS_EPOCHS
    env | grep WALGO
-   ```
-
-3. **Check boolean values:**
-   ```bash
-   # Accepted: true, false, 1, 0, yes, no
-   export WALGO_OPTIMIZER_ENABLED=true  # Correct
-   export WALGO_OPTIMIZER_ENABLED=True  # Also works
    ```
 
 ---
@@ -820,26 +848,31 @@ Environment variables don't override config file.
 
 **Symptoms:**
 
-```bash
-$ walgo deploy
-Error: Wallet not configured. Run 'walgo setup' first.
-```
+`walgo deploy` stops with `could not determine the active Sui network`, or with `Deployment failed:` and a wallet error from site-builder in the `Stderr:` part.
 
 **Solutions:**
 
-1. **Run setup:**
+1. **Set up the Sui wallet:**
+
+   ```bash
+   sui client
+   ```
+
+2. **Run setup:**
+
+   `walgo setup` writes `~/.config/walrus/sites-config.yaml`, which tells site-builder where the wallet is.
 
    ```bash
    walgo setup --network testnet
    ```
 
-2. **Verify wallet:**
+3. **Verify wallet:**
 
    ```bash
    walgo doctor
    ```
 
-3. **Check Sui CLI:**
+4. **Check Sui CLI:**
    ```bash
    sui client active-address
    ```
@@ -865,8 +898,8 @@ Recovery phrase rejected during wallet import.
 
 3. **Create new wallet instead:**
    ```bash
-   walgo setup --network testnet
-   # This creates a new wallet with new phrase
+   sui client new-address ed25519
+   # This creates a new address and prints its recovery phrase
    ```
 
 ---
@@ -889,8 +922,13 @@ Error: Transaction failed with error: ...
 
 2. **Increase gas budget:**
 
-   ```bash
-   walgo deploy --gas-budget 200000000
+   `walgo deploy` has no gas flag. Raise `gas_budget` for your network in `~/.config/walrus/sites-config.yaml`:
+
+   ```yaml
+   contexts:
+     testnet:
+       general:
+         gas_budget: 1000000000
    ```
 
 3. **Wait and retry:**
@@ -912,8 +950,8 @@ Error: Transaction failed with error: ...
 **Symptoms:**
 
 ```bash
-$ walgo import --vault ~/Documents/Vault
-Error: Vault directory not found
+$ walgo import ~/Documents/Vault
+Error: vault path does not exist: /Users/yourname/Documents/Vault
 ```
 
 **Solutions:**
@@ -924,7 +962,7 @@ Error: Vault directory not found
    ls -la ~/Documents/Vault
 
    # Use absolute path
-   walgo import --vault /Users/yourname/Documents/Vault
+   walgo import /Users/yourname/Documents/Vault
    ```
 
 2. **Check permissions:**
@@ -944,15 +982,11 @@ Imported files still contain `[[wikilinks]]` instead of markdown links.
 
 1. **Enable conversion:**
 
-   ```yaml
-   # walgo.yaml
-   obsidian:
-     convertWikilinks: true
-   ```
+   Conversion is on by default. Check that you did not pass `--convert-wikilinks=false`. `walgo import` creates a new site with a fresh `walgo.yaml`, so `obsidian` settings in another site's `walgo.yaml` do not apply.
 
 2. **Or use flag:**
    ```bash
-   walgo import --vault ~/Vault --convert-wikilinks
+   walgo import ~/Vault --convert-wikilinks
    ```
 
 ---
@@ -966,16 +1000,16 @@ Images/PDFs missing after import.
 
 1. **Check attachment directory:**
 
-   ```yaml
-   # walgo.yaml
-   obsidian:
-     attachmentDir: "static/images" # Must exist in Hugo
-   ```
-
-2. **Create directory:**
+   Attachments go to `static/images/` in the new site. `--attachment-dir` names a different directory under `static/`, and walgo creates it:
 
    ```bash
-   mkdir -p static/images
+   walgo import ~/Vault --attachment-dir files
+   ```
+
+2. **Check the copied files:**
+
+   ```bash
+   ls <site-name>/static/images
    ```
 
 3. **Check file paths in Obsidian:**
@@ -996,19 +1030,17 @@ walgo doctor
 walgo doctor -v
 
 # Auto-fix issues
-walgo doctor --fix
+walgo doctor --fix-all
 ```
 
 ### Checking Logs
 
 ```bash
 # Enable verbose output
-walgo <command> --verbose
-
-# Or set environment variable
-export WALGO_VERBOSE=true
-walgo <command>
+walgo deploy --verbose
 ```
+
+`deploy`, `update`, `doctor`, `optimize`, `compress`, `ai pipeline`, and `ai resume` print more with `--verbose` (`-v`). `deploy-http` and `ai plan` accept the flag but print nothing extra. There is no global verbose flag or environment variable.
 
 ### Common Diagnostic Commands
 
@@ -1065,7 +1097,7 @@ When reporting issues on GitHub, include:
 4. **Verbose output:**
 
    ```bash
-   walgo <command> --verbose
+   walgo deploy --verbose   # or the --verbose flag of the command that failed
    ```
 
 5. **Configuration (without secrets):**
@@ -1103,7 +1135,7 @@ When reporting issues on GitHub, include:
 4. **Try verbose mode:**
 
    ```bash
-   walgo <command> --verbose
+   walgo deploy --verbose   # or the --verbose flag of the command that failed
    ```
 
 5. **Isolate the issue:**

@@ -127,7 +127,7 @@ This script will:
 
 ### Using Go Install
 
-If you have Go 1.22+ installed:
+If you have Go 1.24+ installed:
 
 ```bash
 go install github.com/ganbitlabs/walgo@latest
@@ -203,7 +203,7 @@ sudo mv walgo /usr/local/bin/
 #### Option 3: Build from Source
 
 ```bash
-# Install Go 1.22+
+# Install Go 1.24+
 wget https://go.dev/dl/go1.24.0.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go1.24.0.linux-amd64.tar.gz
 export PATH=$PATH:/usr/local/go/bin
@@ -408,7 +408,7 @@ After adding to PATH:
 
 1. Close ALL terminal windows
 2. Open a new terminal
-3. Test: `walgo --version`
+3. Test: `walgo version`
 4. If still not found, restart your computer
 
 **Check Your Windows Architecture**
@@ -506,7 +506,7 @@ cargo install --locked --git https://github.com/MystenLabs/sui.git --branch test
 
 ### Prerequisites
 
-- Go 1.22 or later
+- Go 1.24 or later
 - Git
 - Make (optional, but recommended)
 
@@ -565,9 +565,6 @@ make build
 # Build for all platforms
 make build-all
 
-# Build with specific version
-make build VERSION=1.0.0
-
 # Run tests before building
 make test
 
@@ -586,9 +583,15 @@ walgo version
 Expected output:
 
 ```
-Walgo version 1.0.0
-Built with Go 1.24.0
+Walgo v0.5.0
+Commit:  <git commit>
+Built:   <build date>
+
+⚠️  This is a beta release. Please report issues at:
+   https://github.com/ganbitlabs/walgo/issues
 ```
+
+`walgo version --short` prints only the version number, such as `v0.5.0`.
 
 ### Check Dependencies
 
@@ -598,24 +601,29 @@ walgo doctor
 
 This will check:
 
-- Hugo installation and version
-- site-builder availability (for on-chain)
-- Sui CLI availability (for on-chain)
-- Wallet configuration
-- Network connectivity
+- Hugo, suiup, site-builder, walrus, and sui availability
+- Minimum versions of sui, walrus, and site-builder (for on-chain)
+- Active Sui network, address, and SUI and WAL balances
+- `sites-config.yaml` and the `walgo.yaml` in the current directory
 
-Expected output:
+Expected output (excerpt):
 
 ```
-Checking Walgo Installation
-==========================
+📦 Checking dependencies...
 
-✓ Walgo is installed correctly
-✓ Hugo is installed (v0.125.0)
-✓ site-builder is installed (v0.1.0)
-✓ Sui CLI is installed (v1.20.0)
+  ✓ suiup found (Sui tool manager)
+  ✓ hugo found
+  ✓ site-builder found
+  ✓ walrus found
+  ✓ sui found
 
-All dependencies are correctly installed!
+ℹ️  Checking Sui configuration...
+
+  ✓ Active network: testnet
+  ✓ Active address: 0x...
+...
+═══════════════════════════════════════════════════════════
+✅ All checks passed! Your environment is ready.
 ```
 
 ### Run a Test Build
@@ -662,9 +670,7 @@ go install github.com/ganbitlabs/walgo@latest
 ### Check for Updates
 
 ```bash
-walgo version
-# Compare with latest release at:
-# https://github.com/ganbitlabs/walgo/releases/latest
+walgo version --check-updates
 ```
 
 ## Uninstallation
@@ -686,6 +692,9 @@ Remove-Item "C:\Program Files\walgo\walgo.exe"
 ```bash
 # Remove global config
 rm ~/.walgo.yaml
+
+# Remove projects, AI credentials, and metrics
+rm -rf ~/.walgo
 
 # Remove project configs (in each project)
 rm walgo.yaml
