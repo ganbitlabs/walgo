@@ -69,7 +69,8 @@ my-first-site/
 ├── layouts/         # HTML templates
 ├── static/          # Static assets (images, css, js)
 ├── themes/          # Hugo themes
-└── hugo.toml        # Hugo configuration
+├── hugo.toml        # Hugo configuration
+└── walgo.yaml       # Walgo configuration
 ```
 
 ### Step 2: Add a Theme (Optional but Recommended)
@@ -118,24 +119,32 @@ walgo build
 ```
 
 This will:
-1. Run Hugo to generate static files
-2. Optimize HTML, CSS, and JavaScript
-3. Output to the `public/` directory
+1. Run Hugo, which minifies its output, to generate static files in the publish directory (`public/` by default)
+2. Optimize HTML, CSS, and JavaScript when `optimizer.enabled` is true
+3. Remove `.DS_Store` files from the publish directory
+4. Write `ws-resources.json` when `compress.generateWSResources` is true
 
 Example output:
 ```
-Building Hugo site...
-✓ Hugo build completed (234 files generated)
-
+📦 Building site...
+Building Hugo site in /path/to/my-first-site...
+...
+Hugo site built successfully.
+Static files generated in: /path/to/my-first-site/public
 Optimizing assets...
-🎯 Optimization Results
-======================
-Files processed: 234
-Files optimized: 89
-Bytes saved: 1.2 MB (34.5%)
-Duration: 456ms
 
-✓ Build completed successfully!
+✨ Optimization Results
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Files processed: 7
+Files optimized: 0
+Files skipped: 0
+Files with errors: 0
+Duration: 475.208µs
+...
+Generating ws-resources.json...
+Generated ws-resources.json (7 resources)
+
+✅ Build complete!
 ```
 
 ### Step 5: Preview Locally (Optional)
@@ -158,25 +167,28 @@ You have two deployment options:
 Perfect for testing - no wallet or cryptocurrency needed!
 
 ```bash
-walgo deploy-http
+walgo deploy-http \
+  --publisher https://publisher.walrus-testnet.walrus.space \
+  --aggregator https://aggregator.walrus-testnet.walrus.space
 ```
 
 Example output:
 ```
-Deploying to Walrus via HTTP...
-✓ Files uploaded successfully
-✓ Site published
+...
+✅ HTTP deploy complete!
+📦 Quilt ID: <quilt-id>
 
-🌐 Your site is live!
-URL: https://5tphzvq5shsxzugrz7kqd5bhnbajqfamvtxrn8jbfm3jbibzz1.walrus.site
+📂 Files stored on Walrus:
+  ✓ index.html
+  ✓ css/style.css
+...
 
-📊 Deployment Stats:
-Files: 234
-Total size: 2.4 MB
-Upload time: 8.3s
+📥 To fetch individual files (for testing):
+  📥 curl https://aggregator.walrus-testnet.walrus.space/v1/blobs/by-quilt-patch-id/<patch-id> > index.html
+...
 ```
 
-**Note:** HTTP deployments are temporary (30 days). Great for testing!
+**Note:** HTTP deployments are temporary. They store files for `--epochs` epochs, 1 by default, and a testnet epoch is 1 day. The aggregator serves each file by its patch ID, so use this to test with `curl`, not to browse the site. Great for testing!
 
 #### Option B: On-Chain Mode (Permanent)
 
@@ -250,10 +262,10 @@ git submodule add <theme-repo> themes/<theme-name>
 hugo new posts/my-post.md    # Create content
 walgo serve                  # Preview locally
 walgo build                  # Build when ready
-walgo deploy-http            # Deploy (test)
+walgo deploy-http --publisher <publisher-url> --aggregator <aggregator-url>   # Deploy (test)
 
 # 4. Production deployment
-walgo setup                  # Setup wallet (once)
+walgo setup                  # Configure site-builder (once)
 walgo deploy --epochs 5      # Deploy on-chain
 ```
 
@@ -266,7 +278,7 @@ walgo deploy --epochs 5      # Deploy on-chain
 | **Cost** | Free | Requires SUI tokens |
 | **Setup** | None | Wallet setup required |
 | **Speed** | Fast (seconds) | Moderate (30-60s) |
-| **Permanence** | Temporary (30 days) | Permanent (epochs) |
+| **Permanence** | Temporary (`--epochs`, default 1) | Permanent (epochs) |
 | **Updates** | Re-upload | Update command |
 | **Best For** | Testing, previews | Production sites |
 
@@ -297,7 +309,7 @@ hugo new about.md
 
 # Rebuild and redeploy
 walgo build
-walgo deploy-http
+walgo deploy-http --publisher <publisher-url> --aggregator <aggregator-url>
 ```
 
 ### Updating Your Site
@@ -353,16 +365,13 @@ theme = 'PaperMod'
 
 ### Configuring Walgo
 
-Create `walgo.yaml` in your project root:
+`walgo init` creates `walgo.yaml` in your project root. A typical setup:
 
 ```yaml
 hugo:
   publishDir: "public"
-  buildDraft: false
-  minify: true
 
 walrus:
-  epochs: 5                    # Default storage duration
   network: "testnet"           # or "mainnet"
 
 optimizer:
@@ -372,11 +381,16 @@ optimizer:
     minifyHTML: true
   css:
     enabled: true
-    removeUnused: false        # Be careful with this
+    minifyCSS: true
   js:
     enabled: true
     minifyJS: true
+
+compress:
+  generateWSResources: true
 ```
+
+Storage duration is not a config key. Set it when you deploy, for example `walgo deploy --epochs 5`. To build draft posts, set `buildDrafts = true` in `hugo.toml`.
 
 ## Next Steps
 
@@ -431,7 +445,7 @@ Always test with HTTP mode before deploying on-chain:
 
 ```bash
 # Test workflow
-walgo build && walgo deploy-http
+walgo build && walgo deploy-http --publisher <publisher-url> --aggregator <aggregator-url>
 # Check the site, make sure everything works
 # Then deploy on-chain
 walgo deploy --epochs 5
@@ -461,15 +475,9 @@ Before deploying, optimize images:
 
 ### 4. Test Optimization
 
-Build without optimization first to ensure nothing breaks:
+Build without optimization first to ensure nothing breaks. Set `optimizer.enabled: false` in `walgo.yaml`, run `walgo build`, and check the site. Then set it back to `true`, run `walgo build` again, and compare.
 
-```bash
-# Without optimization
-walgo build --no-optimize
-
-# With optimization (test carefully)
-walgo build
-```
+To turn off one file type, set `optimizer.html.minifyHTML`, `optimizer.css.minifyCSS`, or `optimizer.js.minifyJS` to `false`. See [Optimizer](OPTIMIZER.md).
 
 ### 5. Keep Dependencies Updated
 
@@ -511,8 +519,8 @@ git submodule update --init --recursive
 # Run diagnostics
 walgo doctor
 
-# Try again with verbose output
-walgo deploy-http --verbose
+# Try again, uploading one file at a time with retries
+walgo deploy-http --publisher <publisher-url> --aggregator <aggregator-url> --mode blobs
 ```
 
 ### Site looks different locally vs deployed

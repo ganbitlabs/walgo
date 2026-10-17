@@ -299,46 +299,32 @@ site:
 hugo:
   publishDir: "public" # Relative to the site, or absolute
   contentDir: "content"
-  build_draft: false
-  minify: true
 
 # Walrus deployment settings
 walrus:
-  project_id: "" # Set automatically after first deploy
-  epochs: 5 # Storage duration
-  entrypoint: "index.html"
+  projectID: "" # Set automatically after each on-chain deploy
+  network: "testnet" # Must match the active Sui environment
 
 # Asset optimization
 optimizer:
   enabled: true
   html:
     enabled: true
-    minify_whitespace: true
-    remove_comments: true
+    minifyHTML: true
+    removeComments: true
   css:
     enabled: true
-    minify: true
+    minifyCSS: true
   js:
     enabled: true
-    minify: true
+    minifyJS: true
 
-# Brotli compression
+# ws-resources.json generation
 compress:
-  enabled: true
-  brotli_level: 6
-
-# AI content generation (optional)
-ai:
-  enabled: false
-  provider: "openai" # or "openrouter"
-  model: "gpt-4"
-
-# Obsidian import settings (optional)
-obsidian:
-  vault_path: ""
-  include_drafts: false
-  convert_wikilinks: true
+  generateWSResources: true
 ```
+
+Storage duration is not a config key. Set it when you deploy, for example `walgo deploy --epochs 5`. AI provider keys live in `~/.walgo/ai-credentials.yaml`, which `walgo ai configure` writes. See [Configuration](docs/CONFIGURATION.md) for every key.
 
 ### Environment Variables
 

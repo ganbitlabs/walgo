@@ -180,12 +180,14 @@ Minimal `walgo.yaml`:
 hugo:
   publishDir: "public"
 
-walrus:
-  epochs: 5
-
 optimizer:
   enabled: true
+
+compress:
+  generateWSResources: true
 ```
+
+Storage duration is not a config key. Set it when you deploy, for example `walgo deploy --epochs 5`.
 
 Full configuration: [Configuration Reference](CONFIGURATION.md)
 
@@ -243,8 +245,8 @@ Documentation contributions are welcome! See [Contributing Guide](CONTRIBUTING.m
 
 ## Version Information
 
-- **Current Version:** 0.3.1
-- **Last Updated:** January 2025
+- **Current Version:** 0.5.0
+- **Last Updated:** October 2026
 - **Documentation Version:** Matches Walgo version
 
 ---

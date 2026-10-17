@@ -5,28 +5,32 @@ Complete reference for configuring Walgo.
 ## Table of Contents
 
 - [Configuration File](#configuration-file)
-- [Configuration Sources](#configuration-sources)
 - [Site Configuration](#site-configuration)
 - [Hugo Configuration](#hugo-configuration)
 - [Walrus Configuration](#walrus-configuration)
 - [Optimizer Configuration](#optimizer-configuration)
+- [Compression Configuration](#compression-configuration)
+- [Cache Configuration](#cache-configuration)
 - [Obsidian Configuration](#obsidian-configuration)
 - [Environment Variables](#environment-variables)
 - [Configuration Examples](#configuration-examples)
 
 ## Configuration File
 
-Walgo uses YAML configuration files named `walgo.yaml` or `.walgo.yaml`.
+Walgo reads its settings from a YAML file named `walgo.yaml` in the site directory.
 
 ### File Locations
 
-Walgo searches for configuration files in this order:
+Commands that need site settings read `walgo.yaml` from the site directory. That is the current directory, with these exceptions:
 
-1. **Explicit path:** `--config /path/to/config.yaml`
-2. **Current directory:** `./walgo.yaml`
-3. **Home directory:** `~/.walgo.yaml`
+- `walgo projects update` and `walgo projects edit` read it from the project's site folder.
+- `walgo optimize <directory>` and `walgo compress <directory> --generate-ws-resources` read it from `<directory>`.
 
-The first file found is used. If no file is found, default values are used.
+No other file supplies settings. The global `--config` flag, `./walgo.yml`, and `~/.walgo.yaml` only make walgo print `Using config file: <path>`. No command takes settings from them.
+
+If `walgo.yaml` is missing, commands that need it stop with `walgo.yaml not found in <directory>`. `walgo optimize` uses the optimizer defaults instead.
+
+`walgo init` and the other commands that create a site write a `walgo.yaml` with the defaults. A key that `walgo.yaml` leaves out takes the default listed for it below.
 
 ### Basic Structure
 
@@ -41,26 +45,26 @@ hugo:
   baseURL: ""
   publishDir: "public"
   contentDir: "content"
-  buildDraft: false
-  minify: true
+  resourceDir: "resources"
 
 # Walrus deployment configuration
 walrus:
   projectID: ""
   bucketName: ""
   entrypoint: "index.html"
-  epochs: 5
-  network: "testnet"
+  network: ""  # walgo init sets the active Sui network
   suinsDomain: ""
 
 # Asset optimizer configuration
 optimizer:
   enabled: true
   verbose: false
+  outputDir: ""
   html:
     enabled: true
     minifyHTML: true
     removeComments: true
+    removeWhitespace: true
     compressInlineCSS: true
     compressInlineJS: true
   css:
@@ -68,12 +72,34 @@ optimizer:
     minifyCSS: true
     removeComments: true
     removeUnused: false
+    autoprefixer: false
     compressColors: true
   js:
     enabled: true
     minifyJS: true
     removeComments: true
     obfuscate: false
+    sourceMaps: false
+  skipPatterns:
+    - "*.min.js"
+    - "*.min.css"
+    - "*.min.html"
+    - "*/.git/*"
+    - "*/node_modules/*"
+
+# ws-resources.json generation
+compress:
+  enabled: false
+  level: 6
+  generateWSResources: true
+  customRoutes: {}
+  ignorePatterns: []
+
+# Cache-Control headers in ws-resources.json
+cache:
+  enabled: true
+  immutableMaxAge: 31536000
+  mutableMaxAge: 300
 
 # Obsidian import configuration
 obsidian:
@@ -82,27 +108,7 @@ obsidian:
   convertWikilinks: true
   includeDrafts: false
   frontmatterFormat: "yaml"
-```
-
-## Configuration Sources
-
-Walgo merges configuration from multiple sources with this priority (highest to lowest):
-
-1. **Command-line flags**
-2. **Environment variables**
-3. **Configuration file** (`walgo.yaml`)
-4. **Default values**
-
-Example:
-
-```bash
-# Config file sets epochs: 5
-# Environment variable overrides to 10
-export WALGO_EPOCHS=10
-
-# Command flag overrides to 3
-walgo deploy --epochs 3
-# Final value: 3
+  linkStyle: "markdown"
 ```
 
 ## Site Configuration
@@ -131,31 +137,21 @@ A static site skips Hugo and the optimizer. Any other value is an error when wal
 
 ## Hugo Configuration
 
-Controls how Hugo builds your site.
+Tells walgo where the Hugo site's files are. Hugo reads everything else from its own config file, such as `hugo.toml`.
+
+`walgo build` runs `hugo build --environment production --minify --gc --cleanDestinationDir --destination <publishDir>`. Hugo always minifies its output. Draft pages are left out unless the Hugo config sets `buildDrafts = true`.
 
 ### `hugo.version`
 
 - **Type:** String
-- **Default:** `""` (use system Hugo)
-- **Description:** Specific Hugo version to use
-
-```yaml
-hugo:
-  version: "0.125.0"  # Use specific version
-```
+- **Default:** `""`
+- **Description:** Not implemented. Walgo accepts the key and ignores it. Walgo runs whichever `hugo` it finds installed.
 
 ### `hugo.baseURL`
 
 - **Type:** String
-- **Default:** `""` (use Hugo config)
-- **Description:** Override Hugo's baseURL
-
-```yaml
-hugo:
-  baseURL: "https://example.walrus.site/"
-```
-
-**When to use:** Set this to your Walrus site URL after first deployment.
+- **Default:** `""`
+- **Description:** Not implemented. Walgo accepts the key and ignores it. Set `baseURL` in the Hugo config instead.
 
 ### `hugo.publishDir`
 
@@ -174,116 +170,69 @@ hugo:
 
 - **Type:** String
 - **Default:** `"content"`
-- **Description:** Directory containing markdown content
+- **Description:** Content directory where `walgo ai generate` looks for sections and saves the new page. `walgo ai pipeline`, `walgo ai resume`, and the AI content fixer always use `content/`.
+
+Hugo takes its content directory from the Hugo config, so set `contentDir` there to the same value.
 
 ```yaml
 hugo:
   contentDir: "posts"  # Content in posts/ instead
 ```
 
-### `hugo.buildDraft`
-
-- **Type:** Boolean
-- **Default:** `false`
-- **Description:** Include draft posts in build
-
-```yaml
-hugo:
-  buildDraft: true  # Include drafts (for testing)
-```
-
-**Warning:** Don't enable for production deployments!
-
-### `hugo.minify`
-
-- **Type:** Boolean
-- **Default:** `true`
-- **Description:** Use Hugo's built-in minification
-
-```yaml
-hugo:
-  minify: false  # Disable Hugo minification (Walgo optimizer used instead)
-```
-
 ### `hugo.resourceDir`
 
 - **Type:** String
 - **Default:** `"resources"`
-- **Description:** Hugo resources directory
-
-```yaml
-hugo:
-  resourceDir: "_gen"
-```
+- **Description:** Not implemented. Walgo accepts the key and ignores it. Hugo takes `resourceDir` from the Hugo config.
 
 ## Walrus Configuration
 
 Controls Walrus deployment behavior.
 
+Storage duration is not a `walgo.yaml` key. Pass `--epochs` to `walgo deploy`, `walgo deploy-http`, or `walgo update`, where it defaults to `1`. `walgo projects update --epochs` defaults to the project's previous value. `walgo launch` asks for it. One epoch is 1 day on testnet and 2 weeks on mainnet.
+
 ### `walrus.projectID`
 
 - **Type:** String
-- **Default:** `""`
-- **Description:** Walrus project identifier
+- **Default:** `""`. `walgo init` writes the placeholder `YOUR_WALRUS_PROJECT_ID`, which walgo treats as unset.
+- **Description:** Object ID of the site on Walrus
 
 ```yaml
 walrus:
-  projectID: "my-blog-project"
+  projectID: "0x5c1d...e9a2"
 ```
 
-**Auto-set:** Automatically set after first deployment.
+**Auto-set:** Walgo writes the object ID here after each on-chain deployment.
+
+`walgo deploy` and `walgo launch` update the site with this ID instead of publishing a new one. `walgo status` uses it when you pass no object ID. `walgo update` uses it when you pass no object ID and `ws-resources.json` has none. `walgo domain` shows it as the object ID to link.
 
 ### `walrus.bucketName`
 
 - **Type:** String
 - **Default:** `""`
-- **Description:** Optional bucket for organizing deployments
-
-```yaml
-walrus:
-  bucketName: "production-sites"
-```
+- **Description:** Not implemented. Walgo accepts the key and ignores it.
 
 ### `walrus.entrypoint`
 
 - **Type:** String
 - **Default:** `"index.html"`
-- **Description:** Default file for directory requests
-
-```yaml
-walrus:
-  entrypoint: "home.html"  # Use home.html as entry point
-```
-
-### `walrus.epochs`
-
-- **Type:** Integer
-- **Default:** `5`
-- **Description:** Storage duration in epochs (~30 days each)
-
-```yaml
-walrus:
-  epochs: 10  # ~300 days of storage
-```
-
-**Cost:** More epochs = higher cost. Balance permanence vs cost.
-
-**Recommendations:**
-- **Testing:** 1-2 epochs
-- **Short-term:** 5 epochs (~5 months)
-- **Long-term:** 10+ epochs
+- **Description:** Not implemented. Walgo accepts the key and ignores it.
 
 ### `walrus.network`
 
 - **Type:** String
-- **Default:** `"testnet"`
+- **Default:** unset. `walgo init` sets it to the active Sui environment when that is `testnet` or `mainnet`.
 - **Options:** `"testnet"`, `"mainnet"`
-- **Description:** Sui network to use
+- **Description:** The network the site is deployed on
 
 ```yaml
 walrus:
   network: "mainnet"  # Use mainnet (requires real SUI)
 ```
+
+Deployments always go to the active Sui environment. Switch it with `sui client switch --env <network>`. If `walrus.network` is set to a different network, `walgo deploy` and `walgo update` stop with a network mismatch error. `walgo launch` writes the network you pick to this key.
+
+`walgo setup --network` writes the site-builder config, `~/.config/walrus/sites-config.yaml`. It does not change this key.
 
 **Warning:** Mainnet requires real SUI tokens with monetary value!
 
@@ -291,20 +240,11 @@ walrus:
 
 - **Type:** String
 - **Default:** `""`
-- **Description:** SuiNS domain name for your site
-
-```yaml
-walrus:
-  suinsDomain: "myblog.sui"
-```
-
-**Requirements:**
-- Must own the SuiNS domain
-- Domain must be configured to point to site object
+- **Description:** Not implemented. Walgo accepts the key and ignores it. To point a SuiNS name at the site, see `walgo domain`.
 
 ## Optimizer Configuration
 
-Controls asset optimization behavior.
+Controls asset optimization behavior. An optimizer changes a file only when both its `enabled` key and its minify flag are true. The [Optimizer Documentation](OPTIMIZER.md) explains when the optimizer runs.
 
 ### Global Optimizer Settings
 
@@ -312,7 +252,7 @@ Controls asset optimization behavior.
 
 - **Type:** Boolean
 - **Default:** `true`
-- **Description:** Enable/disable all optimization
+- **Description:** Enable/disable all optimization, for builds and for `walgo optimize`
 
 ```yaml
 optimizer:
@@ -323,33 +263,37 @@ optimizer:
 
 - **Type:** Boolean
 - **Default:** `false`
-- **Description:** Show detailed optimization output
+- **Description:** Print an error line for each file that fails to optimize
 
 ```yaml
 optimizer:
-  verbose: true  # Show which files are being optimized
+  verbose: true  # Print files that fail to optimize
 ```
+
+#### `optimizer.outputDir`
+
+- **Type:** String
+- **Default:** `""`
+- **Description:** Not implemented. Walgo accepts the key and ignores it. The optimizer rewrites files in place in the publish directory.
 
 #### `optimizer.skipPatterns`
 
 - **Type:** Array of strings
-- **Default:** `["*.min.js", "*.min.css", "*.min.html"]`
+- **Default:** `["*.min.js", "*.min.css", "*.min.html", "*/.git/*", "*/node_modules/*"]`
 - **Description:** File patterns to skip
+
+A pattern without `/` matches the file name. A pattern with `/` also matches the full path.
 
 ```yaml
 optimizer:
   skipPatterns:
     - "*.min.js"
     - "*.min.css"
-    - "vendor/*"
     - "third-party.js"
+    - "sw.js"
 ```
 
-**Common patterns:**
-- `*.min.*` - Already minified files
-- `vendor/*` - Third-party libraries
-- `*.map` - Source maps
-- `sw.js` - Service workers
+Walgo always skips files whose name contains `.min.`, so already minified files need no pattern.
 
 ### HTML Optimizer
 
@@ -369,15 +313,13 @@ optimizer:
 
 - **Type:** Boolean
 - **Default:** `true`
-- **Description:** Remove unnecessary whitespace
+- **Description:** Minify HTML. Every other HTML key needs it.
 
 ```yaml
 optimizer:
   html:
     minifyHTML: true  # Minify HTML
 ```
-
-**Result:** Reduces HTML size by 15-25%
 
 #### `optimizer.html.removeComments`
 
@@ -397,7 +339,7 @@ optimizer:
 
 - **Type:** Boolean
 - **Default:** `true`
-- **Description:** Aggressive whitespace removal
+- **Description:** Collapse whitespace between elements
 
 ```yaml
 optimizer:
@@ -405,7 +347,7 @@ optimizer:
     removeWhitespace: false  # Preserve whitespace (safer)
 ```
 
-**Warning:** May affect `<pre>` and `<code>` tag formatting.
+**Note:** The content of `<pre>` and `<textarea>` is always kept.
 
 #### `optimizer.html.compressInlineCSS`
 
@@ -423,7 +365,7 @@ optimizer:
 
 - **Type:** Boolean
 - **Default:** `true`
-- **Description:** Minify JavaScript in `<script>` tags
+- **Description:** Minify JavaScript in `<script>` tags. Variable names are kept.
 
 ```yaml
 optimizer:
@@ -449,7 +391,7 @@ optimizer:
 
 - **Type:** Boolean
 - **Default:** `true`
-- **Description:** Minify CSS files
+- **Description:** Minify CSS files. Minification strips every comment except `/*! ... */` comments, and shortens colors and numbers.
 
 ```yaml
 optimizer:
@@ -457,59 +399,33 @@ optimizer:
     minifyCSS: true
 ```
 
-**Result:** Reduces CSS size by 20-40%
+**Examples:**
+- `#ffffff` → `#fff`
+- `rgb(0, 0, 0)` → `#000`
 
 #### `optimizer.css.removeComments`
 
 - **Type:** Boolean
 - **Default:** `true`
-- **Description:** Remove CSS comments
-
-```yaml
-optimizer:
-  css:
-    removeComments: true
-```
+- **Description:** No separate effect. CSS minification already strips every comment except `/*! ... */` comments.
 
 #### `optimizer.css.removeUnused`
 
 - **Type:** Boolean
 - **Default:** `false`
-- **Description:** Remove unused CSS rules
+- **Description:** Not implemented. Walgo accepts the key and ignores it. The `walgo optimize --remove-unused-css` flag is ignored too.
 
-```yaml
-optimizer:
-  css:
-    removeUnused: true  # Aggressive optimization
-```
+#### `optimizer.css.autoprefixer`
 
-**Warning:** May break dynamically added styles!
-
-**When to use:**
-- Simple static sites
-- No JavaScript-added classes
-- After thorough testing
-
-**When NOT to use:**
-- Sites with dynamic content
-- JavaScript frameworks (React, Vue)
-- Third-party widgets
+- **Type:** Boolean
+- **Default:** `false`
+- **Description:** Not implemented. Walgo accepts the key and ignores it.
 
 #### `optimizer.css.compressColors`
 
 - **Type:** Boolean
 - **Default:** `true`
-- **Description:** Optimize color values
-
-```yaml
-optimizer:
-  css:
-    compressColors: true
-```
-
-**Examples:**
-- `#ffffff` → `#fff`
-- `rgb(0, 0, 0)` → `#000`
+- **Description:** No separate effect. CSS minification already shortens colors.
 
 ### JavaScript Optimizer
 
@@ -529,7 +445,7 @@ optimizer:
 
 - **Type:** Boolean
 - **Default:** `true`
-- **Description:** Minify JavaScript files
+- **Description:** Minify JavaScript files. Minification strips comments.
 
 ```yaml
 optimizer:
@@ -537,86 +453,153 @@ optimizer:
     minifyJS: true
 ```
 
-**Result:** Reduces JS size by 25-50%
+**Note:** Preserves license comments (`/*! ... */`).
 
 #### `optimizer.js.removeComments`
 
 - **Type:** Boolean
 - **Default:** `true`
-- **Description:** Remove JavaScript comments
-
-```yaml
-optimizer:
-  js:
-    removeComments: true
-```
-
-**Note:** Preserves license comments.
+- **Description:** No separate effect. JavaScript minification already strips comments.
 
 #### `optimizer.js.obfuscate`
 
 - **Type:** Boolean
 - **Default:** `false`
-- **Description:** Obfuscate variable names
+- **Description:** Let the minifier shorten local variable names
 
 ```yaml
 optimizer:
   js:
-    obfuscate: true  # Make code harder to read
+    obfuscate: true  # Shorten local variable names
 ```
 
-**Warning:** Can break code! Use with extreme caution.
-
-**Don't use if:**
-- Code uses `eval()`
-- Dynamic property access
-- Reflection
-- External libraries expect specific names
+**Warning:** If a script breaks after a build, set `obfuscate: false`.
 
 #### `optimizer.js.sourceMaps`
 
 - **Type:** Boolean
 - **Default:** `false`
-- **Description:** Generate source maps
+- **Description:** Not implemented. Walgo writes no source maps.
+
+## Compression Configuration
+
+Controls `ws-resources.json`, the Walrus Sites file that sets each file's headers, the site's routes, and the files site-builder skips. Walgo does not Brotli-compress files during a build or a deployment. Run `walgo compress` for that.
+
+### `compress.enabled`
+
+- **Type:** Boolean
+- **Default:** `false`
+- **Description:** Not implemented. Walgo accepts the key and ignores it.
+
+### `compress.level`
+
+- **Type:** Integer, 0-11
+- **Default:** `6`
+- **Description:** Not implemented. Walgo accepts the key and ignores it. Set the Brotli level with `walgo compress --level`.
+
+### `compress.generateWSResources`
+
+- **Type:** Boolean
+- **Default:** `true` in the `walgo.yaml` that `walgo init` writes. `false` when the key is missing.
+- **Description:** Write `ws-resources.json` to the publish directory after each build
 
 ```yaml
-optimizer:
-  js:
-    sourceMaps: true  # Generate .map files
+compress:
+  generateWSResources: true
 ```
 
-**Status:** Not yet implemented
+`ws-resources.json` gets a `Content-Type` header for each file, the [cache headers](#cache-configuration), a route for each `index.html`, the ignore list, and site metadata. A `404.html` in the publish directory becomes the fallback route.
+
+Walgo writes a new `ws-resources.json` on each build. It copies the object ID of an earlier deployment from the project database, or else from the old file. When the site has a `static/` folder, the Hugo build deletes the old file first, so the object ID carries over only for a site in `walgo projects`. `walgo deploy` reads the object ID from `walrus.projectID` in `walgo.yaml` first.
+
+### `compress.customRoutes`
+
+- **Type:** Map of route pattern to file path
+- **Default:** `{}`
+- **Description:** Extra routes for `ws-resources.json`
+
+**Status:** Has no effect. Walgo replaces the routes in `ws-resources.json` with the routes it generates from the publish directory, which drops these entries.
+
+### `compress.ignorePatterns`
+
+- **Type:** Array of strings
+- **Default:** `[]`
+- **Description:** Paths to add to the `ignore` list in `ws-resources.json`. site-builder does not upload matching files.
+
+```yaml
+compress:
+  ignorePatterns:
+    - "/drafts/*"
+```
+
+Walgo always ignores `/.DS_Store`, `/Thumbs.db`, `/.gitkeep`, `/.gitignore`, `/.git/*`, `/.well-known/*`, and `.map` files in `/`, `/js/`, `/css/`, and `/assets/`.
+
+## Cache Configuration
+
+Sets the `Cache-Control` headers that walgo writes into `ws-resources.json`. Walgo uses them whenever it writes that file, both in `walgo build` and in `walgo compress --generate-ws-resources`.
+
+### `cache.enabled`
+
+- **Type:** Boolean
+- **Default:** `true`
+- **Description:** Add a `Cache-Control` header for each file
+
+```yaml
+cache:
+  enabled: false  # No Cache-Control headers
+```
+
+JavaScript and CSS files with a second dot in the name, such as `app.3f2a.js`, and font files get `public, max-age=<immutableMaxAge>, immutable`. HTML files get `public, max-age=<mutableMaxAge>, must-revalidate`. Every other file gets `public, max-age=<mutableMaxAge>`.
+
+### `cache.immutableMaxAge`
+
+- **Type:** Integer (seconds)
+- **Default:** `31536000` (one year)
+- **Description:** `max-age` for those JavaScript, CSS, and font files. `0` keeps the default.
+
+```yaml
+cache:
+  immutableMaxAge: 2592000  # 30 days
+```
+
+### `cache.mutableMaxAge`
+
+- **Type:** Integer (seconds)
+- **Default:** `300` (5 minutes)
+- **Description:** `max-age` for HTML and every other file. `0` keeps the default.
+
+```yaml
+cache:
+  mutableMaxAge: 60  # 1 minute
+```
 
 ## Obsidian Configuration
 
-Controls Obsidian vault import behavior.
+Controls how `walgo import` converts an Obsidian vault. `walgo import` creates a new site and writes a new `walgo.yaml` before it imports, so an import always starts from the defaults below. To change a setting for an import, pass the flag listed with the key.
 
 ### `obsidian.vaultPath`
 
 - **Type:** String
 - **Default:** `""`
-- **Description:** Path to Obsidian vault
-
-```yaml
-obsidian:
-  vaultPath: "/Users/you/Documents/MyVault"
-```
+- **Description:** Not implemented. Walgo accepts the key and ignores it. The vault path is the argument of `walgo import`.
 
 ### `obsidian.attachmentDir`
 
 - **Type:** String
 - **Default:** `"images"`
-- **Description:** Directory for imported attachments
+- **Flag:** `--attachment-dir`
+- **Description:** Directory under `static/` for imported attachments
 
 ```yaml
 obsidian:
-  attachmentDir: "static/attachments"
+  attachmentDir: "attachments"  # static/attachments/
 ```
 
 ### `obsidian.convertWikilinks`
 
 - **Type:** Boolean
 - **Default:** `true`
+- **Flag:** `--convert-wikilinks`
 - **Description:** Convert `[[links]]` to markdown links
 
 ```yaml
@@ -639,18 +622,14 @@ obsidian:
 
 - **Type:** Boolean
 - **Default:** `false`
-- **Description:** Include notes marked as drafts
-
-```yaml
-obsidian:
-  includeDrafts: false  # Skip draft notes
-```
+- **Description:** Not implemented. Walgo accepts the key and ignores it.
 
 ### `obsidian.frontmatterFormat`
 
 - **Type:** String
 - **Default:** `"yaml"`
 - **Options:** `"yaml"`, `"toml"`, `"json"`
+- **Flag:** `--frontmatter-format`
 - **Description:** Frontmatter format for imported notes
 
 ```yaml
@@ -658,52 +637,30 @@ obsidian:
   frontmatterFormat: "toml"  # Use TOML frontmatter
 ```
 
+### `obsidian.linkStyle`
+
+- **Type:** String
+- **Default:** `"markdown"`
+- **Options:** `"markdown"`, `"relref"`
+- **Flag:** `--link-style`
+- **Description:** How converted wikilinks are written
+
+`markdown` writes `[My Page](my-page.md)`. `relref` writes `[My Page]({{< relref "my-page.md" >}})`, and Hugo fails the build when the target page does not exist. Any other value acts as `markdown`.
+
+```yaml
+obsidian:
+  linkStyle: "relref"  # Use Hugo relref shortcodes
+```
+
 ## Environment Variables
 
-All configuration values can be set via environment variables using the `WALGO_` prefix.
+Walgo does not read `walgo.yaml` keys from the environment. It reads these variables:
 
-### Format
-
-```bash
-WALGO_<SECTION>_<KEY>=value
-```
-
-### Examples
-
-```bash
-# Hugo configuration
-export WALGO_HUGO_PUBLISHDIR="dist"
-export WALGO_HUGO_BUILDDRAFT="true"
-
-# Walrus configuration
-export WALGO_WALRUS_EPOCHS="10"
-export WALGO_WALRUS_NETWORK="mainnet"
-
-# Optimizer configuration
-export WALGO_OPTIMIZER_ENABLED="false"
-export WALGO_OPTIMIZER_HTML_MINIFYHTML="true"
-
-# Obsidian configuration
-export WALGO_OBSIDIAN_VAULTPATH="/path/to/vault"
-```
-
-### Nested Configuration
-
-For nested values, use underscores:
-
-```bash
-# optimizer.html.minifyHTML
-export WALGO_OPTIMIZER_HTML_MINIFYHTML="true"
-
-# optimizer.css.removeUnused
-export WALGO_OPTIMIZER_CSS_REMOVEUNUSED="false"
-```
-
-### Boolean Values
-
-Accepted boolean values:
-- **True:** `"true"`, `"1"`, `"yes"`, `"on"`
-- **False:** `"false"`, `"0"`, `"no"`, `"off"`
+| Variable | Effect |
+|---|---|
+| `WALGO_ASCII` | `1` or `true` prints ASCII instead of emoji. It wins over `WALGO_EMOJI`. |
+| `WALGO_EMOJI` | `1` or `true` prints emoji, even in CI or when `TERM` is `dumb` or unset. |
+| `WALGO_THEME_DOWNLOAD_TIMEOUT` | Timeout for downloading a theme from GitHub, as a Go duration such as `5m`. The default is `2m`. |
 
 ## Configuration Examples
 
@@ -711,37 +668,29 @@ Accepted boolean values:
 
 ```yaml
 # walgo.yaml - Minimal setup
-walrus:
-  epochs: 5
+compress:
+  generateWSResources: true
 ```
 
-Everything else uses defaults.
+Everything else uses defaults. Without `generateWSResources: true`, `walgo build` writes no `ws-resources.json`.
 
 ### Development Configuration
 
 ```yaml
 # walgo.yaml - Development setup
-hugo:
-  buildDraft: true        # Include drafts
-  minify: false          # Easier debugging
-
 optimizer:
   enabled: false         # Disable optimization for speed
 
 walrus:
-  epochs: 1             # Minimal storage for testing
   network: "testnet"
 ```
+
+To build draft pages, set `buildDrafts = true` in the Hugo config. For short-lived test deployments, run `walgo deploy --epochs 1`.
 
 ### Production Configuration
 
 ```yaml
 # walgo.yaml - Production setup
-hugo:
-  baseURL: "https://myblog.walrus.site/"
-  buildDraft: false
-  minify: true
-
 optimizer:
   enabled: true
   verbose: false
@@ -752,7 +701,6 @@ optimizer:
   css:
     enabled: true
     minifyCSS: true
-    removeUnused: false    # Safe default
     compressColors: true
   js:
     enabled: true
@@ -760,16 +708,14 @@ optimizer:
     removeComments: true
     obfuscate: false       # Don't risk breaking code
 
-walrus:
-  epochs: 10              # ~10 months storage
-  network: "testnet"
-  suinsDomain: "myblog.sui"
+compress:
+  generateWSResources: true
 
-obsidian:
-  vaultPath: ""
-  convertWikilinks: true
-  includeDrafts: false
+walrus:
+  network: "testnet"
 ```
+
+Set the storage duration when you deploy, for example `walgo deploy --epochs 10`.
 
 ### Aggressive Optimization
 
@@ -791,7 +737,6 @@ optimizer:
     enabled: true
     minifyCSS: true
     removeComments: true
-    removeUnused: true      # CAREFUL - test thoroughly!
     compressColors: true
 
   js:
@@ -801,73 +746,20 @@ optimizer:
     obfuscate: false        # Still risky
 
   skipPatterns:
-    - "*.min.*"
-    - "vendor/*"
+    - "sw.js"
 ```
 
 **Warning:** Test thoroughly! Aggressive optimization can break sites.
 
 ### Obsidian-Focused Configuration
 
-```yaml
-# walgo.yaml - Optimized for Obsidian
-hugo:
-  contentDir: "content"
-  publishDir: "public"
-
-obsidian:
-  vaultPath: "/Users/you/Documents/MyVault"
-  attachmentDir: "static/images"
-  convertWikilinks: true
-  includeDrafts: false
-  frontmatterFormat: "yaml"
-
-optimizer:
-  enabled: true
-  html:
-    enabled: true
-  css:
-    enabled: true
-    removeUnused: false    # Obsidian themes may use dynamic classes
-  js:
-    enabled: true
-    obfuscate: false
-```
-
-### Multi-Environment Setup
-
-Use different configs for different environments:
+`walgo import` writes a new `walgo.yaml`, so set the import options with flags:
 
 ```bash
-# Development
-walgo build --config walgo.dev.yaml
-
-# Staging
-walgo build --config walgo.staging.yaml
-
-# Production
-walgo build --config walgo.prod.yaml
-```
-
-**walgo.dev.yaml:**
-```yaml
-hugo:
-  buildDraft: true
-optimizer:
-  enabled: false
-walrus:
-  epochs: 1
-```
-
-**walgo.prod.yaml:**
-```yaml
-hugo:
-  buildDraft: false
-optimizer:
-  enabled: true
-walrus:
-  epochs: 10
-  network: "mainnet"
+walgo import ~/Documents/MyVault \
+  --attachment-dir images \
+  --frontmatter-format yaml \
+  --link-style markdown
 ```
 
 ## Configuration Validation
@@ -875,38 +767,41 @@ walrus:
 ### Checking Configuration
 
 ```bash
-# Show current configuration
-walgo doctor -v
+# Check that walgo.yaml exists in the current directory
+walgo doctor
 ```
 
-This displays:
-- Configuration file location
-- Merged configuration values
-- Environment variables in use
-- Default values
+`walgo doctor` does not print configuration values. Walgo checks `walgo.yaml` each time a command loads it and stops on the errors below. `walgo optimize` is the exception. When it cannot read `walgo.yaml`, it runs with the default optimizer settings, and without a directory argument it optimizes the current directory instead of the publish directory.
 
 ### Common Validation Errors
 
 **Invalid YAML syntax:**
 ```
-Error: yaml: line 5: mapping values are not allowed in this context
+Error: build failed: failed to parse config file /path/to/site/walgo.yaml: yaml: line 2: did not find expected key
 ```
 
 **Solution:** Check YAML indentation and syntax.
 
 **Unknown configuration key:**
-```
-Warning: Unknown configuration key: optimiser (did you mean optimizer?)
-```
 
-**Solution:** Fix typos in configuration keys.
+Walgo ignores a key it does not recognize and prints no warning. A misspelled key, such as `optimiser`, has no effect.
+
+**Solution:** Check key names against this reference.
 
 **Invalid value type:**
 ```
-Error: optimizer.enabled must be a boolean (got: "yes")
+Error: build failed: failed to parse config file /path/to/site/walgo.yaml: yaml: unmarshal errors:
+  line 2: cannot unmarshal !!str `maybe` into bool
 ```
 
-**Solution:** Use proper types (true/false for booleans, not "yes"/"no").
+**Solution:** Use proper types (`true` or `false` for booleans).
+
+**Invalid site kind:**
+```
+Error: build failed: /path/to/site/walgo.yaml: site.kind is "jekyll"; use "hugo" or "static", or leave it unset to detect
+```
+
+**Solution:** Set `site.kind` to `hugo` or `static`, or remove it.
 
 ## Best Practices
 
@@ -923,28 +818,25 @@ git commit -m "Add Walgo configuration"
 # Site is deployed to testnet
 walrus:
   network: "testnet"
-  epochs: 5  # ~5 months of storage
 ```
 
 ### 3. Don't Commit Secrets
 
-```yaml
-# BAD - Don't commit sensitive data
-walrus:
-  apiKey: "secret-key-123"
-
-# GOOD - Use environment variables
-# Set via: export WALGO_WALRUS_APIKEY="secret-key-123"
-```
+`walgo.yaml` has no secret keys. Walgo stores AI provider keys in `~/.walgo/ai-credentials.yaml`, outside the site. `walgo ai configure` writes that file.
 
 ### 4. Test Configuration Changes
 
 ```bash
-# Test config with dry-run (if available)
-walgo build --dry-run
+# Build and check the output in the publish directory
+walgo build
+
+# Preview the deployment plan without uploading
+walgo deploy --dry-run
 
 # Or test with HTTP deployment first
-walgo build && walgo deploy-http
+walgo deploy-http \
+  --publisher https://publisher.walrus-testnet.walrus.space \
+  --aggregator https://aggregator.walrus-testnet.walrus.space
 ```
 
 ### 5. Document Your Settings
@@ -954,8 +846,8 @@ Add README with configuration explanation:
 ```markdown
 # Configuration
 
-- `epochs: 10` - We use 10 epochs for long-term storage
-- `removeUnused: false` - Our theme uses dynamic CSS classes
+- `obfuscate: false` - Our scripts break when variable names change
+- `publishDir: dist` - Our build writes to dist/
 ```
 
 ## Related Documentation
