@@ -1,6 +1,6 @@
 # Desktop App Integration Guide
 
-**Walgo v0.3.1** - Desktop Application Documentation
+**Walgo v0.5.0** - Desktop Application Documentation
 
 Complete guide to Walgo's desktop application features, usage, and development.
 
@@ -32,7 +32,7 @@ The Walgo desktop application provides a graphical user interface for all Walgo 
 - **Wallet Integration** - Manage Sui wallets and switch networks
 - **System Health** - Monitor dependencies and auto-install tools
 
-**Version:** v0.3.1
+**Version:** v0.5.0
 
 ---
 
@@ -74,14 +74,14 @@ The Walgo desktop application provides a graphical user interface for all Walgo 
 **Status**: ✅ CREATED
 **Changes**:
 
-- New CLI command to launch desktop app
-- Support for 3 modes:
-  1. Development mode (`walgo desktop`)
-  2. Build mode (`walgo desktop --build`)
-  3. Production mode (`walgo desktop --prod`)
-- Automatic project root detection
-- Wails installation check
-- Platform-specific binary handling (macOS, Linux, Windows)
+- New CLI command to launch the installed desktop app
+- Takes no flags and does not build or run the app from source
+- Looks for the app in the standard install locations:
+  - macOS: `/Applications/Walgo.app`, then `~/Applications/Walgo.app`
+  - Windows: `%LOCALAPPDATA%\Programs\Walgo\Walgo.exe`
+  - Linux: `~/.local/bin/Walgo`, then `/usr/local/bin/Walgo`
+- Prints the checked locations and the install command when the app is missing
+- Platform-specific launch: `open` on macOS, the binary itself on Linux and Windows
 
 **Lines Added**: ~165 lines (new file)
 
@@ -91,15 +91,24 @@ The Walgo desktop application provides a graphical user interface for all Walgo 
 
 ### Launch Desktop App
 
-**Development Mode (Recommended for development):**
+**Installed App:**
 
 ```bash
 walgo desktop
 ```
 
+- Opens the desktop app that the install script (`install.sh` or `install.ps1`) installed
+- Exits with "Desktop app not found" when no app is installed
+
+**Development Mode (Recommended for development):**
+
+```bash
+make desktop-dev
+```
+
+- Runs `wails dev` in `desktop/`
 - Launches with hot-reload
 - Auto-refreshes on code changes
-- Opens at http://localhost:34115
 
 ---
 
@@ -188,7 +197,7 @@ const content = await GenerateContent({
 
 ## 📦 DEPENDENCIES
 
-### Required for Desktop App:
+### Required to Build the Desktop App:
 
 1. **Wails** - Desktop framework
 
@@ -204,7 +213,7 @@ const content = await GenerateContent({
 
    ```bash
    # Required for Vite (frontend build tool)
-   node --version  # Should be v14+
+   node --version  # Should be v20.19+ or v22.12+
    ```
 
 3. **Walgo** - Main CLI (already installed)
@@ -324,7 +333,7 @@ const handleDelete = async (id: number) => {
 
 ### Commands:
 
-- **Total**: 28 commands
+- **Total**: 23 top-level commands, plus `help` and `completion`
 - **New**: `desktop` command
 
 ### Desktop Methods:

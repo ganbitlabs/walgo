@@ -29,6 +29,7 @@ You'll be prompted to:
 1. Select provider (OpenAI or OpenRouter)
 2. Enter your API key
 3. Optionally specify a custom base URL
+4. Enter a model name (press Enter for `gpt-4` on OpenAI or `openai/gpt-4` on OpenRouter)
 
 **Getting API Keys:**
 
@@ -39,22 +40,25 @@ You'll be prompted to:
 
 - Credentials are stored securely in `~/.walgo/ai-credentials.yaml`
 - File permissions are set to 0600 (owner read/write only)
-- AI configuration is added to your project's `walgo.yaml`
+- Every site on your machine uses the same credentials
+- `walgo.yaml` holds no AI settings
 
 ### 2. Generate Content
 
-Generate new blog posts or pages:
+Generate new blog posts or pages from inside your site directory:
 
 ```bash
 # Interactive mode
 walgo ai generate
 
-# Generate a blog post
-walgo ai generate --type post
+# Generate without building the site afterwards
+walgo ai generate --no-build
 
-# Generate a page
-walgo ai generate --type page
+# Generate, build, and start the development server
+walgo ai generate --serve
 ```
+
+Walgo lists the content sections it finds in `content/` and asks for your instructions. The AI picks the content type and the filename from your instructions. After saving the file, Walgo fixes its frontmatter and builds the site.
 
 ### 3. AI Pipeline (Create Complete Site)
 
@@ -66,37 +70,59 @@ walgo ai pipeline
 
 This command:
 
-1. Creates a site structure plan (JSON)
-2. Generates each page sequentially
-3. Saves progress to `.walgo/plan.json`
-4. Can be resumed if interrupted
+1. Asks for the site name, site type, description, and target audience
+2. Creates a `<site-name>/` directory with `walgo.yaml`, `hugo.toml`, archetypes, and the theme. `<site-name>` is the site name in lowercase, with spaces and underscores turned into hyphens and other symbols except dots dropped. `My Site!` becomes `my-site/`.
+3. Creates a site structure plan (JSON) and saves it to `<site-name>/.walgo/plan.json`
+4. Generates the pages, several at a time when the plan has more than three
+5. Adds a menu to `hugo.toml`, fixes the content for the theme, and builds the site
+6. Saves the site as a draft project in `walgo projects`
+
+If generation is interrupted, run `walgo ai resume` from inside `<site-name>/`.
 
 **Workflow:**
 
 ```
-🤖 Enter site details:
-   Site type: Blog
-   Description: A personal tech blog
-   Audience: Developers and tech enthusiasts
+🤖 AI Site Pipeline
 
-📋 Planning structure...
-   ✅ Site plan saved to .walgo/plan.json
+✓ Using openai (gpt-4)
 
-📝 Generating content...
-   📄 Creating: content/posts/first-post.md
-   📄 Creating: content/posts/about.md
-   📄 Creating: content/contact.md
+Site name: my-tech-blog
 
-✨ Applying fixes and validation...
-✅ Site generated successfully!
+Site type:
+  1) Blog
+  2) Docs
+Select [1]: 1
+
+Describe your site (1-2 sentences): A personal tech blog
+
+Target audience: Developers and tech enthusiasts
+...
+📊 Results:
+   Total pages: 6
+   Completed:   6
+   Skipped:     0
+   Failed:      0
+   Duration:    1m12s
+...
+   ✓ Created draft project
+
+🎉 Site generated successfully!
 ```
 
 **Supported Site Types:**
 
-- Blog - Classic blog with posts and about page
-- Docs - Documentation site
-- Biolink - Bio link page
-- Whitepaper - Technical whitepaper site
+- Blog - Blog with the Ananke theme
+- Docs - Documentation site with the Book theme
+
+For a Biolink or Whitepaper site, use `walgo quickstart`, which creates the site from the theme's example content without AI.
+
+**Flags:**
+
+- `--parallel` - `auto`, `sequential`, or `parallel` (default: `auto`)
+- `--concurrent` - Maximum pages generated at once (default: 5)
+- `--rpm` - Page requests sent to the AI per minute, after a first burst of up to `--concurrent` requests (default: 30). The planning request and HTTP-level retries do not count against it.
+- `--dry-run` - Generate each page with the AI, then discard it instead of writing it to `content/`. Every other step still writes to disk: the site folder, `walgo.yaml`, `hugo.toml`, the theme, the plan, the content fixes, the build, and the draft project. The plan marks the discarded pages as done, so `walgo ai resume` does not write them later.
+- `-v, --verbose` - Show verbose output
 
 ### 4. AI Plan (Create Site Plan Only)
 
@@ -108,12 +134,15 @@ walgo ai plan
 
 This command:
 
+- Asks the same questions as `walgo ai pipeline`
 - Creates a site structure plan using AI
-- Saves plan to `.walgo/plan.json`
+- Creates a `<site-name>/` directory with `walgo.yaml`, using the site name exactly as typed
+- Saves plan to `<site-name>/.walgo/plan.json`
 - Does not generate any content
+- Does not install a theme or write `hugo.toml`
 - Plan can be reviewed before generation
 
-**Use `walgo ai resume`** to generate content from the plan.
+**Run `walgo ai resume`** from inside `<site-name>/` to generate content from the plan.
 
 ### 5. AI Resume (Resume from Plan)
 
@@ -125,69 +154,60 @@ walgo ai resume
 
 This command:
 
-- Loads existing `.walgo/plan.json`
+- Loads `.walgo/plan.json` from the current directory
 - Continues generating remaining pages
-- Applies post-pipeline fixes and validation
+- Adds a menu to `hugo.toml` and applies the content fixes
 - Creates draft project entry
+- Does not build the site. In a folder that `walgo ai pipeline` created, run `walgo build` afterwards.
+- A folder from `walgo ai plan` has no Hugo config and no theme, and `walgo ai resume` adds neither. `walgo build` treats that folder as a static site and fails. For a site you can build, use `walgo ai pipeline`.
+
+It takes the same `--parallel`, `--concurrent`, `--rpm`, `--dry-run`, and `--verbose` flags as `walgo ai pipeline`.
 
 **Use Case:** When `walgo ai pipeline` was interrupted, you can resume from where it left off.
 
-### 6. AI Fix (Validate and Fix Content)
+### 6. Automatic Content Fixes
 
-Fix content files for theme requirements:
+Walgo runs its content fixer after `walgo ai generate`, `walgo ai update`, `walgo ai pipeline`, and `walgo ai resume`. The fixer checks every Markdown file in `content/`:
 
-```bash
-walgo ai fix
-walgo ai fix --validate
-```
-
-This command:
-
-- Validates and fixes Hugo content files
-- Ensures theme-specific requirements are met
-- Checks frontmatter syntax and completeness
-- Removes duplicate H1 headings
-- Sets proper draft status
-
-**Flags:**
-
-- `--validate` - Only validate, don't fix (default: false)
-
-**For All Sites:**
-
-- Validates title and description fields
+- Fixes YAML quoting and a malformed frontmatter start
 - Removes duplicate H1 headings (title is already in frontmatter)
+- Adds frontmatter fields the theme's archetypes expect
 - Sets draft to false
 
-### 6. Update Existing Content
-
-**Example Session:**
+### 7. Example Generate Session
 
 ```
-🤖 AI Content Generator
+🤖 AI Content Generator (openai: gpt-4)
 
-Content type:
-  1) Blog post
-  2) Page
+ℹ️  Current content structure:
+  * posts/ (2 files)
+      - first-post.md
+      - second-post.md
 
-Select [1]: 1
+  ✓ Default type: posts
 
-Describe what content you want to generate:
-> Write a blog post about deploying static sites to Walrus with Hugo
+💡 What content do you want to create?
+  Examples:
+  - Create a blog post about blockchain technology for beginners
+  - Write a tutorial on deploying Hugo sites to Walrus
+  - Generate an about page for my portfolio
 
-Additional context (optional, press Enter to skip):
-> Focus on the benefits of decentralized hosting and how Walrus Sites work
+Your instructions: Write a blog post about deploying static sites to Walrus with Hugo
 
-🔄 Generating content...
+🔄 Generating content (AI will determine type and filename)...
 
 ✅ Content generated successfully!
+   Type: posts
+   File: deploying-to-walrus.md
+   Path: /home/you/my-blog/content/posts/deploying-to-walrus.md
 
-Enter filename (without extension): deploying-to-walrus
+🔄 Fixing YAML frontmatter...
+✓ YAML frontmatter validated
 
-✅ Content saved to: content/posts/deploying-to-walrus.md
+🔄 Building site...
 ```
 
-### 3. Update Existing Content
+### 8. Update Existing Content
 
 Use AI to update existing Hugo files:
 
@@ -198,11 +218,10 @@ walgo ai update content/posts/my-post.md
 **Example Session:**
 
 ```
-🤖 AI Content Updater
+🤖 AI Content Updater (openai: gpt-4)
 📄 File: content/posts/my-post.md
 
-Describe what changes you want to make:
-> Add a new section about performance optimization and update the conclusion
+Describe what changes you want to make: Add a new section about performance optimization and update the conclusion
 
 🔄 Updating content...
 
@@ -211,20 +230,33 @@ Describe what changes you want to make:
 Save changes to file? [Y/n]: Y
 
 ✅ File updated: content/posts/my-post.md
+
+🔄 Fixing YAML frontmatter...
+✓ YAML frontmatter validated
 ```
+
+After saving, Walgo runs the content fixer and rebuilds the site.
 
 ## Configuration
 
-### AI Configuration in walgo.yaml
+### AI Configuration
 
-After running `walgo ai configure`, your `walgo.yaml` will include:
+AI settings do not go in `walgo.yaml`. `walgo ai configure` saves the provider, API key, base URL, and model to `~/.walgo/ai-credentials.yaml`, and every site on your machine uses them.
 
-```yaml
-ai:
-  enabled: true
-  provider: openai # or "openrouter"
-  model: gpt-4 # or "gpt-3.5-turbo", "anthropic/claude-3-opus", etc.
+Show the saved settings, with the API key masked:
+
+```bash
+walgo ai get
 ```
+
+Remove them:
+
+```bash
+walgo ai remove            # Remove all credentials
+walgo ai remove openai     # Remove only OpenAI credentials
+```
+
+To change the model, run `walgo ai configure` again for the same provider.
 
 ### Available Models
 
@@ -258,10 +290,12 @@ providers:
     provider: openai
     api_key: sk-...
     base_url: https://api.openai.com/v1
+    model: gpt-4
   openrouter:
     provider: openrouter
     api_key: sk-or-...
     base_url: https://openrouter.ai/api/v1
+    model: openai/gpt-4
 ```
 
 **Security:**
@@ -283,7 +317,7 @@ AI-generated content includes:
 ---
 title: "Your Content Title"
 date: 2025-01-15T10:30:00+00:00
-draft: true
+draft: false
 description: "SEO-friendly description"
 tags: ["hugo", "static-sites", "walrus"]
 categories: ["tutorials"]
@@ -300,14 +334,16 @@ categories: ["tutorials"]
 
 **Content Types:**
 
-1. **Blog Posts** (`--type post`)
+The AI picks the content type from your instructions and the sections in `content/`.
+
+1. **Blog Posts**
 
    - Date-based content
    - Tags and categories
    - SEO-optimized
    - Engaging narratives
 
-2. **Pages** (`--type page`)
+2. **Pages**
    - Standalone content
    - No dates/categories
    - Professional structure
@@ -341,8 +377,8 @@ Walgo uses specialized system prompts that understand:
 # 1. Configure AI (one-time setup)
 walgo ai configure
 
-# 2. Generate content
-walgo ai generate --type post
+# 2. Generate content (this also builds the site)
+walgo ai generate
 
 # 3. Review generated content
 cat content/posts/your-new-post.md
@@ -351,9 +387,8 @@ cat content/posts/your-new-post.md
 # Manual: edit with your preferred editor
 # AI: walgo ai update content/posts/your-new-post.md
 
-# 5. Build and preview
-walgo build
-# Select option 1 to preview
+# 5. Preview
+walgo serve
 
 # 6. Deploy
 walgo launch
@@ -365,15 +400,15 @@ Generate multiple posts quickly:
 
 ```bash
 # Generate first post
-walgo ai generate --type post
-# Instruction: "Write about Hugo basics"
+walgo ai generate --no-build
+# Instruction: "Write a blog post about Hugo basics"
 
 # Generate second post
-walgo ai generate --type post
-# Instruction: "Write about Walrus Sites benefits"
+walgo ai generate --no-build
+# Instruction: "Write a blog post about Walrus Sites benefits"
 
-# Generate third post
-walgo ai generate --type post
+# Generate third post, then build once
+walgo ai generate
 # Instruction: "Write a tutorial on deploying with Walgo"
 ```
 
@@ -424,11 +459,9 @@ Configure multiple providers and switch between them:
    # Select OpenRouter, enter key
    ```
 
-3. Switch providers in `walgo.yaml`:
-   ```yaml
-   ai:
-     provider: openrouter # Change to "openai" to switch
-     model: anthropic/claude-3-opus
+3. Walgo uses OpenAI when both providers are configured. To use OpenRouter, remove the OpenAI credentials:
+   ```bash
+   walgo ai remove openai
    ```
 
 ### Content Templates
@@ -464,7 +497,7 @@ Write about Walrus
 
 ### 2. Provide Context
 
-Use the "Additional context" field to provide:
+Put context in your instructions:
 
 - Target audience information
 - Tone preferences (technical, casual, professional)
@@ -494,15 +527,16 @@ walgo ai update content/posts/file.md
 # Instruction: "Make the introduction more engaging and add code examples"
 ```
 
-### 5. Set Appropriate Draft Status
+### 5. Check Draft Status Before You Deploy
 
-- AI sets `draft: true` by default
-- Review content before setting to `false`
-- Use Hugo's draft preview: `hugo server -D`
+- Generated content has `draft: false`, so the next build publishes it
+- The content fixer changes `draft: true` to `draft: false` in the YAML frontmatter of Markdown files under `content/`, including pages you did not generate
+- Review content before you deploy
+- To hold a page back, set `draft: true` after your last `walgo ai` command
 
 ## Troubleshooting
 
-### "AI features are not enabled"
+### "no AI credentials found - run 'walgo ai configure' first"
 
 **Solution:**
 
@@ -538,15 +572,16 @@ cat ~/.walgo/ai-credentials.yaml
 walgo ai configure
 ```
 
-### "Error loading credentials"
+### "failed to parse credentials file"
 
 **Solution:**
 
 ```bash
-# Check credentials file exists
-ls ~/.walgo/ai-credentials.yaml
+# Check the credentials file
+cat ~/.walgo/ai-credentials.yaml
 
-# If missing, reconfigure
+# If it is damaged, remove it and reconfigure
+rm ~/.walgo/ai-credentials.yaml
 walgo ai configure
 ```
 
@@ -556,13 +591,13 @@ walgo ai configure
 
 - Missing frontmatter fields - update instructions to be more specific
 - Wrong date format - regenerate or manually fix
-- Incorrect content type - specify `--type` flag
+- Incorrect content type - name the type in your instructions, such as "a blog post" or "an about page"
 
 **Solution:**
 
 ```bash
 # Regenerate with better instructions
-walgo ai generate --type post
+walgo ai generate
 
 # Or update the problematic file
 walgo ai update content/posts/file.md
@@ -626,7 +661,7 @@ When you generate content:
 ### Example 1: Generate Tutorial Post
 
 ```bash
-walgo ai generate --type post
+walgo ai generate
 ```
 
 **Instruction:**
@@ -648,7 +683,7 @@ A complete blog post with:
 ### Example 2: Create About Page
 
 ```bash
-walgo ai generate --type page
+walgo ai generate
 ```
 
 **Instruction:**

@@ -1,6 +1,6 @@
 # Quickstart Guide
 
-Get your site live on the decentralized web in 2 minutes!
+Create and build a new site with one command, then deploy it when you are ready.
 
 ## One Command to Rule Them All
 
@@ -8,142 +8,153 @@ Get your site live on the decentralized web in 2 minutes!
 walgo quickstart my-blog
 ```
 
-That's it! This single command will:
+This single command will:
 
-1. ✓ **Create** a new Hugo site
-2. ✓ **Install** the PaperMod theme
-3. ✓ **Generate** sample content (posts and about page)
-4. ✓ **Configure** everything automatically
-5. ✓ **Build** and optimize your site
-6. ✓ **Deploy** to Walrus decentralized storage
+1. ✓ **Ask** which site type to create: Biolink (the default), Blog, Docs, or Whitepaper
+2. ✓ **Create** a new Hugo site in `my-blog/` and write `walgo.yaml`
+3. ✓ **Install** the theme for that site type from GitHub
+4. ✓ **Add** sample content
+5. ✓ **Build** and optimize your site into `public/`
+6. ✓ **Save** the site as a draft project in `walgo projects`
 
-**Result:** Your site live in ~2 minutes! 🚀
+Quickstart does not deploy. When the site looks right, deploy it with `walgo launch`.
 
 ## What You Get
 
-### Live Site
-```
-🌐 Your site is live!
-URL: https://5tphzvq5shsxzugrz7kqd5bhnbajqfamvtxrn8jbfm3jbibzz1.walrus.site
-```
+### Site Types
+
+The site type picks the theme and the sample content:
+
+| Choice | Site type | Theme | Sample content |
+|--------|-----------|-------|----------------|
+| `1` (default) | Biolink | [Walgo Biolink](https://github.com/ganbitlabs/walgo-biolink) | The theme's example site |
+| `2` | Blog | [Ananke](https://github.com/theNewDynamic/gohugo-theme-ananke) | A homepage, `content/_index.md` |
+| `3` | Docs | [Book](https://github.com/alex-shpak/hugo-book) | The theme's example site |
+| `4` | Whitepaper | [Walgo Whitepaper](https://github.com/ganbitlabs/walgo-whitepaper) | The theme's example site |
+
+If the theme download fails, quickstart prints a warning and creates a blank theme with `hugo new theme` instead.
 
 ### Complete Setup
+
+A Blog site looks like this (Hugo's empty directories are left out):
+
 ```
 my-blog/
+├── archetypes/
+│   └── default.md
 ├── content/
-│   ├── posts/
-│   │   ├── welcome.md          # Welcome post
-│   │   └── getting-started.md  # Getting started guide
-│   └── about.md                # About page
+│   └── _index.md              # Homepage
+├── static/
+│   └── favicon.svg
 ├── themes/
-│   └── PaperMod/              # Pre-installed theme
-├── hugo.toml                   # Hugo configuration
-├── walgo.yaml                  # Walgo configuration
-└── public/                     # Built site (optimized)
+│   └── ananke/                # Downloaded theme
+├── hugo.toml                  # Hugo configuration
+├── walgo.yaml                 # Walgo configuration
+└── public/                    # Built site (optimized)
 ```
 
 ### Sample Content
 Your site comes with:
-- **Welcome post** - Introduction to your new site
-- **Getting started guide** - How to use Walgo
-- **About page** - Template for your about page
+- **Blog** - A homepage (`content/_index.md`) that explains how to edit, preview, and deploy the site
+- **Biolink, Docs, Whitepaper** - The theme's example site, including its content and configuration
 
 ## Usage Examples
 
 ### Basic Quickstart
 
 ```bash
-# Default setup with HTTP deployment
 walgo quickstart my-blog
 ```
 
-Output:
+Output when you choose Blog (Hugo and theme download messages left out):
 ```
-🚀 Walgo Quickstart
-==================
+🚀 Walgo Quick Start
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📦 Creating site: my-blog
 
-Creating new Hugo site 'my-blog'...
-✓ Site structure created
+Site type:
+  1) Biolink
+  2) Blog
+  3) Docs
+  4) Whitepaper
+Select [1]: 2
 
-Initializing Git repository...
-✓ Git initialized
+  [1/4] Checking dependencies...
+        ✓ Hugo found
 
-Installing theme 'PaperMod'...
-✓ Theme installed as submodule
-✓ Theme configured in hugo.toml
+  [2/4] Creating Hugo site...
+        ✓ Hugo site initialized
+        ✓ Walgo config created
 
-Creating sample content...
-✓ Created posts/welcome.md
-✓ Created posts/getting-started.md
-✓ Created about.md
+  [3/4] Setting up site...
+        ✓ Config set up (blog)
+        ✓ Archetypes set up
+        ✓ Favicon set up
+        🔄 Installing theme Ananke...
+        ✓ Theme Ananke installed
 
-Configuring site...
-✓ hugo.toml updated
-✓ walgo.yaml created
+  [4/4] Creating sample content...
+        ✓ Homepage created
 
-Building site...
-✓ Hugo build completed (42 files)
-✓ Assets optimized (saved 234 KB)
+  Building site...
+        ✓ Site built
+   ✓ Created draft project
 
-Deploying to Walrus Sites...
-✓ Files uploaded
-✓ Site published
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Quick start complete!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📂 Site directory: my-blog/
+📦 Built files: public/
 
-🎉 Your site is ready!
-
-📁 Site directory: ./my-blog
-🌐 URL: https://5tphzvq5shsxzugrz7kqd5bhnbajqfamvtxrn8jbfm3jbibzz1.walrus.site
-
-Next steps:
-  cd my-blog
-  walgo serve              # Preview locally
-  hugo new posts/my-post.md # Create new content
-
-Learn more: https://github.com/ganbitlabs/walgo/tree/main/docs
+💡 Next steps:
+   - cd my-blog
+   - walgo serve      # Preview your site locally
+   - walgo launch     # Deploy with interactive wizard
 ```
 
-### With Custom Theme
+### Skip the Build
 
 ```bash
-# Use a different Hugo theme
-walgo quickstart my-blog --theme hugo-theme-stack
+# Create the site and sample content, but don't build yet
+walgo quickstart my-blog --skip-build
 ```
 
-### Setup Only (No Deployment)
+Run `walgo build` in the site directory when you want the built files.
+
+### With a Different Theme
+
+Quickstart always installs the theme for the site type. To switch themes afterwards, run `walgo theme install` with the theme's GitHub URL:
 
 ```bash
-# Create and configure but don't deploy yet
-walgo quickstart my-blog --deploy=false
+cd my-blog
+walgo theme install https://github.com/CaiJimmy/hugo-theme-stack
+walgo build
 ```
+
+`walgo theme install` removes the themes in `themes/`, downloads the new one, and sets `theme` in your TOML Hugo config (such as `hugo.toml`).
 
 ### On-Chain Deployment
 
 ```bash
-# Deploy directly to blockchain for permanence
-walgo quickstart my-blog --deploy --deploy-mode onchain --epochs 10
+cd my-blog
+walgo launch
 ```
 
-**Note:** Requires wallet setup with `walgo setup --network testnet`
+`walgo launch` walks you through the network, the wallet, the project name, the storage epochs, and the gas fee, then publishes the site.
 
-### Minimal Setup
-
-```bash
-# Skip sample content creation
-walgo quickstart my-blog --skip-content
-```
+**Note:** Requires a Sui wallet with an active address. Run `sui client` to create one. `walgo setup --network testnet` writes the site-builder configuration, but it does not create a wallet.
 
 ## What Happens Behind the Scenes
 
 ```mermaid
 graph TD
-    Start[walgo quickstart my-blog] --> Init[Initialize Hugo Site]
-    Init --> Git[Setup Git Repository]
-    Git --> Theme[Install Theme]
+    Start[walgo quickstart my-blog] --> Type[Choose Site Type]
+    Type --> Init[Initialize Hugo Site]
+    Init --> Theme[Install Theme]
     Theme --> Content[Create Sample Content]
-    Content --> Config[Configure Site]
-    Config --> Build[Build & Optimize]
-    Build --> Deploy[Deploy to Walrus]
-    Deploy --> Done[🎉 Site Live!]
+    Content --> Build[Build & Optimize]
+    Build --> Project[Save Draft Project]
+    Project --> Done[Ready for walgo launch]
 
     style Start fill:#e1f5ff
     style Done fill:#e1ffe1
@@ -151,51 +162,39 @@ graph TD
 
 ### Detailed Steps
 
-1. **Initialize Hugo Site**
-   ```bash
-   # Equivalent to:
-   walgo init my-blog
-   cd my-blog
-   ```
+1. **Choose a Site Type**
 
-2. **Setup Git Repository**
+   Quickstart prompts for the site type. Press Enter to choose Biolink.
+
+2. **Initialize Hugo Site**
    ```bash
    # Equivalent to:
-   git init
+   mkdir my-blog
+   cd my-blog
+   hugo new site . --format toml
    ```
+   Quickstart then writes `walgo.yaml` with the default settings. If the active Sui environment is `testnet` or `mainnet`, it also sets `walrus.network` to match.
 
 3. **Install Theme**
-   ```bash
-   # Equivalent to:
-   git submodule add https://github.com/adityatelange/hugo-PaperMod.git themes/PaperMod
-   echo 'theme = "PaperMod"' >> hugo.toml
-   ```
+   - Downloads the theme's GitHub archive into `themes/`
+   - Updates the Hugo config with settings for that theme
+   - Blog sites also get Walgo's `hugo.toml` template and archetypes
+   - Adds a favicon in the place the theme expects
 
 4. **Create Sample Content**
-   ```bash
-   # Equivalent to:
-   hugo new posts/welcome.md
-   hugo new posts/getting-started.md
-   hugo new about.md
-   # Plus setting draft: false and adding content
-   ```
+   - Blog: writes `content/_index.md`
+   - Biolink, Docs, Whitepaper: copies the theme's `exampleSite` content and configuration into the site
 
-5. **Configure Site**
-   - Updates `hugo.toml` with theme settings
-   - Creates `walgo.yaml` with optimal defaults
-   - Sets up baseURL and other essentials
-
-6. **Build & Optimize**
+5. **Build & Optimize**
    ```bash
    # Equivalent to:
    walgo build
    ```
+   `--skip-build` skips this step.
 
-7. **Deploy to Walrus**
-   ```bash
-   # Equivalent to:
-   walgo deploy
-   ```
+6. **Save Draft Project**
+
+   Quickstart adds the site to your project list as a draft. `walgo projects` lists it.
 
 ## Next Steps
 
@@ -217,11 +216,8 @@ walgo serve
 ### 3. Customize Content
 
 ```bash
-# Edit the welcome post
-vim content/posts/welcome.md
-
-# Edit the about page
-vim content/about.md
+# Edit the homepage
+vim content/_index.md
 
 # Create a new post
 hugo new posts/my-first-real-post.md
@@ -229,19 +225,20 @@ hugo new posts/my-first-real-post.md
 
 ### 4. Customize Theme
 
-Edit `hugo.toml`:
+Edit `hugo.toml`. A Blog site starts with settings like these:
 
 ```toml
-baseURL = 'https://your-site.walrus.site/'
-languageCode = 'en-us'
-title = 'My Awesome Blog'
-theme = 'PaperMod'
+baseURL = "/"
+title = "my-blog"
+languageCode = "en-us"
+theme = "ananke"
 
+# Ananke theme params
 [params]
-  description = "A decentralized blog"
-  author = "Your Name"
-  ShowReadingTime = true
-  ShowPostNavLinks = true
+  favicon = "/favicon.svg"
+  author = ""
+  description = "A blog powered by Walgo"
+  show_reading_time = true
 ```
 
 ### 5. Rebuild and Redeploy
@@ -258,39 +255,22 @@ walgo deploy --epochs 5
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--theme` | string | `PaperMod` | Hugo theme to install |
-| `--deploy` | bool | `true` | Deploy after setup |
-| `--deploy-mode` | string | `http` | `http` or `onchain` |
-| `--epochs` | int | `5` | Storage epochs (on-chain only) |
-| `--skip-content` | bool | `false` | Skip sample content |
 | `--skip-build` | bool | `false` | Skip building |
 
 ### Examples with Flags
 
 ```bash
-# Different theme
-walgo quickstart blog --theme ananke
-
-# No deployment
-walgo quickstart blog --deploy=false
-
-# On-chain deployment
-walgo quickstart blog --deploy-mode onchain
-
-# Minimal (no samples)
-walgo quickstart blog --skip-content
-
-# Setup only (no build/deploy)
-walgo quickstart blog --skip-build --deploy=false
+# Setup only (no build)
+walgo quickstart blog --skip-build
 ```
 
 ## Popular Themes
 
-You can use any Hugo theme. Here are some popular ones:
+Quickstart installs the theme for the site type you choose. After that, you can switch to any Hugo theme on GitHub with `walgo theme install`. Here are some popular ones:
 
-### PaperMod (Default)
+### PaperMod
 ```bash
-walgo quickstart blog --theme PaperMod
+walgo theme install https://github.com/adityatelange/hugo-PaperMod
 ```
 - Fast, clean blog theme
 - Great for blogs and documentation
@@ -298,15 +278,15 @@ walgo quickstart blog --theme PaperMod
 
 ### Stack
 ```bash
-walgo quickstart blog --theme hugo-theme-stack
+walgo theme install https://github.com/CaiJimmy/hugo-theme-stack
 ```
 - Card-based design
 - Perfect for image-heavy blogs
 - Repository: https://github.com/CaiJimmy/hugo-theme-stack
 
-### Ananke
+### Ananke (Blog default)
 ```bash
-walgo quickstart blog --theme ananke
+walgo theme install https://github.com/theNewDynamic/gohugo-theme-ananke
 ```
 - Default Hugo theme
 - Simple and elegant
@@ -314,7 +294,7 @@ walgo quickstart blog --theme ananke
 
 ### Terminal
 ```bash
-walgo quickstart blog --theme hugo-theme-terminal
+walgo theme install https://github.com/panr/hugo-theme-terminal
 ```
 - Hacker aesthetic
 - Terminal-inspired design
@@ -338,9 +318,7 @@ You can change it anytime:
 
 ```bash
 cd my-blog
-git submodule deinit themes/PaperMod
-git submodule add https://github.com/CaiJimmy/hugo-theme-stack.git themes/stack
-# Update hugo.toml: theme = "stack"
+walgo theme install https://github.com/CaiJimmy/hugo-theme-stack
 walgo build
 walgo deploy
 ```
@@ -353,19 +331,13 @@ walgo setup --network testnet  # If not already done
 walgo deploy --epochs 5
 ```
 
-### Can I skip the deployment step?
+### Does quickstart deploy my site?
 
-Yes:
-
-```bash
-walgo quickstart my-blog --deploy=false
-```
-
-Then deploy manually later:
+No. Quickstart stops after the build. Deploy later:
 
 ```bash
 cd my-blog
-walgo deploy
+walgo launch
 ```
 
 ### What is Walrus Sites deployment?
@@ -399,18 +371,11 @@ walgo deploy
 ### Can I customize the sample content?
 
 The sample content is just to get you started. Feel free to:
-- Edit the sample posts
+- Edit the sample pages
 - Delete them entirely
 - Create your own from scratch
 
-```bash
-# Remove sample content
-rm content/posts/welcome.md
-rm content/posts/getting-started.md
-
-# Start fresh
-hugo new posts/my-first-post.md
-```
+A Blog site has one sample page, `content/_index.md`. The other site types copy the theme's example pages into `content/`.
 
 ## Troubleshooting
 
@@ -429,22 +394,9 @@ sudo apt install hugo
 scoop install hugo-extended
 ```
 
-### "Git not found"
-
-Install Git:
-
-```bash
-# macOS
-brew install git
-
-# Linux
-sudo apt install git
-
-# Windows
-Download from https://git-scm.com/
-```
-
 ### Theme installation fails
+
+Quickstart downloads the theme from GitHub. If the download fails, it prints a warning and creates a blank theme, so the site builds without the theme's layouts.
 
 Check internet connection:
 
@@ -452,10 +404,12 @@ Check internet connection:
 # Test connection
 ping github.com
 
-# Manual theme install
+# Install the theme again (Blog example)
 cd my-blog
-git submodule add https://github.com/adityatelange/hugo-PaperMod.git themes/PaperMod
+walgo theme install https://github.com/theNewDynamic/gohugo-theme-ananke
 ```
+
+Each download attempt times out after 2 minutes. On a slow connection, raise the limit with `WALGO_THEME_DOWNLOAD_TIMEOUT`, which takes a Go duration such as `5m`.
 
 ### Deployment fails
 
@@ -474,12 +428,12 @@ Common issues:
 
 | Aspect | Quickstart | Manual Setup |
 |--------|-----------|--------------|
-| **Commands** | 1 command | 8+ commands |
+| **Commands** | 1 command | 5+ commands |
 | **Time** | ~2 minutes | ~10 minutes |
 | **Theme** | Auto-installed | Manual install |
 | **Content** | Sample included | Create yourself |
 | **Configuration** | Auto-configured | Manual editing |
-| **Deployment** | Automatic | Manual |
+| **Deployment** | Separate step (`walgo launch`) | Separate step |
 | **Best For** | Beginners, prototypes | Customization, existing sites |
 
 ### Manual Setup Equivalent
@@ -490,25 +444,18 @@ The quickstart command replaces all of this:
 # Manual setup (what quickstart does for you)
 walgo init my-blog
 cd my-blog
-git init
-git submodule add https://github.com/adityatelange/hugo-PaperMod.git themes/PaperMod
-echo 'theme = "PaperMod"' >> hugo.toml
-hugo new posts/welcome.md
-hugo new posts/getting-started.md
-hugo new about.md
-# Edit each file to set draft: false and add content
-# Edit hugo.toml to configure theme
-# Create walgo.yaml
+walgo theme install https://github.com/theNewDynamic/gohugo-theme-ananke
+# Edit hugo.toml to configure the theme
+# Write content/_index.md
 walgo build
-walgo deploy
 ```
 
-**Quickstart = 1 command instead of 12+ steps!**
+**Quickstart = 1 command instead of all these steps!**
 
 ## Learn More
 
 - **Full Documentation:** [docs/](https://github.com/ganbitlabs/walgo/tree/main/docs)
-- **Commands Reference:** [COMMANDS.md](COMMANDS.md#walgo-quickstart)
+- **Commands Reference:** [COMMANDS.md](COMMANDS.md#walgo-quickstart-site-name)
 - **Getting Started Guide:** [GETTING_STARTED.md](GETTING_STARTED.md)
 - **Deployment Guide:** [DEPLOYMENT.md](DEPLOYMENT.md)
 
@@ -521,7 +468,10 @@ curl -fsSL https://raw.githubusercontent.com/ganbitlabs/walgo/main/install.sh | 
 # Create your site
 walgo quickstart my-blog
 
-# That's it! Your site is live! 🎉
+# Preview it, then deploy
+cd my-blog
+walgo serve
+walgo launch
 ```
 
 ---
