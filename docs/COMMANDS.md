@@ -1,8 +1,10 @@
 # Walgo - Complete Command Reference
 
-**Walgo v0.3.1** - Deploy Hugo Sites to Walrus Decentralized Storage
+**Walgo v0.5.0** - Deploy Hugo Sites to Walrus Decentralized Storage
 
 Complete reference for all Walgo commands with examples, flags, and workflows.
+
+**Flag notation.** A flag shown without a value is a boolean switch. It is off unless its entry gives another default. `<int>` takes a whole number. Every other placeholder takes a string.
 
 ---
 
@@ -52,11 +54,14 @@ walgo quickstart my-portfolio --skip-build
 
 **What it does:**
 
-1. Creates new Hugo site
-2. Adds default theme (Ananke)
-3. Creates sample content
-4. Builds the site
-5. Offers deployment options
+1. Asks for a site type: Biolink (default), Blog, Docs, or Whitepaper
+2. Creates a Hugo site in `./<site-name>` with a `walgo.yaml`
+3. Installs the theme for that site type: Walgo Biolink, Ananke, Book, or Walgo Whitepaper
+4. Adds sample content: a homepage for Blog, the theme's example site for the others
+5. Builds the site
+6. Records the site as a draft project
+
+The site name may use only letters, numbers, hyphens, and underscores.
 
 **Flags:**
 
@@ -76,39 +81,48 @@ walgo quickstart my-portfolio --skip-build
 
 ```bash
 walgo init my-blog
-walgo init my-site --format yaml
+walgo init my-site --quiet
 ```
 
 **What it does:**
 
-- Creates Hugo directory structure
-- Initializes configuration file
-- Sets up default archetypes
+- Creates `./<site-name>` and runs `hugo new site` in it, with a TOML Hugo config
+- Writes `walgo.yaml`. If the Sui CLI is on testnet or mainnet, `walrus.network` is set to that network.
+- Builds the site
+- Records the site as a draft project
+
+`walgo init` installs no theme. Add one with `walgo theme install`, or start with `walgo quickstart` instead.
 
 **Flags:**
 
-- `--format <format>` - Config format: `toml`, `yaml`, or `json` (default: `toml`)
-- `--force` - Overwrite existing directory
+- `-q, --quiet` - Hide most progress messages
 
 ---
 
 ## Site Management
 
-### `walgo new <path>`
+### `walgo new [slug]`
 
 **Create new content in Hugo site**
 
 ```bash
-walgo new posts/my-first-post.md
-walgo new about.md
-walgo new blog/tutorials/getting-started.md
+walgo new my-first-post
+walgo new about
+walgo new my-first-post --no-build
+walgo new my-first-post --serve
 ```
 
 **What it does:**
 
-- Creates markdown file with frontmatter
-- Uses Hugo archetypes
-- Places in `content/` directory
+- Lists the content types, which are the folders under `content/`. When there is more than one, it asks which to use. The default is the type with the most files, or `posts` in an empty site.
+- Asks for the slug when you leave it out. A slug may use only letters, numbers, hyphens, and underscores.
+- Runs `hugo new <type>/<slug>.md`, which applies the site's archetypes
+- Builds the site, unless you pass `--no-build`
+
+**Flags:**
+
+- `--no-build` - Skip the build after creating the file
+- `--serve` - Start the Hugo development server on port 1313 after creating the file
 
 ---
 
@@ -118,27 +132,86 @@ walgo new blog/tutorials/getting-started.md
 
 ```bash
 walgo serve
-walgo serve -D              # Include drafts
-walgo serve --port 8080     # Custom port
-walgo serve --bind 0.0.0.0  # Access from network
+walgo serve -D                  # Include drafts
+walgo serve --port 8080         # Custom port
+walgo serve -- --bind 0.0.0.0   # Pass other flags to hugo server
 ```
+
+**What it does:**
+
+- Stops other `hugo server` processes that are running
+- Builds the site
+- Runs `hugo server` in the current directory
+
+Arguments after `--` go to `hugo server` unchanged. walgo drops any other flag it does not know, so put Hugo's own flags after `--`.
 
 **Flags:**
 
-- `-D, --drafts` - Include draft content
-- `-p, --port <port>` - Custom port (default: 1313)
-- `--bind <address>` - Interface to bind to (default: 127.0.0.1)
-- `--navigate-to-changed` - Navigate to changed file
-- `--no-live-reload` - Disable live reload
+- `-D, --drafts` - Include draft content (`hugo server -D`)
+- `-E, --expired` - Include content whose expiry date has passed (`hugo server -E`)
+- `-F, --future` - Include content with a future publish date (`hugo server -F`)
+- `-p, --port <int>` - Port for the server (default: `0`, which keeps Hugo's default port, 1313)
 
 **Output:**
 
 ```
-Starting Hugo development server...
-✓ Server running at http://localhost:1313/
-
+Starting local Hugo development server...
+...
+Web Server is available at http://localhost:1313/ (bind address 127.0.0.1)
 Press Ctrl+C to stop
 ```
+
+---
+
+### `walgo theme`
+
+**Manage Hugo themes**
+
+Run it with a subcommand: `install`, `list`, or `new`. Each one works on the site in the current directory. `install` and `new` refuse to run outside a Hugo site.
+
+---
+
+### `walgo theme install <github-url>`
+
+**Install a Hugo theme from GitHub**
+
+```bash
+walgo theme install https://github.com/theNewDynamic/gohugo-theme-ananke
+walgo theme install https://github.com/alex-shpak/hugo-book
+```
+
+**What it does:**
+
+- Accepts only `https://github.com/<owner>/<repo>` URLs
+- Downloads the repository's `main` branch archive, or `master` when there is no `main`
+- Replaces every theme in `themes/` with the new one. If the download fails, the previous themes are restored.
+- Sets the theme in the site's TOML Hugo config, then sets up archetypes and a favicon for it
+
+The download times out after 2 minutes. To change that, set `WALGO_THEME_DOWNLOAD_TIMEOUT` to a Go duration such as `5m`.
+
+---
+
+### `walgo theme list`
+
+**List installed themes**
+
+```bash
+walgo theme list
+```
+
+Lists the folders in `themes/`.
+
+---
+
+### `walgo theme new <name>`
+
+**Create a new Hugo theme scaffold**
+
+```bash
+walgo theme new my-theme
+```
+
+Runs `hugo new theme <name>` and sets the new theme in the site's TOML Hugo config. It stops if `themes/<name>` already exists.
 
 ---
 
@@ -169,20 +242,22 @@ walgo import ~/Vault --attachment-dir attachments --output-dir docs
 3. **Imports Obsidian content:**
    - Converts notes to Hugo format
    - Handles wikilinks → markdown links
-   - Copies attachments (images, files)
-   - Preserves frontmatter
-4. **Creates draft project** for tracking
+   - Copies attachments (images, files) into `static/`
+   - Rewrites YAML frontmatter in the `--frontmatter-format` format, keeping only `title`, `date`, `tags`, and `aliases` and adding `draft: false`
+   - Adds frontmatter to notes that have none
+4. **Builds the site**
+5. **Creates draft project** for tracking
 
 **Flags:**
 
-- `-n, --site-name <name>` - Name for the new site (defaults to vault directory name)
-- `-p, --parent-dir <dir>` - Parent directory for site creation (defaults to current directory)
-- `-o, --output-dir <dir>` - Subdirectory in content for imported files (optional)
-- `--attachment-dir <dir>` - Where to place attachments (default: `attachments`)
-- `--convert-wikilinks` - Convert `[[links]]` to markdown (default: true)
-- `--frontmatter-format <format>` - Format: `yaml`, `toml`, or `json` (default: `yaml`)
+- `-n, --site-name <name>` - Name for the new site (default: vault directory name)
+- `-p, --parent-dir <dir>` - Parent directory for site creation (default: current directory)
+- `-o, --output-dir <dir>` - Subdirectory of `content/` for imported files (default: `content/` itself)
+- `--attachment-dir <dir>` - Folder under `static/` for attachments (default: `obsidian.attachmentDir` from the new `walgo.yaml`, which is `images`)
+- `--convert-wikilinks` - Convert `[[links]]` to markdown (default: on; `--convert-wikilinks=false` turns it off)
+- `--frontmatter-format <format>` - Format of the frontmatter that import writes or rewrites: `yaml`, `toml`, or `json` (default: `yaml`)
 - `--link-style <style>` - Link conversion: `markdown` or `relref` (default: `markdown`)
-- `--dry-run` - Preview import without creating site
+- `--dry-run` - Analyze the vault and print what the import would do, then remove the new site folder
 
 **Example:**
 
@@ -211,91 +286,72 @@ walgo import ~/Notes \
 
 ```bash
 walgo build
-walgo build --clean
-walgo build --no-optimize --no-compress
-walgo build --destination dist
-walgo build --base-url https://example.walrus.site/
 ```
 
 **What it does:**
 
-1. Runs Hugo build → `public/`
-2. Optimizes HTML/CSS/JS (optional)
-3. Brotli compression (optional)
-4. Generates ws-resources.json
-5. **Offers interactive menu:**
-   - Preview site locally
-   - Launch deployment wizard
-   - Exit
+1. Runs `hugo build --environment production --minify --gc --cleanDestinationDir` into the publish directory. That is `hugo.publishDir` from `walgo.yaml`, else the Hugo config's `publishDir`, else `public/`.
+2. Optimizes HTML, CSS, and JS, unless `optimizer.enabled` is `false` in `walgo.yaml`
+3. Removes `.DS_Store` files from the publish directory
+4. Writes `ws-resources.json` when `compress.generateWSResources` is `true`, as it is in a generated `walgo.yaml`
 
-**Flags:**
+`site.kind` in `walgo.yaml` decides whether a site is a Hugo site or a static site. When `site.kind` is unset, a site without a Hugo config is static. For a static site, walgo skips steps 1 and 2 and deploys the publish directory as it is.
 
-- `-c, --clean` - Clean public/ before build
-- `--no-optimize` - Skip optimization
-- `--no-compress` - Skip compression
-- `-v, --verbose` - Show detailed stats
-- `-q, --quiet` - Suppress output
-- `--draft` - Include draft content
-- `--source <dir>` - Source directory (default: current)
-- `--destination <dir>` - Output directory (default: `public`)
-- `--base-url <url>` - Override baseURL
-- `--minify` - Enable Hugo's built-in minification
+`walgo build` takes no flags. To skip optimization, set `optimizer.enabled: false` in `walgo.yaml`. To leave one file type alone, set `optimizer.html.minifyHTML`, `optimizer.css.minifyCSS`, or `optimizer.js.minifyJS` to `false`. See [OPTIMIZER.md](OPTIMIZER.md). `walgo optimize` runs the optimizer on demand, but it also does nothing while `optimizer.enabled` is `false`.
 
 **Output Example:**
 
 ```
-Building Hugo site...
-✓ Hugo build completed (234 files generated)
-
+Building site...
+Building Hugo site in /Users/me/my-blog...
+...
+Hugo site built successfully.
+Static files generated in: /Users/me/my-blog/public
 Optimizing assets...
-🎯 Optimization Results
-======================
+
+Optimization Results
 Files processed: 234
 Files optimized: 89
-Bytes saved: 1.2 MB (34.5%)
-Duration: 456ms
+...
+Generating ws-resources.json...
+Generated ws-resources.json (234 resources)
 
-✓ Build completed successfully!
+Build complete!
 
-What would you like to do?
-  1) Preview site locally
-  2) Launch deployment wizard
-  3) Exit
+Next steps:
+  - Preview: walgo serve
+  - Deploy:  walgo launch
 ```
 
 ---
 
-### `walgo optimize <directory>`
+### `walgo optimize [directory]`
 
 **Optimize HTML, CSS, and JavaScript files**
 
 ```bash
 walgo optimize public/
-walgo optimize dist/ --aggressive
 walgo optimize --css=false --js=false  # HTML only
-walgo optimize --remove-unused-css     # Aggressive CSS
 walgo optimize --verbose
 ```
 
 **What it does:**
 
-- Minifies HTML (removes whitespace, comments)
-- Minifies CSS (removes unused rules)
-- Minifies JavaScript (removes comments, whitespace)
-- Shows compression statistics
+- With no directory, optimizes the site's publish directory, or the current directory when there is none
+- Minifies HTML, CSS, and JavaScript with tdewolff/minify, using the `optimizer` section of `walgo.yaml`, or the defaults when walgo finds no `walgo.yaml`
+- Shows optimization statistics
 
 **Flags:**
 
-- `--aggressive` - More aggressive optimization
-- `--html` - Enable HTML optimization (default: true)
-- `--css` - Enable CSS optimization (default: true)
-- `--js` - Enable JavaScript optimization (default: true)
-- `--remove-unused-css` - Remove unused CSS rules
-- `--verbose` / `-v` - Show detailed output
+- `--html` - Turn HTML optimization on or off. Unset, `optimizer.html.enabled` decides (default: on).
+- `--css` - Turn CSS optimization on or off. Unset, `optimizer.css.enabled` decides (default: on).
+- `--js` - Turn JavaScript optimization on or off. Unset, `optimizer.js.enabled` decides (default: on).
+- `--remove-unused-css` - Not implemented. Has no effect.
+- `-v, --verbose` - Show detailed output
 
 ---
 
-### `walgo compress <directory>`
+### `walgo compress [directory]`
 
 **Compress files with Brotli**
 
@@ -307,14 +363,18 @@ walgo compress --verbose
 
 **What it does:**
 
-- Creates Brotli compressed files (.br)
-- Skips already compressed files
+- With no directory, compresses the publish directory from `walgo.yaml`
+- Compresses only `.html`, `.htm`, `.css`, `.js`, `.mjs`, `.json`, `.xml`, `.txt`, `.md`, `.svg`, and `.wasm` files, and skips every other file
+- Writes a Brotli `.br` file next to each of those files, or replaces the file with `--in-place`
+- When Brotli does not make a file smaller, the `.br` file holds the original, uncompressed bytes, and `--in-place` leaves the file unchanged
 - Shows compression statistics
 
 **Flags:**
 
-- `--level <0-11>` - Compression level (default: 6)
-- `--verbose` - Detailed statistics
+- `-l, --level <int>` - Compression level, 0 to 11 (default: 6)
+- `-v, --verbose` - Show per-file statistics
+- `--in-place` - Replace the original files with their compressed versions
+- `--generate-ws-resources` - Write `ws-resources.json` into the directory
 
 ---
 
@@ -334,30 +394,33 @@ walgo launch
 - Automatic project tracking and history
 - Cost estimation before you confirm
 - Wallet management built-in
-- SuiNS domain setup instructions
+- SuiNS domain setup instructions (mainnet)
 
 **What it does - 8 Steps:**
 
-1. **Choose Network** - testnet or mainnet
+The wizard builds the site first, then runs these steps.
+
+1. **Choose Network** - testnet or mainnet. walgo switches the Sui CLI to that network for the deploy and switches it back afterwards.
 2. **Wallet & Balance Check**
    - View current addresses
    - Switch address
    - Create new address
    - Import existing address
-3. **Project Name & Category**
+3. **Project Details** - name, category, description, and image URL
 4. **Storage Duration** (epochs)
 5. **Verify Site Built**
-6. **Review & Confirm** (shows gas estimate)
+6. **Review & Confirm** (shows WAL and SUI cost estimates)
 7. **Deploy to Walrus**
 8. **Success!**
    - Shows Object ID
-   - Shows URL
-   - SuiNS setup instructions
+   - Shows Suiscan and Suivision links
+   - SuiNS setup instructions (mainnet)
 
 **Features:**
 
 - Saves project to database
 - Tracks deployment history
+- Saves the network to `walgo.yaml` as `walrus.network`
 - User-friendly prompts
 - Complete wallet management
 - Gas estimation
@@ -371,58 +434,64 @@ walgo launch
 
 ```bash
 walgo deploy --epochs 1
-walgo deploy --epochs 10 --network mainnet
-walgo deploy --gas-budget 100000000
-walgo deploy --directory dist
+walgo deploy --epochs 10
+walgo deploy --dry-run
+walgo deploy --epochs 5 --project-name my-blog
 ```
 
 **What it does:**
 
-- Deploys `public/` to Walrus
-- Creates site object on Sui blockchain
-- Returns Object ID and URLs
+- Builds the site, as `walgo build` does
+- Deploys the publish directory to the active Sui environment's network. If `walrus.network` in `walgo.yaml` names another network, it stops.
+- Updates the existing site when it finds the site's object ID in `walrus.projectID`, in `ws-resources.json`, or in the project database. `--force-new` publishes a new site instead.
+- Stops when `sui`, `walrus`, or `site-builder` is missing or older than walgo's minimum version
+- Saves the object ID to `walrus.projectID` in `walgo.yaml` and to `ws-resources.json`
 
 **Flags:**
 
-- `--epochs <number>` - Storage duration (required, default: 5)
-- `--network <network>` - `testnet` or `mainnet` (default: testnet)
-- `--wallet <path>` - Sui wallet address
-- `--gas-budget <amount>` - Maximum gas to spend (default: auto)
-- `--directory <dir>` - Directory to deploy (default: `public`)
+- `-e, --epochs <int>` - Storage duration in epochs, at most 53 (default: 1)
+- `-f, --force` - Continue when the publish directory does not exist yet
+- `--force-new` - Publish a new site even when the site already has an object ID
+- `--dry-run` - Show the deployment plan without uploading
+- `--save-project` - Save the deployment as a project named after the directory
+- `--project-name <name>` - Save the deployment as a project with this name (default: directory name)
+- `--category <category>` - Project category (default: `website`)
+- `--description <text>` - Site description for the site metadata
+- `--image-url <url>` - Site image URL for the site metadata
+- `--skip-version-check` - Skip the tool-update offer, and deploy even when `sui`, `walrus`, or `site-builder` is missing or too old. The problems still print as warnings.
+- `--telemetry` - Record deployment metrics in `~/.walgo/metrics.json`
+- `-v, --verbose` - Show detailed output for debugging
+- `-q, --quiet` - Hide progress output. The object ID still prints.
 
 **Requirements:**
 
-- Sui wallet with SUI tokens
-- site-builder installed
-- Built site in public/
+- `walgo.yaml` in the current directory
+- `sui`, `walrus`, and `site-builder` at walgo's minimum versions (`walgo doctor` checks them)
+- A Sui wallet with SUI for gas and WAL for storage
 
 > **Tip:** For most users, `walgo launch` provides a better experience with project tracking and guided deployment.
 
 **Output Example:**
 
 ```
-Deploying to Walrus (on-chain)...
-✓ Assets uploaded to Walrus
-✓ Site object created on Sui
-✓ Deployment successful
+Deploying to Walrus Sites...
+  [1/5] Verifying site...
+  [2/5] Checking environment...
+...
+Deployment Successful!
 
-🌐 Your site is live!
-Object ID: 0x7b5a...8f3c
-URL: https://5tphzvq5shsxzugrz7kqd5bhnbajqfamvtxrn8jbfm3jbibzz1.walrus.site
+Site Object ID: 0x7b5a...8f3c
 
-📊 Deployment Stats:
-Files: 234
-Total size: 2.4 MB
-Epochs: 5
-Cost: 0.15 SUI
-Transaction: 0xabc...def
+View Your Object on the Sui Network
+   • Suiscan:    https://suiscan.xyz/testnet/object/0x7b5a...8f3c
+   • Suivision:  https://testnet.suivision.xyz/package/0x7b5a...8f3c
 ```
 
 ---
 
 ### `walgo deploy-http` (Testing)
 
-**Deploy via HTTP APIs (testnet only, no wallet needed)**
+**Deploy via HTTP APIs (no wallet needed)**
 
 ```bash
 walgo deploy-http \
@@ -430,63 +499,84 @@ walgo deploy-http \
   --aggregator https://aggregator.walrus-testnet.walrus.space \
   --epochs 1
 
-# Or with defaults
-walgo deploy-http
-walgo deploy-http --directory dist
-walgo deploy-http --mode files --workers 20
+# One blob per file, 20 uploads at a time
+walgo deploy-http --publisher <url> --aggregator <url> --mode blobs --workers 20
 ```
 
 **What it does:**
 
-- Uploads to Walrus via HTTP
+- Builds the site, then uploads the publish directory to the publisher as one Quilt, or as one blob per file with `--mode blobs`
+- In quilt mode, prints the Quilt ID and an aggregator URL for each file
 - No blockchain interaction
 - No wallet/tokens needed
-- **Testnet only**
+
+The publish directory must exist before the upload starts, so run `walgo build` first.
 
 **Flags:**
 
-- `--publisher <url>` - Publisher URL (required)
-- `--aggregator <url>` - Aggregator URL (required)
-- `--epochs <number>` - Storage duration (required)
-- `--mode <mode>` - "blobs" or "files" (default: blobs)
-- `--workers <number>` - Parallel uploads (default: 10)
-- `--directory <dir>` - Directory to deploy (default: `public`)
+- `--publisher <url>` - Publisher base URL (required)
+- `--aggregator <url>` - Aggregator base URL (required)
+- `-e, --epochs <int>` - Storage duration in epochs (default: 1)
+- `--mode <mode>` - `quilt` or `blobs` (default: `quilt`)
+- `--workers <int>` - Concurrent uploads in `blobs` mode, at most 50 (default: 10)
+- `--retries <int>` - Retries per file for transient errors (default: 5)
+- `--json` - Accepted, but has no effect. The output stays plain text.
+- `-v, --verbose` - Accepted, but has no effect. The output is the same with or without it.
 
 **Limitations:**
 
-- Temporary (~30 days)
-- Cannot update after deployment
-- Cannot use SuiNS domains
-- Testnet only
+- Data expires after `--epochs` epochs
+- Creates no site object, so it cannot be updated and cannot use SuiNS domains
 
 ---
 
-### `walgo update <object-id>`
+### `walgo update [object-id]`
 
 **Update existing Walrus site**
 
 ```bash
-walgo update 0x1234567890abcdef... --epochs 5
-walgo update 0x7b5a...8f3c --directory dist
-walgo update 0x7b5a...8f3c --network mainnet
+walgo update
+walgo update 0x7b5a...8f3c --epochs 5
+walgo update --dry-run
 ```
 
 **What it does:**
 
-- Updates existing site with new content
-- Creates new site object
-- Same deployment process as deploy
+- Takes the object ID from the argument, else from `ws-resources.json` in the publish directory, else from `walrus.projectID` in `walgo.yaml`
+- Builds the site and updates that site object in place, on the active Sui environment's network
+- Warns before the update when the site's storage has expired, because expired files are uploaded again at full price
+- Updates the project record, if the site has one
+
+The publish directory must exist before the update starts, so run `walgo build` first.
 
 **Flags:**
 
-- `--epochs <number>` - Storage duration
-- `--directory <dir>` - Directory to deploy (default: `public`)
-- `--network <network>` - `testnet` or `mainnet`
-- `--gas-budget <amount>` - Maximum gas to spend
+- `-e, --epochs <int>` - Storage duration in epochs (default: 1)
+- `--dry-run` - Compare the publish directory with the last deployment and print the changed files, without building or uploading. Run `walgo build` first so the comparison includes your latest edits.
+- `-v, --verbose` - Show a detailed change summary
+- `--telemetry` - Record update metrics in `~/.walgo/metrics.json`
 
 ---
 
 ## Project Management
+
+### `walgo projects`
+
+**List your projects**
+
+```bash
+walgo projects
+walgo projects --network mainnet
+```
+
+Without a subcommand, `walgo projects` does what `walgo projects list` does.
+
+**Flags:**
+
+- `-n, --network <network>` - Show only projects on this network: `testnet` or `mainnet`
+- `-s, --status <status>` - Show only projects with this status: `draft`, `active`, or `archived`
+
+---
 
 ### Project Identification
 
@@ -519,7 +609,7 @@ walgo projects show mysite
 
 ### `walgo projects list`
 
-**List all your deployed projects**
+**List all your projects, drafts included**
 
 ```bash
 walgo projects list
@@ -536,12 +626,13 @@ walgo projects list --status archived
 - SuiNS domain
 - Deployment count
 - Last deployment date
-- Status (active/archived)
+- Storage epochs and estimated expiry
+- Status (draft, active, or archived)
 
 **Flags:**
 
-- `--network <network>` - Filter by network
-- `--status <status>` - Filter by status (active/archived)
+- `-n, --network <network>` - Filter by network
+- `-s, --status <status>` - Filter by status: `draft`, `active`, or `archived`
 
 ---
 
@@ -563,10 +654,16 @@ walgo projects show mysite                # Legacy syntax
 - Object ID and SuiNS domain
 - Wallet address
 - Site path
-- Deployment history
+- Storage epochs and estimated expiry, plus the on-chain expiry when the active Sui network is the project's network
+- Recent deployments
 - Success/failure stats
 - Gas fees spent
-- Access URLs
+- Site URL, when a SuiNS domain is set
+
+**Flags:**
+
+- `--id <int>` - Project ID
+- `--name <name>` - Project name (supports spaces)
 
 **Output Example:**
 
@@ -582,21 +679,23 @@ walgo projects show mysite                # Legacy syntax
   Category:        blog
   Description:     A blog about tech and decentralization
   Image URL:       https://example.com/logo.png
-  Network:         testnet
+  Network:         mainnet
   Status:          active
   Object ID:       0x7b5a...8f3c
-  SuiNS:           myblog.sui
-  URL:             https://myblog.walrus.site
+  SuiNS:           myblog
+  URL:             https://myblog.wal.app
   Wallet:          0xabc...def
   Site path:       /Users/me/projects/my-blog
-  Created:         2024-01-15 10:30:00
+  Created:         2026-01-15 10:30:00
 
-ℹ️ Statistics
+ℹ️ Storage & Deployment
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Total deployments:     5
+  Total Storage Epochs:  10 (~5 months)
+  Expires In (est.):     13 weeks, 4 days
+  Last Deploy:           2026-01-20 14:15
+  Total Deployments:     5
   Successful:            5
-  First deployment:      2024-01-15 10:30
-  Last deployment:       2024-01-20 14:15
+  First Deployment:      2026-01-15 10:30
 ```
 
 ---
@@ -613,16 +712,18 @@ walgo projects update mysite                          # Legacy syntax
 
 **What it does:**
 
-- Rebuilds the Hugo site
-- Pushes changes to Walrus blockchain
+- Builds the site in the project's folder
+- Updates the project's site object on Walrus
 - Preserves project history
 - Tracks new deployment
 
+It stops when the active Sui network is not the project's network.
+
 **Flags:**
 
-- `--id <number>` - Project ID (unambiguous)
+- `--id <int>` - Project ID (unambiguous)
 - `--name "<name>"` - Project name (supports spaces)
-- `--epochs <number>` - Storage duration
+- `-e, --epochs <int>` - Storage duration in epochs (default: `0`, which reuses the project's last value)
 
 ---
 
@@ -645,7 +746,7 @@ After editing, use `walgo projects update` to push changes to Walrus.
 
 **Flags:**
 
-- `--id <number>` - Project ID (unambiguous)
+- `--id <int>` - Project ID (unambiguous)
 - `--name "<name>"` - Project name to identify (supports spaces)
 - `--new-name <name>` - New project name (rename)
 - `--category <category>` - New project category
@@ -672,7 +773,7 @@ walgo projects edit --id=5 --image-url "https://example.com/new-logo.png"
 ✏️ Editing project: My Blog
 
 Changes to apply:
-  ✏️ Name: My Blog → New Blog Name
+  ✏️ Name: My Blog → tech-blog
   ✏️ Description: (empty) → A blog about tech and decentralization
 
 💾 Step 1/2: Updating database...
@@ -683,14 +784,14 @@ Changes to apply:
 ✓ Project metadata updated locally!
 
 💡 To push changes to Walrus, run:
-   walgo projects update --id=5
+   walgo projects update tech-blog
 ```
 
 ---
 
 ### `walgo projects archive`
 
-**Archive a project (hide from default list)**
+**Archive a project**
 
 ```bash
 walgo projects archive --name="Old Blog"    # Name with spaces
@@ -701,19 +802,20 @@ walgo projects archive oldblog              # Legacy syntax
 **What it does:**
 
 - Marks project as archived
-- Hides from default list (use `--status archived` to view)
 - Preserves all data
+
+Archived projects still appear in `walgo projects list`. Add `--status active` to list only active projects, or `--status archived` to list only archived ones.
 
 **Flags:**
 
-- `--id <number>` - Project ID (unambiguous)
+- `--id <int>` - Project ID (unambiguous)
 - `--name "<name>"` - Project name (supports spaces)
 
 ---
 
 ### `walgo projects delete`
 
-**Permanently delete project record**
+**Delete a project, its site on Walrus, and its site folder**
 
 ```bash
 walgo projects delete --name="Test Site"    # Name with spaces
@@ -723,21 +825,32 @@ walgo projects delete testsite              # Legacy syntax
 
 **What it does:**
 
-- Deletes from database
+- Destroys the site object on Walrus, which costs gas. If that fails, it asks whether to delete the local data anyway.
+- Deletes the project from the database
 - Removes deployment history
-- **Does NOT delete from Walrus**
+- Deletes the project's site folder. It refuses when the folder contains your home directory or another project's site folder.
 - Cannot be undone
 
 **Flags:**
 
-- `--id <number>` - Project ID (unambiguous)
+- `--id <int>` - Project ID (unambiguous)
 - `--name "<name>"` - Project name (supports spaces)
 
-**Warning:** Prompts for confirmation
+**Warning:** Shows the estimated gas cost and prompts for confirmation first
 
 ---
 
 ## AI Features
+
+### `walgo ai`
+
+**AI content generation**
+
+The parent of the AI subcommands below. They use the provider, model, and API key that `walgo ai configure` saves in `~/.walgo/ai-credentials.yaml`.
+
+`generate`, `update`, `pipeline`, and `resume` check and fix the frontmatter of the content they write for the site's theme.
+
+---
 
 ### `walgo ai configure`
 
@@ -753,13 +866,38 @@ walgo ai configure
 - Choose provider (OpenAI/OpenRouter)
 - Enter API key
 - Optional custom base URL
+- Choose a model (default: `gpt-4` on OpenAI, `openai/gpt-4` on OpenRouter)
 - Saves to ~/.walgo/ai-credentials.yaml
-- Updates walgo.yaml with AI settings
 
 **Supported Providers:**
 
 - OpenAI (GPT-3.5, GPT-4)
 - OpenRouter (Multiple models)
+
+---
+
+### `walgo ai get`
+
+**Show configured AI credentials**
+
+```bash
+walgo ai get
+```
+
+Shows each configured provider with its model, its base URL, and a masked API key.
+
+---
+
+### `walgo ai remove [provider]`
+
+**Remove AI credentials**
+
+```bash
+walgo ai remove            # Remove every provider
+walgo ai remove openai     # Remove one provider
+```
+
+Asks for confirmation before it removes anything.
 
 ---
 
@@ -769,32 +907,36 @@ walgo ai configure
 
 ```bash
 walgo ai generate
-walgo ai generate --type post
-walgo ai generate --type page
+walgo ai generate --no-build
+walgo ai generate --serve
 ```
 
 **What it does:**
 
-- Interactive content generation wizard
-- AI creates Hugo markdown with frontmatter
-- SEO optimization
-- Proper structure and formatting
-- Saves to content directory
+- Shows the site's content types
+- Asks what to create, as one free-text instruction
+- The AI picks the content type and file name, and writes Hugo markdown with frontmatter
+- Fixes the frontmatter for the site's theme
+- Builds the site, unless you pass `--no-build`
 
-**Content Types:**
+**Flags:**
 
-- `post` - Blog posts (with date, tags, categories)
-- `page` - Static pages (About, Contact, etc.)
+- `--no-build` - Skip the build after generating
+- `--serve` - Start the Hugo development server on port 1313 after generating
 
 **Example Session:**
 
 ```
-Content type: Blog post
-Description: Write about deploying Hugo to Walrus
-Context: Focus on benefits of decentralized hosting
+What content do you want to create?
+...
+Your instructions: Write a tutorial on deploying Hugo sites to Walrus
 
-🔄 Generating content...
-✅ Content saved to: content/posts/deploying-to-walrus.md
+🔄 Generating content (AI will determine type and filename)...
+
+✅ Content generated successfully!
+   Type: posts
+   File: deploying-hugo-to-walrus.md
+   Path: content/posts/deploying-hugo-to-walrus.md
 ```
 
 **Features:**
@@ -817,20 +959,25 @@ walgo ai update content/posts/my-post.md
 
 **What it does:**
 
-- Reads existing file
-- Applies AI-powered updates
-- Preserves original style and tone
-- Maintains frontmatter
-- Intelligent content modification
+- Asks what to change
+- Sends the file and your instruction to the AI, which keeps the original structure and style
+- Asks before it saves the result over the file
+- Fixes the frontmatter for the site's theme, then builds the site
 
 **Example:**
 
 ```
 📄 File: content/posts/my-post.md
-Describe changes: Add a section about performance optimization
+
+Describe what changes you want to make: Add a section about performance optimization
 
 🔄 Updating content...
-✅ File updated!
+
+✅ Content updated!
+
+Save changes to file? [Y/n]: y
+
+✅ File updated: content/posts/my-post.md
 ```
 
 ---
@@ -841,43 +988,60 @@ Describe changes: Add a section about performance optimization
 
 ```bash
 walgo ai pipeline
+walgo ai pipeline --parallel sequential
 ```
 
 **What it does:**
 
+- Asks for a site name, a site type, a description, and the target audience
+- Creates the site in `./<site-name>` with a `walgo.yaml`, a Hugo config, and the theme for the site type
+- `<site-name>` is the site name in lowercase, with spaces and underscores turned into hyphens and other symbols except dots dropped. `My Site!` becomes `my-site`.
 - Runs full AI content generation pipeline:
   1. Plan: AI creates a site structure plan (JSON)
-  2. Generate: AI creates each page sequentially
-- Saves plan to `.walgo/plan.json` for resumability
-- If interrupted, run `walgo ai resume` to continue
-- Applies post-pipeline fixes and validation
+  2. Generate: AI writes each page, several at a time on larger plans (see `--parallel`)
+- Saves plan to `<site-name>/.walgo/plan.json` for resumability
+- If interrupted, `cd` into the site and run `walgo ai resume` to continue
+- Applies post-pipeline fixes and validation, builds the site, and records a draft project
+
+**Flags:**
+
+- `--parallel <mode>` - `auto`, `sequential`, or `parallel` (default: `auto`, which picks the number of concurrent pages from the plan size, `--concurrent`, and `--rpm`)
+- `--concurrent <int>` - Most pages generated at once (default: 5)
+- `--rpm <int>` - Page requests sent to the AI per minute, after a first burst of up to `--concurrent` requests (default: 30). The planning request and HTTP-level retries do not count against it.
+- `--dry-run` - Generate each page with the AI, then discard it instead of writing it to `content/`. Every other step still writes to disk: the site folder, `walgo.yaml`, `hugo.toml`, the theme, the plan, the content fixes, the build, and the draft project. The plan marks the discarded pages as done, so `walgo ai resume` does not write them later.
+- `-v, --verbose` - Show verbose output
 
 **Workflow:**
 
 ```
-🤖 Enter site details:
-   Site type: Blog
-   Description: A personal tech blog
-   Audience: Developers and tech enthusiasts
+Site name: my-tech-blog
 
-📋 Planning structure...
-   ✅ Site plan saved to .walgo/plan.json
+Site type:
+  1) Blog
+  2) Docs
+Select [1]: 1
 
-📝 Generating content...
-   📄 Creating: content/posts/first-post.md
-   📄 Creating: content/posts/about.md
-   📄 Creating: content/contact.md
+Describe your site (1-2 sentences): A personal tech blog
 
-✨ Applying fixes and validation...
-✅ Site generated successfully!
+Target audience: Developers and tech enthusiasts
+
+Setting up Hugo site...
+
+Generating content...
+...
+Results:
+   Total pages: 5
+   Completed:   5
+   Skipped:     0
+   Failed:      0
+
+Site generated successfully!
 ```
 
 **Supported Site Types:**
 
 - Blog - Classic blog with posts and about page
 - Docs - Documentation site
-- Biolink - Bio link page
-- Whitepaper - Technical whitepaper site
 
 ---
 
@@ -891,27 +1055,35 @@ walgo ai plan
 
 **What it does:**
 
-- Creates a site structure plan using AI
-- Saves plan to `.walgo/plan.json`
-- Does not generate any content
+- Asks the same questions as `walgo ai pipeline`
+- Creates `./<site-name>` with a `walgo.yaml`, using the site name exactly as typed
+- Saves the plan to `<site-name>/.walgo/plan.json`
+- Does not generate any content or install a theme
 - Plan can be reviewed before generation
-- Use `walgo ai resume` to generate content from plan
+- To generate the pages, `cd` into the site and run `walgo ai resume`
+- `walgo ai resume` does not add a Hugo config or a theme either, so `walgo build` treats the folder as a static site and fails. For a site you can build, use `walgo ai pipeline`.
+
+**Flags:**
+
+- `-v, --verbose` - Accepted, but has no effect. Planning prints the same output with or without it.
 
 **Example:**
 
 ```
-🤖 Enter site details:
-   Site type: Blog
-   Description: A travel blog
-   Audience: Travel enthusiasts
+Site name: travel-blog
+...
+Plan created with 6 pages:
+   1. content/_index.md
+   ...
 
-📋 Creating site plan...
-✅ Plan saved to .walgo/plan.json
-📂 View your plan:
-   cat .walgo/plan.json
+Plan saved to .walgo/plan.json
+Run 'walgo ai resume' to generate content.
+```
 
-🚀 Ready to generate? Run:
-   walgo ai resume
+```bash
+cd travel-blog
+cat .walgo/plan.json
+walgo ai resume
 ```
 
 ---
@@ -926,10 +1098,18 @@ walgo ai resume
 
 **What it does:**
 
-- Loads existing `.walgo/plan.json`
-- Continues generating remaining pages
+- Loads `.walgo/plan.json` from the current directory
+- Generates the pages that are not done yet
 - Applies post-pipeline fixes and validation
 - Creates draft project entry
+
+**Flags:**
+
+- `--parallel <mode>` - `auto`, `sequential`, or `parallel` (default: `auto`)
+- `--concurrent <int>` - Most pages generated at once (default: 5)
+- `--rpm <int>` - Page requests sent to the AI per minute, after a first burst of up to `--concurrent` requests (default: 30). HTTP-level retries do not count against it.
+- `--dry-run` - Generate each page with the AI, then discard it instead of writing it to `content/`. walgo still saves the plan with those pages marked done, runs the menu update and the content fixes, and records the draft project.
+- `-v, --verbose` - Show verbose output
 
 **Use Case:**
 When `walgo ai pipeline` was interrupted (e.g., user stopped it, network issue), you can resume from where it left off.
@@ -937,74 +1117,22 @@ When `walgo ai pipeline` was interrupted (e.g., user stopped it, network issue),
 **Example:**
 
 ```
-📋 Loading plan from .walgo/plan.json...
-   Found 5 pages to generate
-   Pages already created: 2
-   Pages remaining: 3
+Resuming AI Generation
 
-📝 Generating remaining content...
-   📄 Creating: content/posts/post-3.md
-   📄 Creating: content/posts/post-4.md
-   📄 Creating: content/posts/post-5.md
+✓ Using openai (gpt-4)
+...
+Results:
+   Total pages: 5
+   Completed:   5
+   Skipped:     0
+   Failed:      0
 
-✨ Applying fixes and validation...
-✅ Site generation complete!
+Validating and fixing content for theme...
+   ✓ Content validated and fixed
+   ✓ Created draft project
+
+Site generated successfully!
 ```
-
----
-
-### `walgo ai fix`
-
-**Fix content files for theme requirements**
-
-```bash
-walgo ai fix
-walgo ai fix --validate
-```
-
-**What it does:**
-
-- Validates and fixes Hugo content files
-- Ensures theme-specific requirements are met
-- Checks frontmatter syntax and completeness
-- Removes duplicate H1 headings
-- Sets proper draft status
-
-**Flags:**
-
-- `--validate` - Only validate, don't fix (default: false)
-
-**For All Sites:**
-
-- Validates title and description fields
-- Removes duplicate H1 headings (title is already in frontmatter)
-- Sets draft to false
-
-**Example:**
-
-```
-🔍 Validating content files...
-   Found 5 markdown files
-
-✅ content/posts/first-post.md - Valid
-⚠️  content/about.md - Missing description field
-   📝 Adding description...
-✅ content/about.md - Fixed
-
-✅ content/services/service-1.md - Missing date field
-   📝 Adding date (ISO 8601)...
-✅ content/services/service-1.md - Fixed
-
-✅ All content files validated and fixed!
-```
-
-**Validation Only:**
-
-```bash
-walgo ai fix --validate
-```
-
-Reports issues without fixing them.
 
 ---
 
@@ -1015,13 +1143,12 @@ Reports issues without fixing them.
 **Launch Walgo desktop application**
 
 ```bash
-# Development mode
 walgo desktop
 ```
 
 **What it does:**
 
-- Launches the Walgo Desktop GUI
+- Launches the installed Walgo Desktop GUI. walgo looks for it in `/Applications` and `~/Applications` on macOS, in `%LOCALAPPDATA%\Programs\Walgo` on Windows, and in `~/.local/bin` and `/usr/local/bin` on Linux.
 - Provides graphical interface for all features:
   - Site Management (Create, Build, Deploy)
   - AI Content Generation (Configure, Generate, Update, Pipeline)
@@ -1087,29 +1214,29 @@ See [DESKTOP_INTEGRATION.md](DESKTOP_INTEGRATION.md) for complete documentation.
 
 ## Setup & Configuration
 
-### `walgo setup`
+### `walgo setup [network]`
 
 **Configure site-builder for Walrus Sites**
 
 ```bash
-walgo setup --network testnet
+walgo setup
 walgo setup --network mainnet --force
-walgo setup --wallet-path ~/.sui/custom-wallet
+walgo setup mainnet --force
 ```
 
 **What it does:**
 
-- Creates sites-config.yaml
-- Configures for testnet or mainnet
-- Sets wallet and network
-- Configures Sui client
+- Downloads the Walrus client config to `~/.config/walrus/client_config.yaml` when that file is missing, or always with `--force`
+- Downloads `~/.config/walrus/sites-config.yaml` from the walrus-sites repository, or writes it from a template when the download fails
+- For mainnet, sets the default context of both files to mainnet
+- Lists any missing `sui`, `walrus`, or `site-builder` binary with install steps
+
+If `site-builder` and its config are already in place, `walgo setup` changes nothing unless you pass `--force`.
 
 **Flags:**
 
-- `--network <network>` - `testnet` or `mainnet` (required)
+- `-n, --network <network>` - `testnet` or `mainnet` (default: `testnet`). A network given as an argument takes precedence.
 - `--force` - Overwrite existing config
-- `--wallet-path <path>` - Custom wallet path
-- `--key-scheme <scheme>` - Key scheme: `ed25519`, `secp256k1` (default: ed25519)
 
 ---
 
@@ -1119,25 +1246,28 @@ walgo setup --wallet-path ~/.sui/custom-wallet
 
 ```bash
 walgo setup-deps
-walgo setup-deps --version latest
-walgo setup-deps --site-builder
-walgo setup-deps --hugo --sui
+walgo setup-deps --network mainnet
+walgo setup-deps --with-hugo
+walgo setup-deps --with-sui=false
+walgo setup-deps --legacy
 ```
 
 **What it does:**
 
-- Downloads site-builder binary
-- Downloads walrus binary
-- Installs to ~/.walgo/bin/
-- Optionally installs Hugo and Sui CLI
+- Installs `suiup` if it is missing
+- Runs `suiup install` for `sui` and `walrus` on the chosen network, and for `site-builder@mainnet`
+- Prints the tool versions that your `PATH` resolves afterwards
+- With `--legacy`, downloads `site-builder` and `walrus` straight into `--bin-dir` and points `sites-config.yaml` at that `walrus`. The legacy method does not install `sui`.
 
 **Flags:**
 
-- `--version <version>` - Specific version to install
-- `--hugo` - Install Hugo
-- `--site-builder` - Install site-builder
-- `--sui` - Install Sui CLI
-- `--all` - Install all dependencies (default)
+- `--network <network>` - `testnet` or `mainnet` (default: `testnet`)
+- `--with-sui` - Install the `sui` CLI (default: on; `--with-sui=false` skips it)
+- `--with-walrus` - Install the `walrus` client (default: on)
+- `--with-site-builder` - Install `site-builder` (default: on)
+- `--with-hugo` - Check for Hugo and print install steps when it is missing. walgo does not install Hugo.
+- `--legacy` - Download the binaries directly instead of using suiup
+- `--bin-dir <dir>` - Install directory for `--legacy` (default: `~/.config/walgo/bin`)
 
 ---
 
@@ -1150,117 +1280,91 @@ walgo setup-deps --hugo --sui
 ```bash
 walgo doctor
 walgo doctor --fix-paths
-walgo doctor --network testnet
 walgo doctor --verbose
 ```
 
 **What it checks:**
 
-- Hugo installation
-- Sui CLI installation
-- site-builder installation
-- walrus installation
-- Wallet configuration
-- Balance (SUI tokens)
-- Network connectivity
-- Configuration files
-- PATH issues
+- `suiup`, Hugo (Extended), `site-builder`, `walrus`, and `sui` on your `PATH`
+- The `sui`, `walrus`, and `site-builder` versions against walgo's minimums
+- Active Sui network and address
+- SUI and WAL balances
+- `~/.config/walrus/sites-config.yaml`, including `~` paths in it
+- `walgo.yaml` in the current directory
 
 **Flags:**
 
-- `--fix-paths` - Auto-fix PATH issues
-- `--network <network>` - Check network-specific config
-- `--verbose` / `-v` - Show detailed diagnostics
-- `--fix` - Attempt to fix issues automatically
+- `--fix-paths` - Rewrite `~` paths in `sites-config.yaml` as absolute paths
+- `--fix-all` - Apply every automatic fix. Today that is the same rewrite `--fix-paths` does.
+- `-v, --verbose` - Show detailed diagnostics, including versions and paths
 
 **Output Example:**
 
 ```
-Checking Walgo Installation
-===========================
+Checking dependencies...
 
-✓ Walgo is installed correctly (v0.3.1)
-✓ Hugo is installed (v0.125.0)
-✓ site-builder is installed (v0.1.0)
-✓ Sui CLI is installed (v1.20.0)
+  ✓ suiup found (Sui tool manager)
+  ✓ hugo found
+  ✓ site-builder found
+  ✓ walrus found
+  ✓ sui found
 
-Checking Configuration
-=====================
+  ✓ sui v1.75.0
+  ✓ walrus v1.52.0
+  ✓ site-builder v2.12.0
 
-✓ Configuration file found: ./walgo.yaml
-✓ Configuration is valid
+Checking Sui configuration...
 
-Checking Wallet
-===============
+  ✓ Active network: testnet
+  ✓ Active address: 0xabc...def
+  ✓ SUI balance: 5.00 SUI
+  ✓ WAL balance: 2.00 WAL
 
-✓ Wallet configured for testnet
-✓ Wallet address: 0xabc...def
-✓ Balance: 5.0 SUI
+Checking configuration files...
 
-Checking Network
-================
-
-✓ Can reach Walrus publisher
-✓ Can reach Walrus aggregator
-✓ Can reach Sui RPC
-
-All checks passed! ✅
+  ✓ sites-config.yaml found at /Users/me/.config/walrus/sites-config.yaml
+  ✓ walgo.yaml found in current directory
+...
+All checks passed! Your environment is ready.
 ```
 
 ---
 
-### `walgo status <object-id>`
+### `walgo status [object-id]`
 
 **Check status of deployed Walrus site**
 
 ```bash
-walgo status 0x1234567890abcdef...
-walgo status 0x7b5a...8f3c --network mainnet
-walgo status 0x7b5a...8f3c --json
+walgo status
+walgo status 0x7b5a...8f3c
 ```
 
 **What it shows:**
 
-- Site status (active/expired)
-- Access URL
-- Network (testnet/mainnet)
-- File count and size
-- Storage information
-- Epoch details
-- Cost information
+- Object ID
+- Number of resources (files), from `site-builder sitemap`
+- When the storage expires, or how many resources have expired
 
-**Flags:**
-
-- `--network <network>` - `testnet` or `mainnet`
-- `--json` - Output in JSON format
+Without an argument, it uses `walrus.projectID` from `walgo.yaml`.
 
 ---
 
-### `walgo domain`
+### `walgo domain [domain-name]`
 
 **Get SuiNS domain configuration instructions**
 
 ```bash
 walgo domain
-walgo domain list
-walgo domain link myblog.sui 0x7b5a...8f3c
-walgo domain unlink myblog.sui
-walgo domain info myblog.sui
+walgo domain myblog
 ```
-
-**Subcommands:**
-
-- `list` - List owned domains
-- `link <domain> <object-id>` - Link domain to site
-- `unlink <domain>` - Unlink domain from site
-- `info <domain>` - Show domain information
 
 **What it shows:**
 
-- How to register SuiNS domain
-- How to link domain to site
-- Access URLs
-- Complete setup guide
+- On mainnet, the steps to link a SuiNS name to the site at https://suins.io, with the site's object ID from `walrus.projectID`
+- With a domain name, the address the site will have: `https://<domain>.wal.app`
+- On testnet, a note that SuiNS works only on mainnet
+
+The network is the one the project was deployed on, else `walrus.network`, else the active Sui environment. You link the name in the SuiNS web app. walgo prints the steps.
 
 ---
 
@@ -1270,16 +1374,25 @@ walgo domain info myblog.sui
 
 ```bash
 walgo version
+walgo version --short
+walgo version --check-updates
 ```
 
 **Output:**
 
 ```
-Walgo version 0.3.1
-Built with Go 1.24.4
-Commit: 2ecac6b
-Build date: 2025-01-15
+Walgo v0.5.0
+Commit:  6c0da69
+Built:   2026-10-16
+
+This is a beta release. Please report issues at:
+   https://github.com/ganbitlabs/walgo/issues
 ```
+
+**Flags:**
+
+- `--short` - Print only the version number
+- `--check-updates` - Check GitHub for a newer release
 
 ---
 
@@ -1300,7 +1413,7 @@ walgo uninstall --all --keep-cache --force
 - Interactive uninstall wizard
 - Removes CLI binary
 - Removes desktop app
-- Optionally cleans cache
+- Removes cache and data, unless you pass `--keep-cache`
 - **NEVER** deletes Sui wallet or blockchain data
 
 **Flags:**
@@ -1315,7 +1428,7 @@ walgo uninstall --all --keep-cache --force
 
 - Walgo CLI binary
 - Walgo Desktop app
-- Cache and data (unless --keep-cache)
+- Cache and data in `~/.walgo` and `~/.config/walgo` (unless --keep-cache)
 
 **What Stays Safe:**
 
@@ -1353,6 +1466,8 @@ walgo completion powershell > walgo.ps1
 - fish
 - powershell
 
+Each shell subcommand accepts `--no-descriptions` to leave out completion descriptions.
+
 ---
 
 ## Common Workflows
@@ -1377,7 +1492,7 @@ walgo launch
 # - Cost confirmation
 # - Deployment
 
-# 4. Configure SuiNS (post-deployment)
+# 4. Configure SuiNS (post-deployment, mainnet only)
 # Follow the instructions shown after deployment
 # to link your domain at suins.io
 ```
@@ -1391,7 +1506,7 @@ walgo launch
 walgo ai configure
 
 # 2. Generate content
-walgo ai generate --type post
+walgo ai generate
 
 # 3. Review and build
 cat content/posts/your-new-post.md
@@ -1446,7 +1561,7 @@ walgo projects update --id=5
 # Archive old project
 walgo projects archive --name="Old Site"
 
-# Delete test project
+# Delete a project: destroys its site on Walrus and deletes its folder
 walgo projects delete --id=5
 ```
 
@@ -1494,21 +1609,15 @@ walgo launch
 
 ---
 
-### Multi-Environment Deployment
+### Choosing the Network
 
 ```bash
-# Development
-walgo build --config walgo.dev.yaml
-walgo deploy-http
-
-# Staging
-walgo build --config walgo.staging.yaml
-walgo deploy --epochs 1
-
-# Production
-walgo build --config walgo.prod.yaml
-walgo deploy --epochs 10 --network mainnet
+# walgo deploy uses the active Sui environment
+sui client switch --env mainnet
+walgo deploy --epochs 10
 ```
+
+`walgo deploy`, `walgo update`, and `walgo projects update` deploy to the active Sui environment. If `walrus.network` in `walgo.yaml` names another network, `walgo deploy` and `walgo update` stop with a mismatch error. `walgo projects update` checks the network recorded for the project instead, and stops when it is not the active one. `walgo launch` asks for the network, switches the Sui CLI for the deploy, and offers to publish a new site when the existing one lives on the other network.
 
 ---
 
@@ -1518,9 +1627,12 @@ Available for all commands:
 
 | Flag               | Description                                                      |
 | ------------------ | ---------------------------------------------------------------- |
-| `--config <path>`  | Custom config file path (default: ./walgo.yaml or ~/.walgo.yaml) |
-| `--verbose` / `-v` | Enable verbose output                                            |
+| `--config <path>`  | Config file to load (default: ./walgo.yaml or ~/.walgo.yaml)     |
 | `--help` / `-h`    | Show help for command                                            |
+
+walgo loads the `--config` file and prints `Using config file: <path>`. Commands read their settings from `walgo.yaml` in the site directory, so the file named by `--config` does not change what they do.
+
+`walgo` itself, with no command, also accepts `-t, --toggle`. It has no effect.
 
 ---
 
@@ -1532,6 +1644,7 @@ Available for all commands:
 - `init` - Create new Hugo site
 - `build` - Build site with optimization
 - `serve` - Local development server
+- `theme` - Install, list, or create Hugo themes
 
 **Content:**
 
@@ -1539,6 +1652,9 @@ Available for all commands:
 - `import` - Import from Obsidian
 - `ai generate` - AI content generation
 - `ai update` - AI content updates
+- `ai pipeline` - Generate a complete site with AI
+- `ai plan` - Create an AI site plan
+- `ai resume` - Continue generating from a plan
 
 **Deploy:**
 
@@ -1550,12 +1666,13 @@ Available for all commands:
 
 **Projects:**
 
+- `projects` - List all projects (same as `projects list`)
 - `projects list` - List all projects
 - `projects show` - Show project details (use `--name="..."` or `--id=N`)
 - `projects update` - Update project on-chain (use `--name="..."` or `--id=N`)
 - `projects edit` - Edit project metadata locally (use `--new-name` to rename)
 - `projects archive` - Archive project (use `--name="..."` or `--id=N`)
-- `projects delete` - Delete project (use `--name="..."` or `--id=N`)
+- `projects delete` - Delete project, its on-chain site, and its folder (use `--name="..."` or `--id=N`)
 
 **Optimize:**
 
@@ -1564,15 +1681,17 @@ Available for all commands:
 
 **Setup:**
 
-- `setup` - Configure wallet
+- `setup` - Write the site-builder configuration
 - `setup-deps` - Install dependencies
 - `ai configure` - Configure AI provider
+- `ai get` - Show AI credentials
+- `ai remove` - Remove AI credentials
 
 **Diagnostics:**
 
 - `doctor` - System diagnostics
 - `status` - Check deployment status
-- `domain` - SuiNS domain management
+- `domain` - SuiNS domain setup instructions
 - `version` - Show version
 - `uninstall` - Uninstall Walgo
 
@@ -1604,6 +1723,6 @@ walgo projects --help
 
 ---
 
-**Total Commands: 29**
+**Total Commands: 24, plus 21 subcommands**
 
-Last updated: v0.3.1
+Last updated: v0.5.0
