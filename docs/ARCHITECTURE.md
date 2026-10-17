@@ -118,7 +118,7 @@ sequenceDiagram
     FileSystem-->>HugoPkg: Site created
     HugoPkg-->>User: Success
 
-    User->>HugoPkg: BuildSite(config)
+    User->>HugoPkg: BuildSite(sitePath)
     HugoPkg->>HugoCLI: hugo build
     HugoCLI->>FileSystem: Generate public/
     FileSystem-->>HugoPkg: Build complete
@@ -127,10 +127,10 @@ sequenceDiagram
 
 **Functions:**
 
-- `InitializeSite(name string)` - Create new Hugo site
-- `BuildSite(config *HugoConfig)` - Build Hugo site
-- `ServeSite(config *HugoConfig)` - Run local development server
-- `DetectHugoConfig(dir string)` - Find Hugo configuration
+- `InitializeSite(sitePath string)` - Create new Hugo site
+- `BuildSite(sitePath string)` - Load `walgo.yaml`, build the Hugo site, optimize it, and write `ws-resources.json`
+- `ServeSite(sitePath string)` - Run local development server
+- `config.HugoConfigFile(sitePath string)` - Find Hugo configuration
 
 ### 3. Optimizer Engine (`internal/optimizer/`)
 
@@ -224,7 +224,7 @@ classDiagram
 
 | Mode     | Adapter            | Requirements            | Permanence          |
 | -------- | ------------------ | ----------------------- | ------------------- |
-| HTTP     | HTTPAdapter        | None                    | Temporary (30 days) |
+| HTTP     | HTTPAdapter        | None                    | Temporary (epochs)  |
 | On-Chain | SiteBuilderAdapter | Sui wallet + SUI tokens | Permanent (epochs)  |
 
 ### 5. Walrus Integration (`internal/walrus/`)
@@ -258,43 +258,40 @@ sequenceDiagram
 
 ### 6. Configuration Management (`internal/config/`)
 
-Multi-source configuration with Viper:
+Commands that need site settings load `walgo.yaml` from the site directory:
 
 ```mermaid
 graph TB
-    Sources[Configuration Sources] --> Flags[CLI Flags]
-    Sources --> EnvVars[Environment Variables]
-    Sources --> ConfigFile[walgo.yaml]
-    Sources --> Defaults[Default Values]
+    Command[Command] --> Load["LoadConfigFrom(sitePath)"]
+    Load --> ConfigFile[sitePath/walgo.yaml]
+    Load --> Defaults[Optimizer and Cache Defaults]
 
-    Flags --> Viper[Viper Merger]
-    EnvVars --> Viper
-    ConfigFile --> Viper
-    Defaults --> Viper
+    ConfigFile --> Decode[YAML Decoder]
+    Defaults --> Decode
 
-    Viper --> WalgoConfig[WalgoConfig Struct]
+    Decode --> WalgoConfig[WalgoConfig Struct]
 
+    WalgoConfig --> SiteConfig[SiteConfig]
     WalgoConfig --> HugoConfig[HugoConfig]
     WalgoConfig --> WalrusConfig[WalrusConfig]
     WalgoConfig --> OptimizerConfig[OptimizerConfig]
+    WalgoConfig --> CompressConfig[CompressConfig]
+    WalgoConfig --> CacheConfig[CacheConfig]
     WalgoConfig --> ObsidianConfig[ObsidianConfig]
 
-    style Viper fill:#4a90e2
+    style Decode fill:#4a90e2
     style WalgoConfig fill:#e1f5ff
 ```
 
-**Configuration Priority (highest to lowest):**
+**Loading:**
 
-1. CLI flags (`--epochs 5`)
-2. Environment variables (`WALGO_EPOCHS=5`)
-3. Configuration file (`walgo.yaml`)
-4. Default values
+1. `LoadConfigFrom(sitePath)` reads `walgo.yaml` from `sitePath` and decodes it with `gopkg.in/yaml.v3` over the optimizer and cache defaults.
+2. It rejects a `site.kind` other than `hugo` or `static`.
+3. It fills unset `hugo.publishDir` (from the Hugo config, else `public`), `hugo.contentDir`, `hugo.resourceDir`, and `walrus.entrypoint`.
 
-**Search Paths:**
+Command-line flags such as `--epochs` are command options, not configuration keys. Walgo reads no `walgo.yaml` key from environment variables.
 
-1. `--config` flag path
-2. Current directory (`./walgo.yaml`)
-3. Home directory (`~/.walgo.yaml`)
+`cmd/root.go` also loads a file into Viper: the `--config` path, else the first of `./walgo.yaml`, `./walgo.yml`, `~/.walgo.yaml`, and `~/.walgo.yml`. Only `LoadConfig()` reads from Viper, and only tests call it, so that file does not change any setting.
 
 ### 7. Obsidian Integration (`internal/obsidian/`)
 
@@ -402,29 +399,19 @@ graph TD
 
 ```mermaid
 graph TD
-    Start[Application Start] --> CheckFlag{--config flag?}
-    CheckFlag -->|Yes| LoadFlag[Load from flag path]
-    CheckFlag -->|No| CheckCWD{./walgo.yaml exists?}
+    Start[Command Start] --> CheckFile{sitePath/walgo.yaml exists?}
+    CheckFile -->|No| Missing[Error: walgo.yaml not found]
+    CheckFile -->|Yes| Decode[Decode YAML over defaults]
 
-    LoadFlag --> Merge
-
-    CheckCWD -->|Yes| LoadCWD[Load from CWD]
-    CheckCWD -->|No| CheckHome{~/.walgo.yaml exists?}
-
-    LoadCWD --> Merge
-
-    CheckHome -->|Yes| LoadHome[Load from home]
-    CheckHome -->|No| UseDefaults[Use defaults]
-
-    LoadHome --> Merge
-    UseDefaults --> Merge
-
-    Merge[Merge with env vars + flags] --> Validate[Validate config]
-    Validate --> Ready[Config Ready]
+    Decode --> Validate[Validate site.kind]
+    Validate --> Fill[Fill unset directories and entrypoint]
+    Fill --> Ready[Config Ready]
 
     style Start fill:#e1f5ff
     style Ready fill:#e1ffe1
 ```
+
+`walgo optimize` uses the optimizer defaults when `walgo.yaml` is missing instead of stopping.
 
 ## Design Patterns
 
@@ -480,16 +467,20 @@ execCommand = func(name string, args ...string) *exec.Cmd {
 
 ### 4. Configuration as Code
 
-Viper manages multi-format configuration:
+Commands that need site settings load `walgo.yaml` from the site directory:
 
 ```go
 // internal/config/config.go
-func LoadConfig(path string) (*WalgoConfig, error) {
-    viper.SetConfigName("walgo")
-    viper.SetConfigType("yaml")
-    viper.AddConfigPath(".")
-    viper.AddConfigPath("$HOME")
+func LoadConfigFrom(sitePath string) (*WalgoConfig, error) {
+    configPath := filepath.Join(sitePath, DefaultConfigFileName)
     // ...
+    cfg := sectionDefaults()
+    if err := yaml.Unmarshal(data, &cfg); err != nil {
+        // ...
+    }
+    // ...
+    applyDefaults(&cfg, sitePath)
+    return &cfg, nil
 }
 ```
 
@@ -565,7 +556,7 @@ walgo/
 | Layer             | Technology                 | Purpose                             |
 | ----------------- | -------------------------- | ----------------------------------- |
 | **CLI Framework** | Cobra                      | Command structure, flags, help      |
-| **Configuration** | Viper                      | Multi-format config, env vars       |
+| **Configuration** | gopkg.in/yaml.v3           | Parse `walgo.yaml`                  |
 | **Build Tool**    | Hugo (external)            | Static site generation              |
 | **Deployment**    | site-builder (external)    | On-chain deployment to Walrus       |
 | **Blockchain**    | Sui (external)             | Wallet management, transactions     |

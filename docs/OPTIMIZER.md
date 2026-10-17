@@ -83,7 +83,7 @@ HTML minification keeps the document tags, end tags, default attribute values, a
 
 | Key | Effect |
 |---|---|
-| `minifyCSS` | Minifies CSS. Minification always strips comments and shortens colors and numbers. |
+| `minifyCSS` | Minifies CSS. Minification strips every comment except `/*! ... */` comments, and shortens colors and numbers. |
 | `removeComments` | No separate effect; minification already strips comments. |
 | `compressColors` | No separate effect; minification already shortens colors. |
 | `removeUnused` | Not implemented. walgo accepts the key and ignores it. The `walgo optimize --remove-unused-css` flag is ignored too. |
@@ -93,7 +93,7 @@ HTML minification keeps the document tags, end tags, default attribute values, a
 
 | Key | Effect |
 |---|---|
-| `minifyJS` | Minifies JavaScript. Minification always strips comments. |
+| `minifyJS` | Minifies JavaScript. Minification strips every comment except `/*! ... */` comments. |
 | `removeComments` | No separate effect; minification already strips comments. |
 | `obfuscate` | Lets the minifier shorten local variable names. When false, names are kept. |
 | `sourceMaps` | Not implemented. walgo writes no source maps. |

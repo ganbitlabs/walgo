@@ -82,18 +82,20 @@ Recommended settings (`.vscode/settings.json`):
 
 ### Environment Variables
 
-For development:
+Walgo reads these `WALGO_` environment variables:
 
 ```bash
-# Enable verbose logging
-export WALGO_VERBOSE=true
+# Print ASCII instead of emoji
+export WALGO_ASCII=1
 
-# Use custom config location
-export WALGO_CONFIG_PATH=./walgo.dev.yaml
+# Print emoji even in CI or a dumb terminal. WALGO_ASCII wins when both are set.
+export WALGO_EMOJI=1
 
-# Set development mode (if implemented)
-export WALGO_ENV=development
+# Allow slow theme downloads from GitHub (Go duration, default 2m)
+export WALGO_THEME_DOWNLOAD_TIMEOUT=5m
 ```
+
+For more output, pass `--verbose` to the commands that have it, such as `deploy`, `update`, `optimize`, and `doctor`. Commands that need site settings read `walgo.yaml` from the site directory. No environment variable changes that, and neither does the global `--config` flag.
 
 ## Project Structure
 
@@ -499,20 +501,22 @@ func TestOptimizeHTML(t *testing.T) {
    type WalgoConfig struct {
        // ... existing fields ...
 
-       NewFeature NewFeatureConfig `mapstructure:"newfeature"`
+       NewFeature NewFeatureConfig `mapstructure:"newFeature" yaml:"newFeature,omitempty"`
    }
 
    type NewFeatureConfig struct {
-       Enabled bool   `mapstructure:"enabled"`
-       Option  string `mapstructure:"option"`
+       Enabled bool   `mapstructure:"enabled" yaml:"enabled"`
+       Option  string `mapstructure:"option" yaml:"option,omitempty"`
    }
    ```
 
+   Commands load `walgo.yaml` with `gopkg.in/yaml.v3`, so the `yaml` tag sets the key name.
+
 2. **Update default config:**
    ```go
-   // internal/config/config.go
-   func DefaultConfig() *WalgoConfig {
-       return &WalgoConfig{
+   // internal/config/types.go
+   func NewDefaultWalgoConfig() WalgoConfig {
+       return WalgoConfig{
            // ... existing defaults ...
 
            NewFeature: NewFeatureConfig{
@@ -522,6 +526,8 @@ func TestOptimizeHTML(t *testing.T) {
        }
    }
    ```
+
+   `walgo init` writes these defaults. A `walgo.yaml` that omits the section gets the zero value unless `sectionDefaults()` in `internal/config/config.go` also seeds it.
 
 3. **Update documentation:**
    - Add to `docs/CONFIGURATION.md`
